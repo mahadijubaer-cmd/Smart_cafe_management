@@ -1,11 +1,12 @@
-'use client'
+import type { ReactNode } from 'react'
 
-import { Toaster } from 'react-hot-toast'
+import './globals.css'
+import ToastProvider from '@/components/ToastProvider'
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <html lang="en">
@@ -16,7 +17,7 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-gray-900">
         {children}
-        <Toaster position="top-right" />
+        <ToastProvider />
       </body>
     </html>
   )

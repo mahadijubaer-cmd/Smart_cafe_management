@@ -196,6 +196,7 @@ export default function StudentOrderPage() {
                   selectedSlot={selectedSlot}
                   redeemPoints={redeemPoints}
                   rewardPointsAvailable={rewardPoints}
+                  canRedeemPoints={rewardPoints >= 100}
                   onToggleRedeem={setRedeemPoints}
                   onConfirm={handleConfirm}
                   loading={submitting}

@@ -11,7 +11,7 @@ export default function Home() {
           BRAC University CSE400 - Final Year Thesis
         </p>
         <a
-          href="/auth/login"
+          href="/login"
           className="inline-block px-8 py-3 bg-accent text-primary font-bold rounded-lg hover:bg-yellow-500 transition"
         >
           Get Started

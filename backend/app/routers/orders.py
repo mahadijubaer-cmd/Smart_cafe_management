@@ -145,7 +145,7 @@ async def complete_meal(
     return {"status": "processing"}
 
 
-@router.delete("/{order_id}", status_code=204)
+@router.delete("/{order_id}")
 async def cancel_order(
     order_id: str,
     db: AsyncSession = Depends(get_db),
@@ -167,3 +167,5 @@ async def cancel_order(
     
     order.status = "cancelled"
     await db.commit()
+
+    return {"status": "cancelled", "order_id": str(order.order_id)}

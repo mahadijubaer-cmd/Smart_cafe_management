@@ -11,6 +11,7 @@ type OrderSummaryProps = {
   selectedSlot: Date | null
   redeemPoints: boolean
   rewardPointsAvailable: number
+  canRedeemPoints?: boolean
   onToggleRedeem: (value: boolean) => void
   onConfirm: () => void
   loading?: boolean
@@ -22,12 +23,13 @@ export default function OrderSummary({
   selectedSlot,
   redeemPoints,
   rewardPointsAvailable,
+  canRedeemPoints = rewardPointsAvailable >= 100,
   onToggleRedeem,
   onConfirm,
   loading = false,
 }: OrderSummaryProps) {
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart])
-  const discount = redeemPoints && rewardPointsAvailable >= 100 ? 10 : 0
+  const discount = redeemPoints && canRedeemPoints ? 10 : 0
   const total = Math.max(subtotal - discount, 0)
 
   return (
@@ -64,18 +66,24 @@ export default function OrderSummary({
         </p>
       </div>
 
-      <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-black/10 p-4">
-        <span>
-          <span className="block text-sm font-semibold text-slate-900">Redeem reward points</span>
-          <span className="block text-xs text-slate-500">100 points = BDT 10 discount</span>
-        </span>
-        <input
-          type="checkbox"
-          checked={redeemPoints}
-          onChange={(event) => onToggleRedeem(event.target.checked)}
-          className="h-5 w-5 accent-[#1A4D2E]"
-        />
-      </label>
+      {canRedeemPoints ? (
+        <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-black/10 p-4">
+          <span>
+            <span className="block text-sm font-semibold text-slate-900">Redeem 100 points for 10 BDT discount</span>
+            <span className="block text-xs text-slate-500">Applied live to the displayed order total</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={redeemPoints}
+            onChange={(event) => onToggleRedeem(event.target.checked)}
+            className="h-5 w-5 accent-[#1A4D2E]"
+          />
+        </label>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-black/10 p-4 text-sm text-slate-500">
+          Collect 100 reward points to unlock checkout redemption.
+        </div>
+      )}
 
       <Button className="w-full bg-[#1A4D2E] text-white hover:bg-[#163f25]" type="button" onClick={onConfirm} disabled={loading}>
         {loading ? 'Placing order...' : 'Confirm & Pay'}
