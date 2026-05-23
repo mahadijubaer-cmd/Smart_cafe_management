@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.models.user import User, UserRole
 from app.schemas.user import TokenData
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 class AuthService:

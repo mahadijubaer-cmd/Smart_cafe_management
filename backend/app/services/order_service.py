@@ -82,8 +82,10 @@ class OrderService:
         if order_data.table_id:
             result = await db.execute(select(TablesMap).where(TablesMap.table_id == order_data.table_id))
             table = result.scalar_one_or_none()
-            if table:
-                table.status = TableStatus.occupied
+            if not table:
+                raise HTTPException(status_code=404, detail="Table not found")
+
+            table.status = TableStatus.occupied
         
         notification = Notification(
             user_id=user_id,

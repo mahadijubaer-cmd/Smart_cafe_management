@@ -57,15 +57,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#F5F0E8_0%,#FFFFFF_45%,#DDE9DE_100%)] px-4 py-12">
-      <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-6xl items-center justify-center">
-        <div className="grid w-full gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-          <Card className="order-2 lg:order-1">
+    <main className="min-h-[calc(100vh-3rem)]">
+      <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
+        <div className="grid w-full gap-6 xl:grid-cols-[0.95fr_1.05fr] xl:gap-8">
+          <Card className="order-2 overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm lg:order-1">
             <CardHeader>
               <CardTitle>Create your account</CardTitle>
               <CardDescription>Register as a student, staff member, or cleaner.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Full name</Label>
@@ -119,14 +119,14 @@ export default function RegisterPage() {
             </CardContent>
           </Card>
 
-          <section className="order-1 flex flex-col justify-center rounded-[2rem] border border-primary/10 bg-[#1A4D2E] p-8 text-white shadow-2xl shadow-primary/20 lg:order-2">
+          <section className="order-1 flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-[#1A4D2E] p-8 text-white shadow-2xl shadow-primary/20 md:p-10 lg:order-2">
             <p className="mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
               Join the platform
             </p>
-            <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl">
+            <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
               Set up a cafe profile in a few steps.
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-white/80">
+            <p className="mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg">
               Register once and start managing your menu, orders, or cleaning tasks from a single account.
             </p>
           </section>

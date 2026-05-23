@@ -24,9 +24,9 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 const redirectByRole: Record<string, string> = {
   student: '/menu',
-  staff: '/staff/orders',
-  cleaner: '/cleaner/tables',
-  admin: '/admin/dashboard',
+  staff: '/orders',
+  cleaner: '/tables',
+  admin: '/dashboard',
 }
 
 export default function LoginPage() {
@@ -72,27 +72,27 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#F5F0E8_0%,#FFFFFF_45%,#DDE9DE_100%)] px-4 py-12">
-      <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-6xl items-center justify-center">
-        <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="flex flex-col justify-center rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20">
+    <main className="min-h-[calc(100vh-3rem)]">
+      <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
+        <div className="grid w-full gap-6 xl:grid-cols-[1.08fr_0.92fr] xl:gap-8">
+          <section className="flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20 md:p-10">
             <p className="mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
               Smart Cafe Management System
             </p>
-            <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl">
+            <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
               Welcome back to the cafe dashboard.
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-white/80">
+            <p className="mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg">
               Sign in to manage orders, tables, cleaning workflows, and student dining activity from one place.
             </p>
           </section>
 
-          <Card className="self-center">
+          <Card className="self-center overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>Login</CardTitle>
               <CardDescription>Use your registered email and password to continue.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>

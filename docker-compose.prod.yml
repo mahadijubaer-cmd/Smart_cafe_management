@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: scms_backend
+    env_file: .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build: ./frontend
+    container_name: scms_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP_OR_DOMAIN:8000/api/v1
+      - NEXT_PUBLIC_WS_URL=ws://YOUR_SERVER_IP_OR_DOMAIN:8000
