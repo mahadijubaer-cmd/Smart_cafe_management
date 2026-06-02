@@ -28,7 +28,7 @@ export default function OrderSummary({
   onConfirm,
   loading = false,
 }: OrderSummaryProps) {
-  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart])
+  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.item.price * item.quantity, 0), [cart])
   const discount = redeemPoints && canRedeemPoints ? 10 : 0
   const total = Math.max(subtotal - discount, 0)
 

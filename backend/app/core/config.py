@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
-from typing import List
+from typing import Any, Dict, List
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 class Settings(BaseSettings):
@@ -17,6 +18,32 @@ class Settings(BaseSettings):
     
     # Environment
     ENVIRONMENT: str = "development"
+
+    @property
+    def database_url_for_engine(self) -> str:
+        """Return a DATABASE_URL compatible with SQLAlchemy asyncpg engine creation."""
+        parts = urlsplit(self.DATABASE_URL)
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+
+        # asyncpg does not accept libpq-only params like sslmode/channel_binding.
+        query.pop("sslmode", None)
+        query.pop("channel_binding", None)
+
+        sanitized_query = urlencode(query)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, sanitized_query, parts.fragment))
+
+    @property
+    def database_connect_args(self) -> Dict[str, Any]:
+        """Return SQLAlchemy connect_args for asyncpg based on DATABASE_URL query options."""
+        parts = urlsplit(self.DATABASE_URL)
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+
+        connect_args: Dict[str, Any] = {}
+        sslmode = (query.get("sslmode") or "").lower()
+        if sslmode in {"require", "verify-ca", "verify-full"}:
+            connect_args["ssl"] = "require"
+
+        return connect_args
     
     model_config = ConfigDict(env_file=".env", case_sensitive=True)
 

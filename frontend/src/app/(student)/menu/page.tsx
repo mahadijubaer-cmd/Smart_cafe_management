@@ -1,31 +1,46 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, Search, ShoppingCart, X } from 'lucide-react'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import CategoryTabs from '@/components/menu/CategoryTabs'
 import MenuItemCard from '@/components/menu/MenuItemCard'
 import CartSidebar from '@/components/menu/CartSidebar'
+import { Switch } from '@/components/ui/switch'
 import { useStore } from '@/store/useStore'
 import type { Category, MenuItem } from '@/types'
 
-type MenuItemApi = MenuItem
+type SortOption = 'default' | 'price-asc' | 'price-desc' | 'prep-asc'
+
+const FOOD_EMOJIS = ['🍛', '🥟', '☕', '🌅', '🏠']
+
+function formatHeroDate(date: Date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
 
 function MenuSkeleton() {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm">
-          <div className="h-48 animate-pulse bg-slate-200" />
-          <div className="space-y-3 p-5">
-            <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-            <div className="h-5 w-3/4 animate-pulse rounded bg-slate-200" />
-            <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
-            <div className="h-3 w-5/6 animate-pulse rounded bg-slate-100" />
-            <div className="mt-4 flex items-center justify-between">
-              <div className="h-10 w-24 animate-pulse rounded-full bg-slate-200" />
-              <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-200" />
+    <div className="grid gap-4 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:px-8">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={index} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="h-40 animate-pulse bg-gray-200" />
+          <div className="space-y-3 p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <div className="h-5 w-3/5 animate-pulse rounded bg-gray-200" />
+              <div className="h-5 w-16 animate-pulse rounded-full bg-gray-200" />
+            </div>
+            <div className="h-4 w-full animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-gray-200" />
+            <div className="flex items-center justify-between pt-2">
+              <div className="h-6 w-20 animate-pulse rounded bg-gray-200" />
+              <div className="h-10 w-20 animate-pulse rounded-full bg-gray-200" />
             </div>
           </div>
         </div>
@@ -34,13 +49,69 @@ function MenuSkeleton() {
   )
 }
 
+function EmptyState({ search, onClear }: { search: string; onClear: () => void }) {
+  return (
+    <div className="mx-4 rounded-3xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center shadow-sm lg:mx-8">
+      <div className="text-5xl">🍽</div>
+      <h3 className="mt-4 text-2xl font-black text-slate-900">No items found for '{search}'</h3>
+      <p className="mt-2 text-sm text-gray-500">Try a different keyword, switch category, or clear the search.</p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="mt-6 inline-flex items-center justify-center rounded-full border border-[#1A4D2E] px-4 py-2 text-sm font-semibold text-[#1A4D2E] transition hover:bg-[#1A4D2E]/5"
+      >
+        Clear search
+      </button>
+    </div>
+  )
+}
+
+function SortSelect({ value, onChange }: { value: SortOption; onChange: (value: SortOption) => void }) {
+  return (
+    <label className="relative block">
+      <span className="sr-only">Sort menu</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as SortOption)}
+        className="w-full appearance-none rounded-2xl border border-black/10 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
+      >
+        <option value="default">Default</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="prep-asc">Prep Time</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+    </label>
+  )
+}
+
 export default function StudentMenuPage() {
   const addToCart = useStore((state) => state.addToCart)
+  const cartCount = useStore((state) => state.cartCount)
+  const openCart = useStore((state) => state.openCart)
   const [categories, setCategories] = useState<Category[]>([])
-  const [items, setItems] = useState<MenuItemApi[]>([])
+  const [allItems, setAllItems] = useState<MenuItem[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<number>(0)
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [availableOnly, setAvailableOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<SortOption>('default')
   const [loading, setLoading] = useState(true)
+  const [foodIndex, setFoodIndex] = useState(0)
+  const [cartBounce, setCartBounce] = useState(false)
+  const [previousCartCount, setPreviousCartCount] = useState(cartCount())
+
+  const todayLabel = useMemo(() => formatHeroDate(new Date()), [])
+  const itemCount = useMemo(() => cartCount(), [cartCount])
+  const cyclingEmojis = useMemo(
+    () => [...FOOD_EMOJIS.slice(foodIndex), ...FOOD_EMOJIS.slice(0, foodIndex)],
+    [foodIndex]
+  )
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => setSearchQuery(searchInput.trim()), 300)
+    return () => window.clearTimeout(timerId)
+  }, [searchInput])
 
   useEffect(() => {
     let cancelled = false
@@ -57,11 +128,21 @@ export default function StudentMenuPage() {
         }
 
         const loadedCategories = categoriesResponse.data as Category[]
-        const loadedItems = itemsResponse.data as MenuItemApi[]
+        const loadedItems = itemsResponse.data as MenuItem[]
         const categoryNameMap = new Map(loadedCategories.map((category) => [category.category_id, category.name]))
+        const categoryCountMap = new Map<number, number>()
 
-        setCategories(loadedCategories)
-        setItems(
+        for (const item of loadedItems) {
+          categoryCountMap.set(item.category_id, (categoryCountMap.get(item.category_id) ?? 0) + 1)
+        }
+
+        setCategories(
+          loadedCategories.map((category) => ({
+            ...category,
+            item_count: categoryCountMap.get(category.category_id) ?? 0,
+          }))
+        )
+        setAllItems(
           loadedItems.map((item) => ({
             ...item,
             category_name: categoryNameMap.get(item.category_id),
@@ -85,77 +166,224 @@ export default function StudentMenuPage() {
     }
   }, [])
 
-  const filteredItems = useMemo(() => {
-    const query = search.trim().toLowerCase()
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setFoodIndex((current) => (current + 1) % FOOD_EMOJIS.length)
+    }, 1800)
 
-    return items.filter((item) => {
+    return () => window.clearInterval(timerId)
+  }, [])
+
+  useEffect(() => {
+    if (itemCount > previousCartCount) {
+      setCartBounce(true)
+      const timeoutId = window.setTimeout(() => setCartBounce(false), 260)
+      setPreviousCartCount(itemCount)
+      return () => window.clearTimeout(timeoutId)
+    }
+
+    setPreviousCartCount(itemCount)
+    return undefined
+  }, [itemCount, previousCartCount])
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.toLowerCase()
+
+    const matches = allItems.filter((item) => {
       const matchesCategory = activeCategoryId === 0 || item.category_id === activeCategoryId
       const matchesSearch = !query || item.name.toLowerCase().includes(query)
-      return matchesCategory && matchesSearch
+      const matchesAvailability = !availableOnly || item.is_available
+      return matchesCategory && matchesSearch && matchesAvailability
     })
-  }, [activeCategoryId, items, search])
+
+    const sorted = [...matches]
+
+    switch (sortBy) {
+      case 'price-asc':
+        sorted.sort((left, right) => Number(left.price) - Number(right.price))
+        break
+      case 'price-desc':
+        sorted.sort((left, right) => Number(right.price) - Number(left.price))
+        break
+      case 'prep-asc':
+        sorted.sort((left, right) => Number(left.prep_time_mins) - Number(right.prep_time_mins))
+        break
+      default:
+        sorted.sort((left, right) => left.name.localeCompare(right.name))
+        break
+    }
+
+    return sorted
+  }, [activeCategoryId, allItems, availableOnly, searchQuery, sortBy])
+
+  const handleClearSearch = () => {
+    setSearchInput('')
+    setSearchQuery('')
+  }
 
   return (
     <ProtectedRoute allowedRoles={["student"]}>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#F5F0E8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
-                Menu
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
-                Browse meals and add them to your cart
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
-                Filter by category, search by name, and build your order quickly.
-              </p>
+      <main className="min-h-screen bg-[#F5F0E8]">
+        <section className="relative h-32 overflow-hidden bg-gradient-to-r from-[#1A4D2E] to-[#2D6A4F] px-4 py-6 text-white lg:h-40 lg:px-8">
+          <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-6">
+            <div className="max-w-2xl space-y-2">
+              <h1 className="text-3xl font-black tracking-tight lg:text-5xl">🍽 BRACU Cafe Menu</h1>
+              <p className="text-sm text-white/90 lg:text-base">Fresh food, fast service — {todayLabel}</p>
             </div>
 
-            <div className="w-full max-w-md">
-              <label className="mb-2 block text-sm font-medium text-slate-700">Search items</label>
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by dish name"
-                className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
+            <div className="hidden items-center gap-3 text-4xl lg:flex">
+              {cyclingEmojis.map((emoji, index) => (
+                <span
+                  key={`${emoji}-${index}`}
+                  className="hero-food-strip inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 shadow-sm backdrop-blur-sm"
+                  style={{ animationDelay: `${index * 180}ms` }}
+                >
+                  {emoji}
+                </span>
+              ))}
             </div>
           </div>
+        </section>
 
-          {loading ? (
-            <MenuSkeleton />
-          ) : (
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-              <div className="min-w-0 flex-1 space-y-6">
-                <CategoryTabs
-                  categories={categories}
-                  activeId={activeCategoryId}
-                  onChange={(categoryId) => setActiveCategoryId(categoryId)}
+        <div className="sticky top-16 z-30 border-b border-white/40 bg-[#F5F0E8]/95 backdrop-blur">
+          <div className="mx-auto max-w-7xl space-y-4 px-4 py-3 lg:px-8">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+              <label className="relative block">
+                <span className="sr-only">Search items</span>
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search items... (e.g. Biryani, Cha)"
+                  className="w-full rounded-2xl border border-black/10 bg-white py-3 pl-11 pr-10 text-sm outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
                 />
+                {searchInput ? (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </label>
 
-                {filteredItems.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-black/10 bg-white p-10 text-center text-sm text-slate-500 shadow-sm">
-                    No items match your current filters.
-                  </div>
-                ) : (
-                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                    {filteredItems.map((item) => (
-                      <MenuItemCard
-                        key={item.item_id}
-                        item={item}
-                        onAddToCart={(menuItem) => addToCart({ ...menuItem, quantity: 1 })}
-                      />
-                    ))}
-                  </div>
-                )}
+              <div className="flex items-center justify-between rounded-2xl border border-black/10 bg-white px-4 py-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Available Only</p>
+                  <p className="text-sm text-gray-600">Show items ready to order</p>
+                </div>
+                <Switch checked={availableOnly} onCheckedChange={setAvailableOnly} />
               </div>
 
-              <CartSidebar />
+              <SortSelect value={sortBy} onChange={setSortBy} />
             </div>
-          )}
+
+            <CategoryTabs
+              categories={categories}
+              activeId={activeCategoryId}
+              onChange={(categoryId) => setActiveCategoryId(categoryId)}
+            />
+          </div>
         </div>
+
+        {loading ? (
+          <div className="relative">
+            <MenuSkeleton />
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="py-6">
+            <EmptyState search={searchInput.trim() || 'your query'} onClear={handleClearSearch} />
+          </div>
+        ) : (
+          <div className="grid gap-4 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:px-8">
+            {filteredItems.map((item, index) => (
+              <div
+                key={item.item_id}
+                className="menu-item-enter"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
+                <MenuItemCard item={item} onAddToCart={addToCart} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="px-4 pb-28 lg:px-8 lg:pb-8">
+          <div className="mx-auto max-w-7xl">
+            <CartSidebar />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={openCart}
+          className="fixed bottom-5 right-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#1A4D2E] text-white shadow-2xl transition hover:bg-[#163f25] lg:hidden"
+          aria-label="Open cart"
+        >
+          <ShoppingCart className="h-6 w-6" />
+          {itemCount > 0 ? (
+            <span
+              className={[
+                'absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white',
+                cartBounce ? 'cart-fab-bounce' : '',
+              ].join(' ')}
+            >
+              {itemCount}
+            </span>
+          ) : null}
+        </button>
+
+        <style>{`
+          @keyframes food-strip-float {
+            0%,
+            100% {
+              transform: translateY(0) scale(1);
+              opacity: 0.85;
+            }
+            50% {
+              transform: translateY(-4px) scale(1.03);
+              opacity: 1;
+            }
+          }
+
+          @keyframes cart-fab-bounce {
+            0% {
+              transform: scale(0.7);
+            }
+            60% {
+              transform: scale(1.2);
+            }
+            100% {
+              transform: scale(1);
+            }
+          }
+
+          @keyframes menu-item-enter {
+            from {
+              opacity: 0;
+              transform: translateY(16px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .hero-food-strip {
+            animation: food-strip-float 2.6s ease-in-out infinite;
+          }
+
+          .cart-fab-bounce {
+            animation: cart-fab-bounce 260ms ease-out;
+          }
+
+          .menu-item-enter {
+            animation: menu-item-enter 200ms ease-out both;
+          }
+        `}</style>
       </main>
     </ProtectedRoute>
   )

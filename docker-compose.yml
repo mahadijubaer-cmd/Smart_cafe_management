@@ -1,20 +1,41 @@
-version: "3.9"
-
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: scms_postgres
+    environment:
+      - POSTGRES_DB=scms
+      - POSTGRES_USER=scms
+      - POSTGRES_PASSWORD=scms
+    ports:
+      - "5433:5432"
+    volumes:
+      - scms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scms -d scms"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   backend:
     build: ./backend
     container_name: scms_backend
     env_file: .env
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql+asyncpg://scms:scms@postgres:5432/scms
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     container_name: scms_frontend
     ports:
       - "3000:3000"
@@ -24,5 +45,9 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
+      - API_INTERNAL_URL=http://backend:8000/api/v1
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8001/ws
+
+volumes:
+  scms_postgres_data:

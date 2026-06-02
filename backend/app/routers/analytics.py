@@ -72,15 +72,16 @@ async def get_orders_by_hour(
 ):
     """Get order counts grouped by hour for the last 7 days"""
     start = func.now() - text("INTERVAL '7 days'")
+    hour_bucket = func.extract("hour", Order.created_at)
 
     result = await db.execute(
         select(
-            func.extract("hour", Order.created_at).label("hour"),
+            hour_bucket.label("hour"),
             func.count(Order.order_id).label("order_count"),
         )
         .where(Order.created_at >= start)
-        .group_by(func.extract("hour", Order.created_at))
-        .order_by(func.extract("hour", Order.created_at))
+        .group_by(hour_bucket)
+        .order_by(hour_bucket)
     )
 
     return [
@@ -133,16 +134,17 @@ async def get_revenue_trend(
 ):
     """Get daily revenue for the last N days"""
     start_date = func.now() - text(f"INTERVAL '{days} days'")
+    day_bucket = func.date_trunc("day", Order.created_at)
 
     result = await db.execute(
         select(
-            func.date_trunc("day", Order.created_at).label("date"),
+            day_bucket.label("date"),
             func.coalesce(func.sum(Order.total_amount), 0).label("revenue"),
             func.count(Order.order_id).label("order_count"),
         )
         .where(Order.created_at >= start_date)
-        .group_by(func.date_trunc("day", Order.created_at))
-        .order_by(func.date_trunc("day", Order.created_at))
+        .group_by(day_bucket)
+        .order_by(day_bucket)
     )
 
     return [

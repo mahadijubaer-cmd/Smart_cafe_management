@@ -29,11 +29,9 @@ async def pay_order(
     """Pay for an order"""
     payment = await payment_service.pay_order(db, payment_data.order_id, current_user.user_id, payment_data.method)
 
-    order_total_amount = getattr(getattr(payment, "order", None), "total_amount", None)
-    if order_total_amount is None:
-        order_result = await db.execute(select(Order).where(Order.order_id == payment.order_id))
-        order = order_result.scalar_one_or_none()
-        order_total_amount = order.total_amount if order else payment.amount
+    order_result = await db.execute(select(Order).where(Order.order_id == payment.order_id))
+    order = order_result.scalar_one_or_none()
+    order_total_amount = order.total_amount if order else payment.amount
     
     background_tasks.add_task(
         award_reward_points_background,

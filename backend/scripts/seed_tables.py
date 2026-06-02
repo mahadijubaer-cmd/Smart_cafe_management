@@ -250,6 +250,9 @@ TABLE_SEEDS: list[dict[str, object]] = [
     },
 ]
 
+EXPECTED_TABLE_COUNT = 30
+ZONE_ORDER = ["Window Side", "Center Hall", "Group Area", "Quick Bites"]
+
 
 async def get_or_create_table(session: AsyncSession, payload: dict[str, object]) -> tuple[TablesMap, bool]:
     result = await session.execute(
@@ -274,6 +277,9 @@ async def get_or_create_table(session: AsyncSession, payload: dict[str, object])
 
 
 async def seed_tables() -> None:
+    if len(TABLE_SEEDS) != EXPECTED_TABLE_COUNT:
+        raise RuntimeError(f"Expected {EXPECTED_TABLE_COUNT} table seeds, found {len(TABLE_SEEDS)}")
+
     database_url, connect_args = build_database_config()
     engine = create_async_engine(database_url, echo=False, connect_args=connect_args)
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -289,8 +295,10 @@ async def seed_tables() -> None:
 
         await session.commit()
 
-    for zone in ["Window Side", "Center Hall", "Group Area", "Quick Bites"]:
-        print(f"✓ Seeded {summary.get(zone, 0)} tables for {zone}")
+    total_inserted = sum(summary.values())
+    print(f"✓ Seeded {total_inserted} new tables across {len(ZONE_ORDER)} zones")
+    for zone in ZONE_ORDER:
+        print(f"  - {zone}: {summary.get(zone, 0)} inserted")
 
     await engine.dispose()
 

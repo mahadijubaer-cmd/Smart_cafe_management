@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import SalesChart from '@/components/admin/SalesChart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import apiClient from '@/lib/api'
-import { format, differenceInCalendarDays, parseISO } from 'date-fns'
+import { differenceInCalendarDays, parseISO } from 'date-fns'
 
 type TopItem = {
   item_name: string

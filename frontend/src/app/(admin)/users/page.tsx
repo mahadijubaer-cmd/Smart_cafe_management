@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ShieldCheck, ShieldOff, Search } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import apiClient from '@/lib/api'
 import type { User } from '@/types'

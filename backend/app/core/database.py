@@ -4,11 +4,12 @@ from app.core.config import settings
 
 # Create async engine
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.database_url_for_engine,
     echo=False,
     future=True,
     pool_pre_ping=True,
     pool_recycle=3600,
+    connect_args=settings.database_connect_args,
 )
 
 # Create async session factory

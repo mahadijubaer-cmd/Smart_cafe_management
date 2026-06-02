@@ -30,7 +30,7 @@ type CleanerAssignment = CleanerLog & {
   }
 }
 
-function formatDateTime(value?: string) {
+function formatDateTime(value?: string | null) {
   if (!value) return 'N/A'
   return new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
