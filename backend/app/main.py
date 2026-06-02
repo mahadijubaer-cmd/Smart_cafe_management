@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.routers import auth, menu, orders, tables, cleaners, payments, analytics, websocket
@@ -32,6 +33,7 @@ async def startup():
     """Initialize database tables on application startup"""
     logger.info("Creating database tables...")
     async with engine.begin() as conn:
+        await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created successfully!")
 

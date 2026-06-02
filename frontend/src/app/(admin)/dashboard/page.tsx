@@ -38,7 +38,6 @@ function formatCurrency(amount: number) {
 
 function StatCard({ icon, label, value, trend, suffix }: StatCardProps) {
   const trendIsAvailable = typeof trend === 'number' && Number.isFinite(trend)
-  const TrendIcon = trendIsAvailable ? (trend! >= 0 ? ArrowUpRight : ArrowDownRight) : null
 
   return (
     <Card className="border-black/10 bg-white/90 shadow-sm">
@@ -53,7 +52,11 @@ function StatCard({ icon, label, value, trend, suffix }: StatCardProps) {
             <div className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-500">
               {trendIsAvailable ? (
                 <>
-                  <TrendIcon className={`h-4 w-4 ${trend! >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+                  {trend! >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4 text-rose-600" />
+                  )}
                   <span className={trend! >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
                     {Math.abs(trend!).toFixed(1)}% vs yesterday
                   </span>

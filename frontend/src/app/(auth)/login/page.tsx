@@ -33,7 +33,6 @@ export default function LoginPage() {
   const router = useRouter()
   const token = useStore((state) => state.token)
   const setToken = useStore((state) => state.setToken)
-  const setUser = useStore((state) => state.setUser)
 
   const existingRole = useMemo(() => getRoleFromToken(token), [token])
 
@@ -57,7 +56,6 @@ export default function LoginPage() {
       const accessToken = response.data.access_token as string
 
       setToken(accessToken)
-      setUser(null)
 
       const role = getRoleFromToken(accessToken)
       router.replace(role ? redirectByRole[role] ?? '/menu' : '/menu')

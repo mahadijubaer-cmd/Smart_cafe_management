@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class PaymentService:
     async def pay_order(self, db: AsyncSession, order_id: str, user_id, method: str) -> Payment:
         """Process payment for an order"""
-        async with db.begin():
+        try:
             result = await db.execute(
                 select(Order).where(Order.order_id == order_id).with_for_update()
             )
@@ -68,7 +68,10 @@ class PaymentService:
             order.payment_method = payment_method
 
             db.add(payment)
-            await db.flush()
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         await db.refresh(payment)
         return payment
@@ -78,7 +81,7 @@ class PaymentService:
         if amount <= 0 or amount > 10000:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid amount")
 
-        async with db.begin():
+        try:
             result = await db.execute(
                 select(User).where(User.user_id == user_id).with_for_update()
             )
@@ -88,6 +91,10 @@ class PaymentService:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
             user.wallet_balance = Decimal(str(user.wallet_balance)) + amount
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         await db.refresh(user)
         return user
@@ -96,7 +103,7 @@ class PaymentService:
         """Award reward points for completed order"""
         points = int(Decimal(str(total_amount)) // Decimal("10"))
 
-        async with db.begin():
+        try:
             user_result = await db.execute(
                 select(User).where(User.user_id == user_id).with_for_update()
             )
@@ -115,5 +122,9 @@ class PaymentService:
                     description="Earned from order",
                 )
             )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         logger.info("Awarded %s points to user %s", points, user_id)

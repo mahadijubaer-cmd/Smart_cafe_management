@@ -6,6 +6,19 @@ COPY package*.json ./
 
 RUN npm ci
 
+FROM node:20-alpine AS dev
+
+WORKDIR /app
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "3000"]
+
 FROM node:20-alpine AS builder
 
 WORKDIR /app
