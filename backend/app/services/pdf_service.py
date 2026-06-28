@@ -1,0 +1,369 @@
+"""PDF generation service using ReportLab.
+
+All functions return raw bytes (PDF content) that the caller can stream
+directly as a FastAPI StreamingResponse.
+
+Documents produced:
+  generate_memo_pdf()            — A4 institutional memorandum
+  generate_receipt_pdf()         — A5 money receipt
+  generate_stock_summary_pdf()   — A4 inventory stock report
+  generate_consumption_pdf()     — A4 inventory consumption report
+"""
+import io
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+# ── shared helpers ────────────────────────────────────────────────────────────
+
+_STYLES = getSampleStyleSheet()
+
+_HEADER_STYLE = ParagraphStyle(
+    "header", parent=_STYLES["Heading1"], alignment=TA_CENTER, fontSize=16, spaceAfter=2 * mm
+)
+_SUB_STYLE = ParagraphStyle(
+    "sub", parent=_STYLES["Normal"], alignment=TA_CENTER, fontSize=10, textColor=colors.grey
+)
+_BODY_STYLE = ParagraphStyle(
+    "body", parent=_STYLES["Normal"], fontSize=10, leading=14, spaceAfter=3 * mm
+)
+_LABEL_STYLE = ParagraphStyle(
+    "label", parent=_STYLES["Normal"], fontSize=9, textColor=colors.grey
+)
+_BOLD_STYLE = ParagraphStyle(
+    "bold", parent=_STYLES["Normal"], fontSize=10, fontName="Helvetica-Bold"
+)
+
+_TABLE_HEADER_BG = colors.HexColor("#1A4D2E")
+_LOW_STOCK_COLOR = colors.HexColor("#FFEBEE")
+_LIGHT_GREY = colors.HexColor("#F5F5F5")
+
+
+def _build_pdf(story: list, pagesize=A4, margins: tuple = (15 * mm, 15 * mm, 15 * mm, 15 * mm)) -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=pagesize,
+        leftMargin=margins[0],
+        rightMargin=margins[1],
+        topMargin=margins[2],
+        bottomMargin=margins[3],
+    )
+    doc.build(story)
+    return buf.getvalue()
+
+
+def _table_style(header_rows: int = 1) -> TableStyle:
+    return TableStyle([
+        ("BACKGROUND", (0, 0), (-1, header_rows - 1), _TABLE_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, header_rows - 1), colors.white),
+        ("FONTNAME", (0, 0), (-1, header_rows - 1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, header_rows - 1), 9),
+        ("ROWBACKGROUNDS", (0, header_rows), (-1, -1), [colors.white, _LIGHT_GREY]),
+        ("FONTSIZE", (0, header_rows), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ])
+
+
+# ── MEMO ─────────────────────────────────────────────────────────────────────
+
+def generate_memo_pdf(
+    tenant_name: str,
+    ref_no: str,
+    date: str,
+    to: str,
+    from_name: str,
+    subject: str,
+    body_paragraphs: list[str],
+    signatory_name: str,
+    signatory_title: str,
+) -> bytes:
+    """Generate an A4 institutional memorandum PDF."""
+    story: list[Any] = []
+
+    # Header
+    story.append(Paragraph(tenant_name.upper(), _HEADER_STYLE))
+    story.append(Paragraph("OFFICIAL MEMORANDUM", _SUB_STYLE))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#1A4D2E")))
+    story.append(Spacer(1, 4 * mm))
+
+    # Meta table
+    meta = [
+        ["Ref No.:", ref_no, "Date:", date],
+        ["To:", to, "From:", from_name],
+        ["Subject:", subject, "", ""],
+    ]
+    meta_table = Table(meta, colWidths=[22 * mm, 73 * mm, 22 * mm, 63 * mm])
+    meta_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("SPAN", (1, 2), (3, 2)),
+    ]))
+    story.append(meta_table)
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    story.append(Spacer(1, 5 * mm))
+
+    # Body
+    for para in body_paragraphs:
+        story.append(Paragraph(para, _BODY_STYLE))
+
+    story.append(Spacer(1, 12 * mm))
+
+    # Signature block
+    sig_table = Table(
+        [["", signatory_name], ["", signatory_title]],
+        colWidths=[120 * mm, 60 * mm],
+    )
+    sig_table.setStyle(TableStyle([
+        ("FONTNAME", (1, 0), (1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (1, 0), (1, -1), "CENTER"),
+        ("LINEABOVE", (1, 0), (1, 0), 0.5, colors.black),
+    ]))
+    story.append(sig_table)
+
+    # Footer
+    story.append(Spacer(1, 8 * mm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    story.append(Paragraph(
+        f"Generated by SCMS Platform · {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        _LABEL_STYLE,
+    ))
+
+    return _build_pdf(story)
+
+
+# ── RECEIPT ───────────────────────────────────────────────────────────────────
+
+def generate_receipt_pdf(
+    receipt_no: str,
+    tenant_name: str,
+    tenant_address: str | None,
+    user_name: str,
+    user_email: str,
+    student_id: str | None,
+    order_id: str,
+    order_created_at: datetime,
+    items: list[dict],   # [{name, quantity, unit_price, subtotal}]
+    subtotal: Decimal,
+    discount: Decimal,
+    total: Decimal,
+    payment_method: str,
+    payment_at: datetime | None,
+) -> bytes:
+    """Generate an A5-sized money receipt PDF."""
+    from reportlab.lib.pagesizes import A5
+
+    story: list[Any] = []
+
+    # Header
+    story.append(Paragraph(tenant_name.upper(), _HEADER_STYLE))
+    if tenant_address:
+        story.append(Paragraph(tenant_address, _SUB_STYLE))
+    story.append(Paragraph("MONEY RECEIPT", ParagraphStyle(
+        "receipt_title", parent=_STYLES["Heading2"], alignment=TA_CENTER, spaceAfter=2 * mm
+    )))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#1A4D2E")))
+    story.append(Spacer(1, 3 * mm))
+
+    # Receipt meta
+    meta = [
+        ["Receipt No:", receipt_no, "Date:", order_created_at.strftime("%Y-%m-%d %H:%M")],
+        ["Name:", user_name, "Email:", user_email],
+    ]
+    if student_id:
+        meta.append(["Student ID:", student_id, "Order ID:", str(order_id)[:8].upper()])
+    else:
+        meta.append(["Order ID:", str(order_id)[:8].upper(), "", ""])
+
+    meta_table = Table(meta, colWidths=[25 * mm, 55 * mm, 22 * mm, 48 * mm])
+    meta_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 3 * mm))
+
+    # Items table
+    rows = [["Item", "Qty", "Unit Price", "Subtotal"]]
+    for item in items:
+        rows.append([
+            item["name"],
+            str(item["quantity"]),
+            f"৳ {item['unit_price']:.2f}",
+            f"৳ {item['subtotal']:.2f}",
+        ])
+    items_table = Table(rows, colWidths=[65 * mm, 15 * mm, 30 * mm, 30 * mm])
+    items_table.setStyle(_table_style())
+    story.append(items_table)
+    story.append(Spacer(1, 2 * mm))
+
+    # Totals
+    totals = [
+        ["", "Subtotal:", f"৳ {subtotal:.2f}"],
+        ["", "Discount:", f"৳ {discount:.2f}"],
+        ["", "TOTAL:", f"৳ {total:.2f}"],
+    ]
+    totals_table = Table(totals, colWidths=[65 * mm, 30 * mm, 30 * mm - 5])
+    totals_table.setStyle(TableStyle([
+        ("FONTNAME", (1, 2), (2, 2), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (2, -1), "RIGHT"),
+        ("LINEABOVE", (1, 2), (2, 2), 0.5, colors.black),
+    ]))
+    story.append(totals_table)
+    story.append(Spacer(1, 3 * mm))
+
+    # Payment info
+    pay_str = payment_method.replace("_", " ").title()
+    if payment_at:
+        pay_str += f" · {payment_at.strftime('%Y-%m-%d %H:%M')}"
+    story.append(Paragraph(f"<b>Payment Method:</b> {pay_str}", _BODY_STYLE))
+
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    story.append(Paragraph(
+        "Thank you for your order! — SCMS Platform",
+        ParagraphStyle("thanks", parent=_STYLES["Normal"], alignment=TA_CENTER, fontSize=9, textColor=colors.grey),
+    ))
+
+    return _build_pdf(story, pagesize=A5, margins=(12 * mm, 12 * mm, 12 * mm, 12 * mm))
+
+
+# ── STOCK SUMMARY PDF ─────────────────────────────────────────────────────────
+
+def generate_stock_summary_pdf(
+    tenant_name: str,
+    report: dict,   # StockSummaryResponse-shaped dict
+) -> bytes:
+    """A4 inventory stock summary — low-stock rows are highlighted red."""
+    story: list[Any] = []
+
+    story.append(Paragraph(f"{tenant_name} — Inventory Stock Summary", _HEADER_STYLE))
+    story.append(Paragraph(
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  "
+        f"Total items: {report['total_items']}  |  "
+        f"Low-stock items: {report['low_stock_count']}  |  "
+        f"Inventory value: ৳ {float(report['total_inventory_value']):.2f}",
+        _SUB_STYLE,
+    ))
+    story.append(Spacer(1, 4 * mm))
+
+    header = ["Item Name", "SKU", "Unit", "On Hand", "Reorder Level", "Unit Cost", "Total Value"]
+    rows = [header]
+    low_stock_rows: list[int] = []
+
+    for idx, item in enumerate(report["items"], start=1):
+        total_value = (
+            f"৳ {float(item['total_value']):.2f}" if item["total_value"] is not None else "—"
+        )
+        unit_cost = (
+            f"৳ {float(item['unit_cost']):.2f}" if item["unit_cost"] is not None else "—"
+        )
+        rows.append([
+            item["name"],
+            item["sku"] or "—",
+            str(item["unit"].value if hasattr(item["unit"], "value") else item["unit"]),
+            f"{float(item['quantity_on_hand']):.3f}",
+            f"{float(item['reorder_level']):.3f}",
+            unit_cost,
+            total_value,
+        ])
+        if item["is_low_stock"]:
+            low_stock_rows.append(idx)
+
+    col_widths = [55 * mm, 22 * mm, 15 * mm, 22 * mm, 28 * mm, 22 * mm, 22 * mm]
+    table = Table(rows, colWidths=col_widths)
+
+    base_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), _TABLE_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _LIGHT_GREY]),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+    for row_idx in low_stock_rows:
+        base_cmds.append(("BACKGROUND", (0, row_idx), (-1, row_idx), _LOW_STOCK_COLOR))
+        base_cmds.append(("TEXTCOLOR", (3, row_idx), (3, row_idx), colors.red))
+
+    table.setStyle(TableStyle(base_cmds))
+    story.append(table)
+
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph(
+        "⬛ Red rows = stock at or below reorder level", _LABEL_STYLE
+    ))
+
+    return _build_pdf(story)
+
+
+# ── CONSUMPTION REPORT PDF ────────────────────────────────────────────────────
+
+def generate_consumption_pdf(
+    tenant_name: str,
+    movements: list[dict],   # InventoryMovementResponse-shaped dicts
+) -> bytes:
+    """A4 inventory consumption report."""
+    story: list[Any] = []
+
+    story.append(Paragraph(f"{tenant_name} — Inventory Consumption Report", _HEADER_STYLE))
+    story.append(Paragraph(
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  Records: {len(movements)}",
+        _SUB_STYLE,
+    ))
+    story.append(Spacer(1, 4 * mm))
+
+    header = ["Timestamp", "Item ID", "Qty Consumed", "Before", "After", "Order ID"]
+    rows = [header]
+    for m in movements:
+        ts = m.get("created_at", "")
+        if isinstance(ts, datetime):
+            ts = ts.strftime("%Y-%m-%d %H:%M")
+        elif isinstance(ts, str) and "T" in ts:
+            ts = ts[:16].replace("T", " ")
+
+        rows.append([
+            ts,
+            str(m.get("inventory_item_id", ""))[:8],
+            f"{abs(float(m.get('quantity_delta', 0))):.3f}",
+            f"{float(m.get('quantity_before', 0)):.3f}",
+            f"{float(m.get('quantity_after', 0)):.3f}",
+            str(m.get("order_id") or "")[:8] or "—",
+        ])
+
+    col_widths = [38 * mm, 28 * mm, 28 * mm, 28 * mm, 28 * mm, 28 * mm]
+    table = Table(rows, colWidths=col_widths)
+    table.setStyle(_table_style())
+    story.append(table)
+
+    return _build_pdf(story)

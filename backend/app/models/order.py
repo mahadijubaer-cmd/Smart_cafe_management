@@ -4,7 +4,10 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, Computed, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, Text, text
+from sqlalchemy import (
+    CheckConstraint, Computed, DateTime, Enum as SQLEnum,
+    ForeignKey, Integer, Numeric, String, Text, text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,12 +32,27 @@ class PaymentStatus(str, enum.Enum):
 class PaymentMethod(str, enum.Enum):
     wallet = "wallet"
     simulation = "simulation"
+    bkash = "bkash"
+    nagad = "nagad"
+    card = "card"
 
 
 class Order(Base):
     __tablename__ = "orders"
 
     order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    outlet_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.tenant_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     table_id: Mapped[int | None] = mapped_column(ForeignKey("tables_map.table_id"), nullable=True)
     time_slot: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -44,12 +62,11 @@ class Order(Base):
         default=OrderStatus.pending,
         server_default=OrderStatus.pending.value,
     )
-    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    total_amount: Mapped[float] = mapped_column(
+        Numeric(10, 2), nullable=False, default=0, server_default=text("0.00")
+    )
     discount_amount: Mapped[float] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-        default=0,
-        server_default=text("0.00"),
+        Numeric(10, 2), nullable=False, default=0, server_default=text("0.00")
     )
     payment_status: Mapped[PaymentStatus] = mapped_column(
         SQLEnum(PaymentStatus, name="paymentstatus"),
@@ -63,9 +80,7 @@ class Order(Base):
     )
     special_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=text("CURRENT_TIMESTAMP"),
+        DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -89,7 +104,15 @@ class OrderItem(Base):
     )
 
     order_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=False
+    )
     item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("menu_items.item_id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_price: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
