@@ -15,7 +15,7 @@ from app.core.limiter import limiter
 from app.core.redis import get_redis, close_redis
 from app.middleware.tenant import TenantContextMiddleware
 from app.routers import auth, menu, orders, tables, cleaners, payments, analytics, websocket
-from app.routers import tenants, otp, inventory, qr, memo, receipts
+from app.routers import tenants, otp, inventory, qr, memo, receipts, food_court
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ async def lifespan(app: FastAPI):
     # Ensure media directories exist at startup
     media_root = Path(settings.MEDIA_ROOT)
     (media_root / "qr_codes").mkdir(parents=True, exist_ok=True)
+    (media_root / "logos").mkdir(parents=True, exist_ok=True)
     logger.info("Media directory ready: %s", media_root)
 
     logger.info("Initialising database tables...")
@@ -86,6 +87,7 @@ app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(qr.router, prefix="/api/v1")
 app.include_router(memo.router, prefix="/api/v1")
 app.include_router(receipts.router, prefix="/api/v1")
+app.include_router(food_court.router, prefix="/api/v1")
 app.include_router(websocket.router)
 
 # ── Static file serving ───────────────────────────────────────────────────────

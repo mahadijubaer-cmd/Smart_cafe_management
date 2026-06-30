@@ -9,6 +9,8 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import OrderQrCode from '@/components/order/OrderQrCode'
+import ReceiptButton from '@/components/order/ReceiptButton'
 import apiClient from '@/lib/api'
 import useWebSocket from '@/hooks/useWebSocket'
 import { useStore } from '@/store/useStore'
@@ -477,6 +479,17 @@ export default function StudentTrackOrderPage() {
                     </div>
 
                     <p className="text-xs text-slate-500">Payment status: <span className="font-semibold text-slate-900">{order.payment_status}</span></p>
+
+                    {status === 'confirmed' ? (
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+                        <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Order QR Code</p>
+                        <OrderQrCode orderId={order.order_id} />
+                      </div>
+                    ) : null}
+
+                    {status === 'delivered' ? (
+                      <ReceiptButton orderId={order.order_id} className="w-full" />
+                    ) : null}
 
                     {status === 'delivered' ? (
                       <Button className="w-full bg-[#1A4D2E] text-white hover:bg-[#163f25]" type="button" onClick={handleMarkDone} disabled={completeLoading}>

@@ -271,3 +271,60 @@ async def test_role_guard_student_on_admin(async_client, student_token):
     )
 
     assert response.status_code == 403
+
+
+# ─── BR-REG-1: Blocked roles cannot self-register ─────────────────────────────
+
+_BLOCKED_ROLES = ["staff", "cleaner", "outlet_admin", "tenant_admin", "platform_admin", "food_court_admin"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", _BLOCKED_ROLES)
+async def test_blocked_role_self_register_returns_400(async_client, role):
+    """BR-REG-1: Privileged roles must not be creatable via self-registration."""
+    response = await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Sneaky User",
+            "email": f"{role}.sneaky@bracu.ac.bd",
+            "password": TEST_PASSWORD,
+            "role": role,
+            "tenant_slug": "bracu",
+        },
+    )
+    assert response.status_code == 400
+    assert "admin invitation" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_customer_can_self_register(async_client):
+    """BR-REG-1: customer role is allowed through self-registration."""
+    response = await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Normal Customer",
+            "email": "customer.ok@bracu.ac.bd",
+            "password": TEST_PASSWORD,
+            "role": "customer",
+            "tenant_slug": "bracu",
+        },
+    )
+    # 201 or 400-duplicate are both acceptable; 400 'admin invitation' is not
+    assert response.status_code != 400 or "admin invitation" not in response.json().get("detail", "")
+
+
+@pytest.mark.asyncio
+async def test_student_can_self_register(async_client):
+    """BR-REG-1: student role is allowed through self-registration."""
+    response = await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "full_name": "Normal Student",
+            "email": "student.ok@bracu.ac.bd",
+            "password": TEST_PASSWORD,
+            "role": "student",
+            "student_id": "22300001",
+            "tenant_slug": "bracu",
+        },
+    )
+    assert response.status_code != 400 or "admin invitation" not in response.json().get("detail", "")
