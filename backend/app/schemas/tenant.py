@@ -8,6 +8,29 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.tenant import SubscriptionTier, TenantType
 
 
+class TenantPublicResponse(BaseModel):
+    """Safe public fields — no billing, contact, or internal config exposed."""
+    name: str
+    slug: str
+    tenant_type: TenantType
+    logo_url: str | None
+    city: str | None
+    brand_color: str
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TenantPublicDetailResponse(TenantPublicResponse):
+    """Extends public response with domain restriction — needed by register page."""
+    allowed_email_domain: str | None
+
+
+class TenantPublicListResponse(BaseModel):
+    items: list[TenantPublicResponse]
+    total: int
+
+
 class TenantCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=150)
     slug: str = Field(..., min_length=2, max_length=80, pattern=r"^[a-z0-9-]+$")
@@ -52,6 +75,20 @@ class TenantUpdate(BaseModel):
     city: str | None = None
     phone: str | None = None
     contact_email: str | None = None
+    homemade_enabled: bool | None = None
+    inventory_strict_mode: bool | None = None
+
+
+class TenantSettingsUpdate(BaseModel):
+    """Self-service update for admin roles. slug / tenant_type / subscription_tier / is_active immutable."""
+    name: str | None = Field(default=None, min_length=2, max_length=150)
+    logo_url: str | None = None
+    brand_color: str | None = Field(default=None, max_length=7)
+    address: str | None = None
+    city: str | None = None
+    phone: str | None = None
+    contact_email: str | None = None
+    allowed_email_domain: str | None = None
     homemade_enabled: bool | None = None
     inventory_strict_mode: bool | None = None
 

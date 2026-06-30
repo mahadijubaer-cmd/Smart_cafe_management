@@ -1,6 +1,10 @@
-"""Tenant management — platform_admin only.
+"""Tenant management.
 
-Endpoints:
+Public endpoints (no auth):
+  GET    /tenants/public               list all active tenants
+  GET    /tenants/public/{slug}        single tenant public profile
+
+Platform-admin endpoints:
   GET    /tenants                       list all tenants
   POST   /tenants                       create a tenant
   GET    /tenants/{tenant_id}           get one tenant
@@ -10,21 +14,178 @@ Endpoints:
   GET    /tenants/{tenant_id}/outlets   list child outlets (franchise)
   POST   /tenants/{tenant_id}/outlets   create a franchise outlet under a brand
 """
+import json
+import os
+from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import require_role
+from app.core.dependencies import ADMIN_ROLES, get_tenant_context, require_role, TenantContext
+from app.core.redis import get_redis
 from app.models.tenant import Tenant, TenantType
-from app.models.user import UserRole
-from app.schemas.tenant import OutletCreate, TenantCreate, TenantListResponse, TenantResponse, TenantUpdate
+from app.models.user import User, UserRole
+from app.schemas.tenant import (
+    OutletCreate,
+    TenantCreate,
+    TenantListResponse,
+    TenantPublicDetailResponse,
+    TenantPublicListResponse,
+    TenantPublicResponse,
+    TenantResponse,
+    TenantSettingsUpdate,
+    TenantUpdate,
+)
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
 _admin_only = Depends(require_role(UserRole.platform_admin))
+
+_PUBLIC_LIST_KEY = "tenants:public:list"
+_PUBLIC_DETAIL_KEY = "tenants:public:{slug}"
+_PUBLIC_TTL = 300  # 5 minutes
+
+
+@router.get("/public", response_model=TenantPublicListResponse)
+async def list_public_tenants(
+    q: str | None = Query(default=None, description="Filter by name or city"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all active tenants. Results are cached 5 min when no search query."""
+    redis = await get_redis()
+
+    if not q:
+        cached = await redis.get(_PUBLIC_LIST_KEY)
+        if cached:
+            data = json.loads(cached)
+            return TenantPublicListResponse(**data)
+
+    stmt = select(Tenant).where(Tenant.is_active.is_(True))
+    if q:
+        term = f"%{q}%"
+        stmt = stmt.where(or_(Tenant.name.ilike(term), Tenant.city.ilike(term)))
+    stmt = stmt.order_by(Tenant.name)
+
+    result = await db.execute(stmt)
+    tenants = result.scalars().all()
+    items = [TenantPublicResponse.model_validate(t) for t in tenants]
+    response = TenantPublicListResponse(items=items, total=len(items))
+
+    if not q:
+        await redis.setex(_PUBLIC_LIST_KEY, _PUBLIC_TTL, response.model_dump_json())
+
+    return response
+
+
+@router.get("/public/{slug}", response_model=TenantPublicDetailResponse)
+async def get_public_tenant(slug: str, db: AsyncSession = Depends(get_db)):
+    """Return a single active tenant's public profile by slug."""
+    redis = await get_redis()
+    cache_key = _PUBLIC_DETAIL_KEY.format(slug=slug)
+
+    cached = await redis.get(cache_key)
+    if cached:
+        return TenantPublicDetailResponse(**json.loads(cached))
+
+    result = await db.execute(
+        select(Tenant).where(Tenant.slug == slug, Tenant.is_active.is_(True))
+    )
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    response = TenantPublicDetailResponse.model_validate(tenant)
+    await redis.setex(cache_key, _PUBLIC_TTL, response.model_dump_json())
+    return response
+
+
+_SETTINGS_ROLES = (UserRole.tenant_admin, UserRole.outlet_admin, UserRole.food_court_admin)
+_LOGO_ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp"}
+_LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+async def _invalidate_tenant_caches(redis, slug: str) -> None:
+    await redis.delete(_PUBLIC_LIST_KEY, _PUBLIC_DETAIL_KEY.format(slug=slug))
+
+
+@router.get("/me", response_model=TenantResponse)
+async def get_my_tenant(
+    ctx: TenantContext = Depends(get_tenant_context),
+    _: User = Depends(require_role(*_SETTINGS_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the full tenant record for the calling admin user's own organisation."""
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == ctx.tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return tenant
+
+
+@router.patch("/me/settings", response_model=TenantResponse)
+async def update_my_tenant_settings(
+    data: TenantSettingsUpdate,
+    ctx: TenantContext = Depends(get_tenant_context),
+    _: User = Depends(require_role(*_SETTINGS_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Self-service settings update for tenant admins."""
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == ctx.tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(tenant, field, value)
+
+    await db.commit()
+    await db.refresh(tenant)
+
+    redis = await get_redis()
+    await _invalidate_tenant_caches(redis, tenant.slug)
+
+    return tenant
+
+
+@router.post("/me/logo")
+async def upload_my_tenant_logo(
+    logo: UploadFile = File(...),
+    ctx: TenantContext = Depends(get_tenant_context),
+    _: User = Depends(require_role(*_SETTINGS_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a new logo for the calling admin's tenant."""
+    if logo.content_type not in _LOGO_ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid file type. Allowed: PNG, JPEG, WebP.")
+
+    contents = await logo.read()
+    if len(contents) > _LOGO_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 2 MB.")
+
+    ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+    ext = ext_map[logo.content_type]
+    logos_dir = Path(settings.MEDIA_ROOT) / "logos"
+    logos_dir.mkdir(parents=True, exist_ok=True)
+    file_path = logos_dir / f"{ctx.tenant_id}.{ext}"
+    file_path.write_bytes(contents)
+
+    logo_url = f"/media/logos/{ctx.tenant_id}.{ext}"
+
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == ctx.tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    tenant.logo_url = logo_url
+    await db.commit()
+
+    redis = await get_redis()
+    await _invalidate_tenant_caches(redis, tenant.slug)
+
+    return {"logo_url": logo_url}
 
 
 @router.get("", response_model=TenantListResponse, dependencies=[_admin_only])

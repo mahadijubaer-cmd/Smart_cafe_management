@@ -10,7 +10,18 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.redis import get_redis
 from app.models.models import User
+from app.models.user import UserRole
 from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
+
+# BR-REG-1: These roles may not self-register; they require an admin invitation.
+_SELF_REGISTER_BLOCKED = {
+    UserRole.staff,
+    UserRole.cleaner,
+    UserRole.outlet_admin,
+    UserRole.tenant_admin,
+    UserRole.platform_admin,
+    UserRole.food_court_admin,
+}
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -20,6 +31,10 @@ auth_service = AuthService()
 @router.post("/register", response_model=UserResponse, status_code=201)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user under the given tenant_slug."""
+    # BR-REG-1: Block privileged roles from self-registration
+    if user_data.role in _SELF_REGISTER_BLOCKED:
+        raise HTTPException(status_code=400, detail="This role requires an admin invitation.")
+
     # Resolve tenant
     tenant = await auth_service.get_tenant_by_slug(user_data.tenant_slug, db)
 

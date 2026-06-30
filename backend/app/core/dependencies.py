@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.redis import get_redis
-from app.models.tenant import TenantType
+from app.models.tenant import Tenant, TenantType
 from app.models.user import User, UserRole
 from app.services.auth_service import AuthService
 
@@ -97,6 +97,27 @@ def get_tenant_context(request: Request) -> TenantContext:
             headers={"WWW-Authenticate": "Bearer"},
         )
     return ctx
+
+
+async def accessible_tenant_ids(ctx: TenantContext, db: AsyncSession) -> set[UUID]:
+    """Return the set of tenant_ids the current context may read/write.
+
+    For food_court parents: includes all vendor tenant_ids (family scope).
+    For everything else: just {ctx.tenant_id}.
+    Vendor-private data (menu, inventory, revenue) must never be widened —
+    callers are responsible for restricting which resources use this scope.
+    """
+    if ctx.tenant_type == TenantType.food_court:
+        result = await db.execute(
+            select(Tenant.tenant_id).where(
+                Tenant.parent_tenant_id == ctx.tenant_id,
+                Tenant.tenant_type == TenantType.food_court_vendor,
+                Tenant.is_active.is_(True),
+            )
+        )
+        vendor_ids: set[UUID] = set(result.scalars().all())
+        return {ctx.tenant_id} | vendor_ids
+    return {ctx.tenant_id}
 
 
 def require_role(*allowed_roles: UserRole):

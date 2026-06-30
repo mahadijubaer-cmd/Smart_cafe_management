@@ -1,0 +1,313 @@
+# Module: Orders
+
+**Router:** `backend/app/routers/orders.py`  
+**Schemas:** `backend/app/schemas/order.py`  
+**Service:** `backend/app/services/order_service.py`  
+**Last verified:** 2026-06-30
+
+---
+
+## Overview
+
+Handles order placement, status progression, cancellation, and completion signalling. Orders are time-slotted, wallet-funded, and drive real-time WebSocket notifications. All monetary calculations are server-side.
+
+---
+
+## API Endpoints
+
+### `POST /api/v1/orders/`
+
+**Auth:** Required | **Roles:** `customer`, `student`
+
+**Request body:** `OrderCreate`
+
+| Field | Type | Required | Default | Constraint |
+|---|---|---|---|---|
+| `items` | list[OrderItemCreate] | Yes | — | `min_length=1` |
+| `items[].item_id` | UUID | Yes | — | Must exist in tenant |
+| `items[].quantity` | int | Yes | — | `gt=0` |
+| `table_id` | int \| null | No | null | SERIAL integer (not UUID) |
+| `time_slot` | datetime | Yes | — | Must be in the future (OR-1) |
+| `special_notes` | str \| null | No | null | — |
+| `redeem_points` | bool | No | `false` | See reward rules RWD-1 through RWD-4 |
+
+> Field is `special_notes` — NOT `notes`.
+
+**Business logic (executed in order):**
+1. Validate `time_slot` is in the future (OR-1)
+2. Validate all items exist and `is_available=TRUE` (OR-2)
+3. If `inventory_strict_mode=TRUE`: check stock for each recipe ingredient (OR-3)
+4. If `table_id` provided: acquire Redis lock `lock:order:{table_id}` NX 30s (OR-4)
+5. Calculate `total_amount` server-side: `Σ (price × quantity)` (OR-5)
+6. If `redeem_points=TRUE`: calculate and apply discount (RWD-1, RWD-2)
+7. Deduct `total_amount - discount_amount` from wallet (OR-6)
+8. Create `order` + `order_items` + `payment` records in one transaction
+9. Create `consumption` movements for each recipe ingredient
+10. After LOW_STOCK check: publish `LOW_STOCK` event if needed (INV-4)
+11. Release table lock
+12. Publish `ORDER_PLACED` WebSocket event to tenant channel
+
+**WebSocket event emitted:**
+```json
+{
+  "type": "ORDER_PLACED",
+  "order_id": "...",
+  "table_id": 5,
+  "total_amount": "240.00",
+  "time_slot": "2026-06-30T13:00:00Z"
+}
+```
+
+**Response `201`:** `OrderResponse`
+
+```json
+{
+  "order_id": "3fa85f64-...",
+  "user_id": "...",
+  "table_id": 5,
+  "time_slot": "2026-06-30T13:00:00Z",
+  "status": "pending",
+  "total_amount": "240.00",
+  "discount_amount": "0.00",
+  "payment_status": "paid",
+  "payment_method": "wallet",
+  "special_notes": "No spice",
+  "created_at": "...",
+  "updated_at": "...",
+  "items": [
+    {
+      "order_item_id": "...",
+      "item_id": "...",
+      "quantity": 2,
+      "unit_price": "120.00",
+      "subtotal": "240.00"
+    }
+  ]
+}
+```
+
+**Errors:** `400` unavailable item | `400` insufficient stock (strict mode) | `400` insufficient wallet balance | `409` table locked
+
+---
+
+### `GET /api/v1/orders/`
+
+**Auth:** Required | **Roles:** All authenticated
+
+**Query params:** `?status=pending`
+
+**Role-based scoping:**
+- `customer`, `student`: own orders only
+- `staff`, all admin roles: all orders for `ctx.tenant_id`
+
+**Response `200`:** `list[OrderResponse]` (newest first)
+
+---
+
+### `GET /api/v1/orders/{order_id}`
+
+**Auth:** Required | **Roles:** All authenticated
+
+**Scoping:** Customer gets `403` if order belongs to another user. Admin/staff see any in their tenant.
+
+**Response `200`:** `OrderResponse`
+
+**Errors:** `404` if not found or belongs to another tenant
+
+---
+
+### `PATCH /api/v1/orders/{order_id}/status`
+
+**Auth:** Required | **Roles:** Admin roles, `staff`
+
+**Request body:** `OrderUpdateStatus`
+
+| Field | Type | Required | Valid values |
+|---|---|---|---|
+| `status` | str | Yes | `confirmed \| preparing \| ready \| delivered \| cancelled` |
+
+**Status machine (OR-8):**
+
+```
+pending    → confirmed
+pending    → cancelled
+confirmed  → preparing
+confirmed  → cancelled
+preparing  → ready
+ready      → delivered
+```
+
+Any other transition: `400 "Invalid status transition from {current} to {new}"`
+
+**WebSocket events emitted by status:**
+
+| New status | Event published |
+|---|---|
+| `confirmed` | `ORDER_CONFIRMED` |
+| `preparing` | `ORDER_PREPARING` |
+| `ready` | `ORDER_READY` |
+| `delivered` | `ORDER_DELIVERED` |
+| `cancelled` | `ORDER_CANCELLED` |
+
+All events include `order_id` and `target_user_id` in the payload.
+
+**Response `200`:** `OrderResponse`
+
+---
+
+### `PATCH /api/v1/orders/{order_id}/complete`
+
+**Auth:** Required | **Roles:** `customer`, `student`
+
+Purpose: Customer signals they have finished eating — triggers automatic cleaner assignment server-side.
+
+**Rules:** Order must belong to the authenticated user.
+
+**Response `202`:** `{ "status": "processing" }`
+
+---
+
+### `DELETE /api/v1/orders/{order_id}`
+
+**Auth:** Required | **Roles:** `customer`, `student`
+
+**Rules:**
+- Order must belong to the authenticated user (OR-10)
+- Order `status` must be `pending` (OR-10)
+- Refunds full `total_amount` to wallet; creates positive `wallet_transaction` (OR-9)
+- Reverses reward points if they were redeemed (RWD-4)
+
+**Response `200`:** `{ "status": "cancelled", "order_id": "..." }`
+
+> Cancel is `DELETE /orders/{id}` — there is NO `POST /orders/{id}/cancel` endpoint.
+
+---
+
+## Pydantic Schemas
+
+### `OrderItemCreate` (nested)
+
+```python
+class OrderItemCreate(BaseModel):
+    item_id: UUID
+    quantity: int = Field(..., gt=0)
+```
+
+### `OrderCreate`
+
+```python
+class OrderCreate(BaseModel):
+    items: list[OrderItemCreate] = Field(..., min_length=1)
+    table_id: int | None = None
+    time_slot: datetime
+    special_notes: str | None = None
+    redeem_points: bool = False
+```
+
+### `OrderUpdateStatus`
+
+```python
+class OrderUpdateStatus(BaseModel):
+    status: OrderStatus    # pending|confirmed|preparing|ready|delivered|cancelled
+```
+
+### `OrderItemResponse` (nested)
+
+```python
+class OrderItemResponse(BaseModel):
+    order_item_id: UUID
+    item_id: UUID
+    quantity: int
+    unit_price: Decimal
+    subtotal: Decimal        # GENERATED column (quantity * unit_price)
+```
+
+### `OrderResponse`
+
+```python
+class OrderResponse(BaseModel):
+    order_id: UUID
+    user_id: UUID
+    table_id: int | None     # SERIAL integer, not UUID
+    time_slot: datetime
+    status: str
+    total_amount: Decimal
+    discount_amount: Decimal
+    payment_status: str      # pending|paid|refunded
+    payment_method: str | None
+    special_notes: str | None
+    created_at: datetime
+    updated_at: datetime
+    items: list[OrderItemResponse]
+```
+
+---
+
+## Business Rules
+
+### OR-1: Time Slot Must Be in the Future
+`time_slot` must be strictly in the future at placement time.  
+Error: `400 "Time slot must be in the future"`
+
+### OR-2: All Items Must Be Available
+Every item in the order must have `is_available=TRUE`.  
+Error: `400 "Item '{name}' is currently unavailable"`
+
+### OR-3: Strict Inventory Mode Blocks Insufficient Stock
+When `tenant.inventory_strict_mode=TRUE`:  
+For each recipe entry: `required = quantity_per_serving × order_quantity`  
+If `quantity_on_hand < required`: `400 "Insufficient stock for '{item_name}'"`  
+When `inventory_strict_mode=FALSE`: orders go through regardless; stock can temporarily go negative (deficit tracked in movement notes).
+
+### OR-4: Table Lock Prevents Double-Booking
+When `table_id` provided: acquire Redis lock `lock:order:{table_id}` with NX + 30s TTL.  
+If lock held: `409 "Table is currently being reserved. Please try again."`  
+Lock released after order transaction completes (success or failure).
+
+### OR-5: Total Amount Is Server-Calculated
+The server calculates `total_amount = Σ (menu_item.price × quantity)`.  
+Client must NOT send a total — it is ignored if sent.
+
+### OR-6: Wallet Deduction Is Atomic
+Wallet deduction and order creation happen in a single database transaction.  
+If `wallet_balance < (total_amount - discount_amount)`: `400 "Insufficient wallet balance"`  
+On failure: wallet NOT decremented.
+
+### OR-7: Price Snapshot
+`order_items.unit_price = menu_items.price` at placement time.  
+Subsequent price changes do not affect historical `order_items`.
+
+### OR-8: Status Transition Machine
+See status machine diagram above. Invalid transitions: `400 "Invalid status transition from {current} to {new}"`
+
+### OR-9: Cancellation Refunds Full Amount
+On order cancellation: `users.wallet_balance += order.total_amount`  
+A positive `wallet_transaction` is created. No new `payment` record.
+
+### OR-10: Customer Can Only Cancel Pending Orders
+A customer can cancel only their own orders when `status=pending`.  
+Admin roles can cancel any order in `pending` or `confirmed` status.
+
+---
+
+## Reward Points Rules
+
+### RWD-1: Points Accumulate on Every Successful Order
+After payment is processed (background task): `reward_points += floor(total_amount / 10)`  
+Example: ৳240 order → 24 points.
+
+### RWD-2: Redeeming Points for a Discount
+If `redeem_points=TRUE` and `user.reward_points >= 10`:
+- `discount = floor(reward_points / 10)` taka, capped at 20% of `total_amount`
+- `order.discount_amount = discount`
+- Wallet deduction uses `total_amount - discount_amount`
+- `user.reward_points` reset to 0
+
+If `reward_points < 10`: `400 "Insufficient reward points"`
+
+### RWD-3: Points Earned on Post-Discount Total
+Points are earned on the final `total_amount` after discount, not the pre-discount total.
+
+### RWD-4: Points Reversed on Cancellation
+When an order is cancelled: `reward_points -= floor(original_total / 10)`.  
+`reward_points` cannot go below 0.

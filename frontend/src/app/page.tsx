@@ -1,21 +1,35 @@
 'use client'
 
+import Link from 'next/link'
+import { useStore } from '@/store/useStore'
+
 export default function Home() {
+  const tenantSlug = useStore((state) => state.tenantSlug)
+  const hasHydrated = useStore((state) => state.hasHydrated)
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-primary">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold text-white mb-4">
-          Smart Cafe Management System
-        </h1>
-        <p className="text-xl text-gray-200 mb-8">
-          BRAC University CSE400 - Final Year Thesis
-        </p>
-        <a
-          href="/login"
-          className="inline-block px-8 py-3 bg-accent text-primary font-bold rounded-lg hover:bg-yellow-500 transition"
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[#1A4D2E] px-6 text-center text-white">
+      <h1 className="text-5xl font-black tracking-tight">Smart Cafe Management</h1>
+      <p className="mt-3 text-lg text-white/70">
+        BRAC University CSE400 — Final Year Thesis
+      </p>
+
+      <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+        {hasHydrated && tenantSlug ? (
+          <Link
+            href={`/${tenantSlug}/login`}
+            className="rounded-2xl bg-white px-8 py-3 font-semibold text-[#1A4D2E] transition hover:bg-white/90"
+          >
+            Continue to {tenantSlug}
+          </Link>
+        ) : null}
+
+        <Link
+          href="/discover"
+          className="rounded-2xl border border-white/30 px-8 py-3 font-semibold text-white transition hover:bg-white/10"
         >
-          Get Started
-        </a>
+          Find your organisation
+        </Link>
       </div>
     </main>
   )

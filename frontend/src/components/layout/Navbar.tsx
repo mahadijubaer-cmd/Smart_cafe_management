@@ -12,17 +12,8 @@ type NavItem = {
   href: string
 }
 
-const navItems: NavItem[] = [
-  { label: 'Menu', href: '/menu' },
-  { label: 'My Orders', href: '/order' },
-  { label: 'Track Order', href: '/track' },
-]
-
 function getInitials(fullName: string | null) {
-  if (!fullName) {
-    return 'U'
-  }
-
+  if (!fullName) return 'U'
   return fullName
     .split(/\s+/)
     .filter(Boolean)
@@ -50,6 +41,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const user = useStore((state) => state.user)
+  const tenantSlug = useStore((state) => state.tenantSlug)
   const walletBalance = useStore((state) => state.walletBalance)
   const cartCount = useStore((state) => state.cartCount)
   const toggleCart = useStore((state) => state.toggleCart)
@@ -58,6 +50,14 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [cartBounce, setCartBounce] = useState(false)
   const [previousCartCount, setPreviousCartCount] = useState(cartCount())
+
+  const slug = tenantSlug ?? ''
+
+  const navItems: NavItem[] = useMemo(() => [
+    { label: 'Menu', href: `/${slug}/menu` },
+    { label: 'My Orders', href: `/${slug}/order` },
+    { label: 'Track Order', href: `/${slug}/track` },
+  ], [slug])
 
   const itemCount = useMemo(() => cartCount(), [cartCount])
   const initials = getInitials(user?.full_name ?? null)
@@ -69,7 +69,6 @@ export default function Navbar() {
       setPreviousCartCount(itemCount)
       return () => window.clearTimeout(timeoutId)
     }
-
     setPreviousCartCount(itemCount)
     return undefined
   }, [itemCount, previousCartCount])
@@ -82,7 +81,7 @@ export default function Navbar() {
   const handleLogout = () => {
     setDropdownOpen(false)
     clearAuth()
-    router.push('/login')
+    router.push(slug ? `/${slug}/login` : '/login')
   }
 
   const activeRoute = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
@@ -101,10 +100,8 @@ export default function Navbar() {
               <Menu className="h-5 w-5" />
             </button>
 
-            <Link href="/menu" className="flex items-center gap-2 text-[#1A4D2E] transition hover:opacity-90">
-              <span className="text-2xl" aria-hidden="true">
-                🍽
-              </span>
+            <Link href={`/${slug}/menu`} className="flex items-center gap-2 text-[#1A4D2E] transition hover:opacity-90">
+              <span className="text-2xl" aria-hidden="true">🍽</span>
               <span className="text-lg font-bold tracking-tight sm:text-xl">BRACU Cafe</span>
             </Link>
           </div>
@@ -117,7 +114,7 @@ export default function Navbar() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
-              href="/wallet"
+              href={`/${slug}/wallet`}
               className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
             >
               ৳ {Number(walletBalance).toFixed(0)}
@@ -154,10 +151,10 @@ export default function Navbar() {
 
               {dropdownOpen ? (
                 <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-                  <Link href="/profile" className="block px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50">
+                  <Link href={`/${slug}/profile`} className="block px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50">
                     Profile
                   </Link>
-                  <Link href="/wallet" className="block px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50">
+                  <Link href={`/${slug}/wallet`} className="block px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50">
                     Wallet
                   </Link>
                   <button
@@ -192,9 +189,7 @@ export default function Navbar() {
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
             <div className="flex items-center gap-2 text-[#1A4D2E]">
-              <span className="text-2xl" aria-hidden="true">
-                🍽
-              </span>
+              <span className="text-2xl" aria-hidden="true">🍽</span>
               <span className="font-bold">BRACU Cafe</span>
             </div>
             <button
@@ -216,14 +211,14 @@ export default function Navbar() {
 
             <div className="space-y-2 border-t border-gray-100 pt-4">
               <Link
-                href="/wallet"
+                href={`/${slug}/wallet`}
                 onClick={() => setMobileOpen(false)}
                 className="block rounded-full px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
               >
                 Wallet
               </Link>
               <Link
-                href="/profile"
+                href={`/${slug}/profile`}
                 onClick={() => setMobileOpen(false)}
                 className="block rounded-full px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
@@ -243,20 +238,11 @@ export default function Navbar() {
 
       <style>{`
         @keyframes cart-badge-bounce {
-          0% {
-            transform: scale(0.7);
-          }
-          60% {
-            transform: scale(1.2);
-          }
-          100% {
-            transform: scale(1);
-          }
+          0% { transform: scale(0.7); }
+          60% { transform: scale(1.2); }
+          100% { transform: scale(1); }
         }
-
-        .cart-badge-bounce {
-          animation: cart-badge-bounce 260ms ease-out;
-        }
+        .cart-badge-bounce { animation: cart-badge-bounce 260ms ease-out; }
       `}</style>
     </>
   )
