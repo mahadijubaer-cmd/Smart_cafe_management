@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Menu, ShoppingCart, X } from 'lucide-react'
 
 import { useStore } from '@/store/useStore'
+import NotificationBell from '@/components/layout/NotificationBell'
 
 type NavItem = {
   label: string
@@ -119,6 +120,8 @@ export default function Navbar() {
             >
               ৳ {Number(walletBalance).toFixed(0)}
             </Link>
+
+            <NotificationBell />
 
             <button
               type="button"

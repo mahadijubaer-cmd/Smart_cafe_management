@@ -54,7 +54,7 @@ export function useWebSocket(
     const connect = () => {
       clearTimers()
 
-      const socket = new WebSocket(`${wsBaseUrl}/${userId}?token=${encodeURIComponent(token)}`)
+      const socket = new WebSocket(`${wsBaseUrl}/ws/${userId}?token=${encodeURIComponent(token)}`)
       wsRef.current = socket
 
       socket.onopen = () => {

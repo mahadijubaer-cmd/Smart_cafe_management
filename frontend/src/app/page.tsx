@@ -30,6 +30,13 @@ export default function Home() {
         >
           Find your organisation
         </Link>
+
+        <Link
+          href="/register-organization"
+          className="rounded-2xl border border-white/30 px-8 py-3 font-semibold text-white transition hover:bg-white/10"
+        >
+          Register your organisation
+        </Link>
       </div>
     </main>
   )

@@ -5,7 +5,7 @@
 This project follows a **spec-first** workflow. **`specs/` is the authoritative source of truth.**  
 Code must match the spec. **Write the spec before writing the code.**
 
-> `docs/` is legacy — all new spec work goes in `specs/`.
+> All spec work goes in `specs/`. There is no other spec directory.
 
 **Full workflow guide:** [`specs/WORKFLOW.md`](specs/WORKFLOW.md)  
 **Master index:** [`specs/README.md`](specs/README.md)
@@ -17,7 +17,7 @@ Code must match the spec. **Write the spec before writing the code.**
 ```bash
 # 1. Clone + set up environment
 cp .env.example .env
-# Edit .env with your values (see docs/spec/09-deployment.md)
+# Edit .env with your values (see specs/operations/deployment.md)
 
 # 2. Start services
 docker compose up -d
@@ -89,4 +89,3 @@ docker compose exec backend pytest -v
 | `specs/decisions/rfcs/` | Proposed and accepted feature specs |
 | `CHANGELOG.md` | Version history |
 | `CONTRIBUTING.md` | This file |
-| `docs/` | Legacy spec files — superseded by `specs/`, kept for reference |

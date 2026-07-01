@@ -150,6 +150,21 @@ assert await fake_redis.exists(key)
 | `test_verify_otp_wrong_purpose` | Purpose mismatch → 400 |
 | `test_rate_limit_login` | 11th request → 429 |
 
+### `test_org_registration.py` — 8 tests (RFC-006)
+
+Public organization onboarding via `POST /tenants/register`.
+
+| Test | Rule | Expected |
+|---|---|---|
+| Creates tenant + first admin | BR-ORG-4/5 | 201, role=`tenant_admin`, correct slug/type |
+| Returned token works on `/tenants/me` | BR-ORG-4 | 200, tier=`free`, active |
+| Duplicate slug rejected | BR-ORG-2 | 400 |
+| `food_court_vendor` type rejected | BR-ORG-1 | 400 |
+| `franchise_outlet` type rejected | BR-ORG-1 | 400 |
+| Weak password (8+ chars, no complexity) rejected | BR-ORG-6 | 400 |
+| `food_court` type → first admin is `food_court_admin` | BR-ORG-5 | 201, role=`food_court_admin` |
+| Created admin can log in via `/auth/login` | end-to-end | 200 |
+
 ### `test_orders.py`
 
 | Test | Description |
@@ -275,3 +290,4 @@ steps:
 | `consume` movement type → 422 | Wrong name — use `consumption` |
 | `table_id` must be int, got UUID | `table_id` is SERIAL INTEGER, not UUID |
 | `X-Tenant-Slug` header rejected | Middleware reads JWT, not header — remove header |
+| Whole suite fails at table creation on SQLite | Models use PG `UUID` + `uuid_generate_v4()` server-defaults. `conftest.py` needs the `@compiles(UUID, "sqlite")` hook (renders `CHAR(36)`) + `_strip_pg_only_server_defaults()` (drops PG-only defaults before `create_all`; Python-side `default=uuid.uuid4` still populates PKs) |

@@ -1,21 +1,12 @@
+import { getTenantTypeMeta } from '@/lib/tenantTypes'
 import type { TenantPublicDetailResponse } from '@/types'
-
-const TENANT_TYPE_LABELS: Record<string, string> = {
-  academic: 'University / Academic',
-  independent_restaurant: 'Restaurant',
-  corporate: 'Corporate Cafeteria',
-  food_court: 'Food Court',
-  food_court_vendor: 'Food Court Vendor',
-  franchise_brand: 'Franchise',
-  franchise_outlet: 'Franchise Outlet',
-}
 
 interface TenantWelcomeBannerProps {
   tenant: TenantPublicDetailResponse
 }
 
 export default function TenantWelcomeBanner({ tenant }: TenantWelcomeBannerProps) {
-  const typeLabel = TENANT_TYPE_LABELS[tenant.tenant_type] ?? tenant.tenant_type
+  const typeLabel = getTenantTypeMeta(tenant.tenant_type).label
 
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-white/20 bg-white/10 px-5 py-4 backdrop-blur-sm">

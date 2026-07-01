@@ -27,21 +27,43 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import ADMIN_ROLES, get_tenant_context, require_role, TenantContext
 from app.core.redis import get_redis
-from app.models.tenant import Tenant, TenantType
+from app.models.tenant import SubscriptionTier, Tenant, TenantType
 from app.models.user import User, UserRole
 from app.schemas.tenant import (
+    SELF_SERVE_TENANT_TYPES,
     OutletCreate,
     TenantCreate,
     TenantListResponse,
     TenantPublicDetailResponse,
     TenantPublicListResponse,
     TenantPublicResponse,
+    TenantRegister,
     TenantResponse,
     TenantSettingsUpdate,
     TenantUpdate,
 )
+from app.schemas.user import Token
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
+_auth_service = AuthService()
+
+
+def _validate_org_password(password: str) -> None:
+    """BR-ORG-6 — same complexity rule as password reset."""
+    import re
+
+    pattern = re.compile(
+        r'^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;\':",./<>?]).{8,}$'
+    )
+    if not pattern.match(password):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Password must be at least 8 characters and include an uppercase "
+                "letter, a digit, and a special character."
+            ),
+        )
 
 _admin_only = Depends(require_role(UserRole.platform_admin))
 
@@ -101,6 +123,91 @@ async def get_public_tenant(slug: str, db: AsyncSession = Depends(get_db)):
     response = TenantPublicDetailResponse.model_validate(tenant)
     await redis.setex(cache_key, _PUBLIC_TTL, response.model_dump_json())
     return response
+
+
+@router.post("/register", response_model=Token, status_code=201)
+async def register_organization(
+    data: TenantRegister,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public self-serve organization onboarding (RFC-006).
+
+    Creates a new tenant and its first admin user atomically, then returns a JWT
+    so the owner is logged straight into their new dashboard. See BR-ORG-1..7.
+    """
+    org = data.organization
+    admin = data.admin
+
+    # BR-ORG-1: only self-serve tenant types
+    if org.tenant_type not in SELF_SERVE_TENANT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"'{org.tenant_type.value}' cannot be self-registered. Outlets and food-court "
+                "vendors must be created under an existing parent organization."
+            ),
+        )
+
+    # BR-ORG-2: slug must be unique
+    existing = await db.execute(select(Tenant).where(Tenant.slug == org.slug))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Slug '{org.slug}' is already taken")
+
+    # BR-ORG-6: password complexity
+    _validate_org_password(admin.password)
+
+    # BR-ORG-5: role depends on tenant type
+    admin_role = (
+        UserRole.food_court_admin
+        if org.tenant_type == TenantType.food_court
+        else UserRole.tenant_admin
+    )
+
+    # BR-ORG-7: atomic — tenant + admin in one transaction
+    tenant = Tenant(
+        tenant_type=org.tenant_type,
+        name=org.name,
+        slug=org.slug,
+        brand_color=org.brand_color,
+        subscription_tier=SubscriptionTier.free,  # BR-ORG-4
+        is_active=True,
+        parent_tenant_id=None,
+        allowed_email_domain=org.allowed_email_domain,
+        city=org.city,
+        contact_email=str(org.contact_email) if org.contact_email else None,
+    )
+    db.add(tenant)
+    await db.flush()  # assign tenant_id without committing
+
+    admin_user = User(
+        tenant_id=tenant.tenant_id,
+        full_name=admin.full_name,
+        email=str(admin.email),
+        password_hash=_auth_service.hash_password(admin.password),
+        role=admin_role,
+        is_active=True,
+        email_verified=True,
+    )
+    db.add(admin_user)
+    await db.commit()
+    await db.refresh(tenant)
+    await db.refresh(admin_user)
+
+    # Invalidate the cached public tenant list so the new org shows up immediately
+    redis = await get_redis()
+    await redis.delete(_PUBLIC_LIST_KEY)
+
+    access_token = _auth_service.create_access_token(admin_user, tenant)
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=admin_user.user_id,
+        tenant_id=tenant.tenant_id,
+        tenant_type=tenant.tenant_type,
+        tenant_slug=tenant.slug,
+        outlet_id=None,
+        role=admin_user.role,
+    )
 
 
 _SETTINGS_ROLES = (UserRole.tenant_admin, UserRole.outlet_admin, UserRole.food_court_admin)

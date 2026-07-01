@@ -140,7 +140,9 @@ class OrderService:
         }
 
         result = await db.execute(
-            select(Order).where(Order.order_id == order_id, Order.tenant_id == tenant_id)
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.order_id == order_id, Order.tenant_id == tenant_id)
         )
         order = result.scalar_one_or_none()
         if not order:
@@ -156,8 +158,15 @@ class OrderService:
         order.status = new_status
         order.updated_at = datetime.utcnow()
         await db.commit()
-        await db.refresh(order)
-        return order
+
+        # Re-load with items eagerly so response serialization does not trigger
+        # a lazy load outside the async context (MissingGreenlet).
+        reloaded = await db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.order_id == order_id, Order.tenant_id == tenant_id)
+        )
+        return reloaded.scalar_one()
 
     async def complete_meal(
         self,

@@ -1,22 +1,14 @@
 import Link from 'next/link'
+import { getTenantTypeMeta } from '@/lib/tenantTypes'
 import type { TenantPublicResponse } from '@/types'
-
-const TENANT_TYPE_LABELS: Record<string, string> = {
-  academic: 'University',
-  independent_restaurant: 'Restaurant',
-  corporate: 'Corporate',
-  food_court: 'Food Court',
-  food_court_vendor: 'Vendor',
-  franchise_brand: 'Franchise',
-  franchise_outlet: 'Outlet',
-}
 
 interface TenantCardProps {
   tenant: TenantPublicResponse
 }
 
 export default function TenantCard({ tenant }: TenantCardProps) {
-  const typeLabel = TENANT_TYPE_LABELS[tenant.tenant_type] ?? tenant.tenant_type
+  const meta = getTenantTypeMeta(tenant.tenant_type)
+  const typeLabel = meta.label
 
   return (
     <Link
@@ -46,9 +38,12 @@ export default function TenantCard({ tenant }: TenantCardProps) {
           {tenant.city && <p className="text-xs text-slate-500">{tenant.city}</p>}
         </div>
       </div>
-      <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-        {typeLabel}
-      </span>
+      <div className="mt-auto space-y-2">
+        <span className="inline-flex w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          {typeLabel}
+        </span>
+        <p className="text-xs leading-snug text-slate-500">{meta.description}</p>
+      </div>
     </Link>
   )
 }

@@ -9,6 +9,88 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — Admin "Manage Users" page was calling nonexistent backend endpoints (2026-07-02)
+
+Found during a documentation-vs-code verification pass: the admin "Users" sidebar page called `GET /users` and `PATCH /users/{id}/toggle`, but no backend router registered either route — every admin got a silent "Unable to load users" failure. The "Invite Staff" page (which did work) also had no link from anywhere in the admin UI, and its sent-invitations list was tracked only in frontend session state, so it reset on every page refresh.
+
+#### Backend
+- **`routers/users.py`** — NEW: `GET /api/v1/users` (list users scoped to caller's tenant, admin roles only) and `PATCH /api/v1/users/{user_id}/toggle` (flip `is_active`; 404 if user belongs to a different tenant; 400 if an admin tries to toggle their own account).
+- **`routers/invitations.py`** — Added `GET /api/v1/users/invite` (list invitations sent for the caller's tenant, admin roles only) so sent invitations persist instead of living only in frontend session state.
+- **`main.py`** — Registered the new `users` router.
+
+#### Frontend
+- **`(admin)/users/page.tsx`** — `RoleBadge` and the role-filter dropdown now cover the full current `UserRole` set (previously only recognized the legacy `student | staff | cleaner | admin` roles). Added an "Invite Staff" header button linking to `users/invite` (only rendered when a `tenant_slug` route param is present).
+- **`[tenant_slug]/(admin)/users/invite/page.tsx`** — Sent-invitations table now loads from `GET /users/invite` on mount and after every send/resend, instead of only holding invites sent during the current session. Added a "← Back to Users" link.
+
+#### Tests
+- **`tests/test_users_admin.py`** — NEW: 7 tests — tenant-scoped listing, customer role forbidden (403), toggle flips `is_active`, self-toggle blocked (400), cross-tenant toggle returns 404 (not leaked), invite list persists and is tenant-scoped.
+
+#### Spec (canonical — `specs/`)
+- **`specs/modules/users.md`** — Rewrote to match the actual implementation: single `PATCH /{user_id}/toggle` (not separate activate/deactivate routes), documented `GET /users`, documented `GET /users/invite`, corrected the invitable-roles list to include `outlet_admin`.
+- **`specs/frontend/overview.md`** — Added `users/page.tsx` and `users/invite/page.tsx` to the routing tree with the fix notes.
+
+### RFC-006 — Public Organization Registration / Tenant Onboarding (2026-07-01)
+
+#### Backend
+- **`POST /api/v1/tenants/register`** — NEW public endpoint: creates a new organization (tenant) and its first admin user in one atomic transaction, then returns a `Token` (auto-login). Enforces BR-ORG-1..7: self-serve tenant types only (`independent_restaurant`, `corporate`, `academic`, `franchise_brand`, `food_court`), unique slug, password complexity, `food_court` → first admin is `food_court_admin` else `tenant_admin`, new tenant defaults (`free` tier, active, no parent).
+- **`schemas/tenant.py`** — Added `OrgRegisterDetails`, `OrgRegisterAdmin`, `TenantRegister`, and the `SELF_SERVE_TENANT_TYPES` constant.
+
+#### Frontend
+- **`register-organization/page.tsx`** — NEW: 3-step onboarding wizard (choose category → organisation details → admin account). Auto-suggests a URL slug from the org name; auto-logs-in on success and redirects to `/{slug}/dashboard`.
+- **`components/auth/OrgCategorySelector.tsx`** — NEW: radio grid of the 5 self-serve tenant types with generic labels + descriptions (from `lib/tenantTypes.ts`).
+- **`page.tsx`, `[tenant_slug]/(auth)/register/page.tsx`** — Added "Register your organisation" entry links.
+
+#### Tests
+- **`tests/test_org_registration.py`** — NEW: 8 tests covering all BR-ORG rules and end-to-end login.
+- **`tests/conftest.py`** — Added a `@compiles(UUID, "sqlite")` hook and `_strip_pg_only_server_defaults()` so the PostgreSQL-typed models can be created on the in-memory SQLite test DB (previously broke the entire suite in the Python 3.11 Docker image).
+
+#### Spec (canonical — `specs/`)
+- **`specs/decisions/rfcs/RFC-006-organization-registration.md`** — NEW design doc (Status: Implemented).
+- **`specs/modules/tenants.md`** — Documented `POST /tenants/register` endpoint, the `TenantRegister` / `OrgRegisterDetails` / `OrgRegisterAdmin` schemas, and business rules BR-ORG-1..7.
+- **`specs/modules/auth.md`** — Added a note distinguishing org registration (`POST /tenants/register`) from user registration (`POST /auth/register`).
+- **`specs/frontend/workflows.md`** — Added WF-10 Organization Registration.
+- **`specs/frontend/overview.md`** — Added `register-organization/` to the routing tree.
+- **`specs/operations/testing.md`** — Documented `test_org_registration.py` + the SQLite/UUID conftest note.
+
+### Phase 17 — Admin Analytics Dashboard (2026-07-01)
+
+#### Frontend
+- **`(admin)/analytics/page.tsx`** — NEW: Full analytics dashboard with period selector (Today / This Week / This Month). Fetches summary, hourly heatmap, top-items, revenue trend, outlet comparison, and inventory value in parallel using `Promise.allSettled`. Outlet comparison row is hidden unless role is `super_admin` or `platform_admin`.
+- **`components/admin/HourlyHeatmap.tsx`** — NEW: 24-column bar strip (hour 0–23). Sparse API data is expanded to all 24 hours with 0-fill. Color scale: gray → amber → orange → rose. Tooltip on hover.
+- **`components/admin/TopItemsChart.tsx`** — NEW: Horizontal `recharts` BarChart of top 10 items by quantity. Bar color uses `--color-primary` CSS variable. Custom tooltip shows quantity + revenue.
+- **`components/admin/OutletComparisonTable.tsx`** — NEW: Sortable table (Outlet / Orders / Revenue / Customers) with totals row. Defaults to revenue descending. Only rendered for `super_admin`.
+- **`(admin)/layout.tsx`** — Renamed "Analytics" nav item (was pointing to `/reports`) → now points to `/analytics`. Old reports page moved to "Reports" nav item with `Download` icon.
+- **`(admin)/dashboard/page.tsx`** — Added "View full analytics →" `Link` in Sales Trend card header.
+
+#### Spec
+- **`specs/modules/analytics.md`** — Documented period selector mapping, role-adaptive widget table.
+- **`specs/frontend/overview.md`** — Added `analytics/page.tsx` to routing tree.
+
+### Phase 16 — Admin Tables Page + Floor Plan Editor (2026-07-01)
+
+#### Backend
+- **`POST /api/v1/tables/`** — Create a new table (was missing from router despite being in spec).
+- **`PUT /api/v1/tables/{table_id}`** — Full metadata update (table_number, zone, capacity, position_x/y). Validates position bounds (TR-2) via Pydantic `Field(ge=0, le=11/7)`.
+- **`PATCH /api/v1/tables/layout`** — Batch layout save: validates cross-tenant ownership (403), duplicate `(position_x, position_y)` in batch (TR-3, 400), updates all rows in a single transaction.
+- **`DELETE /api/v1/tables/{table_id}`** — Delete table with TR-1 guard: rejects with 400 if any order with status in `(pending, confirmed, preparing, ready)` references the table.
+- **`schemas/table.py`** — Added `TableCreate`, `TableUpdate`, `TableLayoutItem`, `TableLayoutBatch`.
+- **`config/email.py`** — Made `ConnectionConfig` lazy-initialized to fix module-load failure when `MAIL_FROM` is a `.local` domain in test environments.
+
+#### Frontend
+- **`(admin)/tables/page.tsx`** — NEW: Tables management page with `live` / `editor` toggle. Live mode shows zone-filtered color-coded table grid with click-to-detail; editor mode shows `FloorPlanEditor`.
+- **`components/admin/FloorPlanEditor.tsx`** — NEW: 12×8 CSS grid with `@dnd-kit` drag-and-drop. Draggable table cards snap to grid cells. Per-table popover for inline edit (table_number, zone, capacity) and delete with confirmation. "+ Add Table" creates a table at the first empty cell.
+- **`components/admin/TableDetailPanel.tsx`** — NEW: Slide-over panel showing table status (with dropdown to change), details (zone, capacity, position), and actions (Assign Cleaner, Edit in Layout).
+- **`components/admin/ZoneFilter.tsx`** — NEW: Horizontal scrollable tab strip for zone filtering.
+- **`hooks/useTableLayout.ts`** — NEW: State hook managing position/meta edits, dirty tracking, save (`PATCH /tables/layout`), and reset.
+- **`(admin)/layout.tsx`** — Added "Tables" nav item with `Table2` icon (between Orders and Inventory).
+- **`frontend/package.json`** — Added `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`.
+
+#### WebSocket
+- Live mode reacts to `TABLE_UPDATE` events from the WebSocket store to update table status in real-time without polling.
+
+#### Tests
+- **`tests/test_tables_admin.py`** — NEW: 9 tests covering all new endpoints and business rules (TR-1, TR-2, TR-3, cross-tenant isolation).
+
 ### Phase 15 — Admin Settings + Tenant Customization (2026-06-30)
 
 #### Backend

@@ -255,7 +255,7 @@ export default function StudentWalletPage() {
   const loadingState = profileLoading || historyLoading
 
   return (
-    <ProtectedRoute allowedRoles={['student']}>
+    <ProtectedRoute allowedRoles={['student', 'customer']}>
       <main className="min-h-screen bg-[linear-gradient(180deg,#f1ede4_0%,#ffffff_38%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-start justify-between gap-4">

@@ -57,6 +57,8 @@ Handles user registration, login, logout, profile retrieval, and OTP-based email
 
 **Current behaviour:** User is active immediately. The frontend calls `POST /otp/send` + `POST /otp/verify` separately to set `email_verified=TRUE`. Phase 19 will switch to `is_active=FALSE` until OTP.
 
+> **Not to be confused with organization registration.** `POST /auth/register` registers a *user* under an *existing* tenant. To onboard a *new organization* (tenant) + its first admin in one public flow, see `POST /tenants/register` in `modules/tenants.md` (RFC-006, BR-ORG-1…7).
+
 ---
 
 ### `POST /api/v1/auth/login`
