@@ -326,6 +326,42 @@ Planned flow:
 
 ---
 
+## WF-10: Organization Registration (Tenant Onboarding) ✅ [RFC-006]
+
+**Actor:** An owner/manager who wants to put their organization on the platform.
+
+```
+Step 0 — Entry
+  From landing page / customer login / customer register:
+  click "Register your organization" → /register-organization
+
+Step 1 — Choose category
+  Radio grid of self-serve tenant types (generic label + description):
+    Independent Restaurant · Corporate Cafeteria · Academic Cafeteria ·
+    Franchise Brand · Food Court
+  (franchise_outlet / food_court_vendor are NOT offered — BR-ORG-1)
+  → Continue
+
+Step 2 — Organization details
+  name (slug auto-suggested from name, editable),
+  city, contact email, brand colour,
+  optional allowed_email_domain (academic/corporate)
+  → Continue
+
+Step 3 — Admin account
+  first admin: full_name, email, password (BR-ORG-6 complexity)
+  → POST /tenants/register { organization {...}, admin {...} }
+
+Step 4 — Success (auto-login)
+  Backend creates tenant + first admin (tenant_admin, or food_court_admin
+  for a food court) atomically and returns a JWT (BR-ORG-4/5/7).
+  Store token → redirect to /{slug}/dashboard.
+```
+
+Components: `app/register-organization/page.tsx` (3-step wizard), `components/auth/OrgCategorySelector.tsx` (self-serve type radio grid), reusing `lib/tenantTypes.ts` for labels/descriptions.
+
+---
+
 ## WebSocket Connection Pattern (Frontend)
 
 ```typescript

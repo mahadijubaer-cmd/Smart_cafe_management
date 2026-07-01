@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ShieldCheck, ShieldOff, Search } from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { ShieldCheck, ShieldOff, Search, UserPlus } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import apiClient from '@/lib/api'
-import type { User } from '@/types'
+import type { User, UserRole } from '@/types'
 import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 20
@@ -25,18 +27,27 @@ function formatDate(dateValue: string) {
   })
 }
 
-function RoleBadge({ role }: { role: AdminUser['role'] }) {
-  const styleMap: Record<AdminUser['role'], string> = {
-    student: 'bg-sky-100 text-sky-700',
-    staff: 'bg-amber-100 text-amber-700',
-    cleaner: 'bg-emerald-100 text-emerald-700',
-    admin: 'bg-slate-200 text-slate-800',
-  }
+const ROLE_STYLES: Record<UserRole, string> = {
+  customer: 'bg-sky-100 text-sky-700',
+  student: 'bg-sky-100 text-sky-700', // legacy alias
+  staff: 'bg-amber-100 text-amber-700',
+  server: 'bg-amber-100 text-amber-700',
+  cleaner: 'bg-emerald-100 text-emerald-700',
+  admin: 'bg-slate-200 text-slate-800', // legacy alias
+  outlet_admin: 'bg-slate-200 text-slate-800',
+  tenant_admin: 'bg-slate-200 text-slate-800',
+  super_admin: 'bg-violet-100 text-violet-700',
+  food_court_admin: 'bg-violet-100 text-violet-700',
+  platform_admin: 'bg-rose-100 text-rose-700',
+}
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] ${styleMap[role]}`}>{role}</span>
+function RoleBadge({ role }: { role: AdminUser['role'] }) {
+  const style = ROLE_STYLES[role] ?? 'bg-slate-100 text-slate-600'
+  return <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] ${style}`}>{role}</span>
 }
 
 export default function AdminUsersPage() {
+  const params = useParams<{ tenant_slug: string }>()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -111,14 +122,25 @@ export default function AdminUsersPage() {
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
-            User Management
-          </p>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Manage users</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-            Search by name or email, filter by role, and toggle account status.
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+              User Management
+            </p>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Manage users</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
+              Search by name or email, filter by role, and toggle account status.
+            </p>
+          </div>
+          {params.tenant_slug && (
+            <Link
+              href={`/${params.tenant_slug}/users/invite`}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            >
+              <UserPlus className="h-4 w-4" />
+              Invite Staff
+            </Link>
+          )}
         </div>
 
         <Card className="border-black/10 bg-white/90 shadow-sm">
@@ -140,10 +162,14 @@ export default function AdminUsersPage() {
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="all">All roles</option>
-                <option value="student">Student</option>
+                <option value="customer">Customer</option>
                 <option value="staff">Staff</option>
+                <option value="server">Server</option>
                 <option value="cleaner">Cleaner</option>
-                <option value="admin">Admin</option>
+                <option value="outlet_admin">Outlet Admin</option>
+                <option value="tenant_admin">Tenant Admin</option>
+                <option value="food_court_admin">Food Court Admin</option>
+                <option value="super_admin">Super Admin</option>
               </select>
             </div>
 

@@ -100,7 +100,7 @@ export default function TenantLoginPage() {
 
       if (isAdminRole(role)) {
         // Trigger OTP 2FA for admin roles
-        await apiClient.post('/otp/send', { email: values.email, purpose: 'login' })
+        await apiClient.post('/otp/send', { email: values.email, purpose: 'login', tenant_slug: slug })
         setPendingToken(accessToken)
         setPendingEmail(values.email)
         setStep('otp')
@@ -125,7 +125,8 @@ export default function TenantLoginPage() {
       await apiClient.post('/otp/verify', {
         email: pendingEmail,
         purpose: 'login',
-        code,
+        otp_code: code,
+        tenant_slug: slug,
       })
       hydrateAndRedirect(pendingToken)
     } catch {
@@ -136,7 +137,7 @@ export default function TenantLoginPage() {
 
   const handleResend = async () => {
     try {
-      await apiClient.post('/otp/send', { email: pendingEmail, purpose: 'login' })
+      await apiClient.post('/otp/send', { email: pendingEmail, purpose: 'login', tenant_slug: slug })
       toast.success('New code sent.')
     } catch {
       toast.error('Failed to resend code.')
@@ -175,7 +176,15 @@ export default function TenantLoginPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Password</Label>
+                        <a
+                          href={`/${slug}/forgot-password`}
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          Forgot password?
+                        </a>
+                      </div>
                       <Input id="password" type="password" placeholder="••••••••" {...register('password')} />
                       {errors.password ? <p className="text-sm text-red-600">{errors.password.message}</p> : null}
                     </div>

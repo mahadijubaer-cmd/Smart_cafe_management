@@ -31,6 +31,8 @@
 ```
 src/app/
   page.tsx                           → Redirects to /{defaultSlug}/login
+  register-organization/page.tsx     → ✅ [RFC-006] Public org onboarding wizard
+                                        (choose category → org details → admin account → auto-login)
   
   [tenant_slug]/                     → Tenant-scoped routes
     layout.tsx                       → Loads tenant context from JWT
@@ -54,6 +56,12 @@ src/app/
     
     (admin)/                         → Admin roles
       dashboard/page.tsx             → Summary cards + charts
+      users/page.tsx                 → ✅ Manage users: search/filter/paginate,
+                                        activate/deactivate (fixed 2026-07-02 — see modules/users.md);
+                                        header links to users/invite/
+      users/invite/page.tsx          → ✅ Invite Staff: send by email+role, sent-invitations
+                                        table now loads from GET /users/invite (persists across
+                                        refresh — fixed 2026-07-02); "← Back to Users" link
       inventory/
         page.tsx                     → Item list
         items/page.tsx               → — 

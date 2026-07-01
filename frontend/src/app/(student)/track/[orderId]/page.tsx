@@ -331,7 +331,7 @@ export default function StudentTrackOrderPage() {
   const itemsSubtotal = (order?.items || []).reduce((sum, item) => sum + Number(item.subtotal ?? Number(item.unit_price) * item.quantity), 0)
 
   return (
-    <ProtectedRoute allowedRoles={['student']}>
+    <ProtectedRoute allowedRoles={['student', 'customer']}>
       <main className="min-h-screen bg-[linear-gradient(180deg,#f5f0e8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
           <div className="flex items-start justify-between gap-4">

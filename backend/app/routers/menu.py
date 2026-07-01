@@ -14,10 +14,11 @@ Franchise rules (Phase 8):
   tenant_admin / food_court_admin / platform_admin:
     - Full control within their tenant_id (no outlet scoping)
 """
+from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -33,7 +34,8 @@ from app.models.menu import Category, MenuItem
 from app.models.models import Order, OrderItem
 from app.models.tenant import Tenant, TenantType
 from app.models.user import User, UserRole
-from app.schemas.menu import CategoryResponse, MenuItemCreate, MenuItemResponse, MenuItemUpdate
+from app.core.config import settings
+from app.schemas.menu import CategoryResponse, MenuItemCreate, MenuItemPatch, MenuItemResponse, MenuItemUpdate
 from app.services import menu_service
 
 router = APIRouter(prefix="/menu", tags=["menu"])
@@ -122,6 +124,60 @@ async def create_category(
     await db.refresh(cat)
     await menu_service.invalidate_menu_cache(ctx.tenant_id)
     return cat
+
+
+@router.put("/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(
+    category_id: int,
+    name: str,
+    display_order: int = 0,
+    ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    result = await db.execute(
+        select(Category).where(
+            Category.category_id == category_id,
+            Category.tenant_id == ctx.tenant_id,
+        )
+    )
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    cat.name = name
+    cat.display_order = display_order
+    await db.commit()
+    await db.refresh(cat)
+    await menu_service.invalidate_menu_cache(ctx.tenant_id)
+    return cat
+
+
+@router.delete("/categories/{category_id}", status_code=204)
+async def delete_category(
+    category_id: int,
+    ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    result = await db.execute(
+        select(Category).where(
+            Category.category_id == category_id,
+            Category.tenant_id == ctx.tenant_id,
+        )
+    )
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    item_count_result = await db.execute(
+        select(func.count(MenuItem.item_id)).where(MenuItem.category_id == category_id)
+    )
+    if item_count_result.scalar_one() > 0:
+        raise HTTPException(status_code=400, detail="Category has items — move or delete items first")
+
+    await db.delete(cat)
+    await db.commit()
+    await menu_service.invalidate_menu_cache(ctx.tenant_id)
 
 
 # ─────────────────────────────────────────────
@@ -325,3 +381,74 @@ async def delete_menu_item(
     await db.delete(item)
     await db.commit()
     await menu_service.invalidate_menu_cache(ctx.tenant_id)
+
+
+@router.patch("/items/{item_id}", response_model=MenuItemResponse)
+async def patch_menu_item(
+    item_id: UUID,
+    item_data: MenuItemPatch,
+    ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    query = (await _menu_items_query(ctx, db)).where(MenuItem.item_id == item_id)
+    result = await db.execute(query)
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if current_user.role == UserRole.outlet_admin:
+        if item.outlet_id != ctx.outlet_id:
+            raise HTTPException(status_code=403, detail="outlet_admin can only update outlet-specific items")
+    elif current_user.role == UserRole.super_admin:
+        if item.outlet_id is not None:
+            raise HTTPException(status_code=403, detail="super_admin can only update brand-level items")
+
+    for key, value in item_data.model_dump(exclude_unset=True).items():
+        setattr(item, key, value)
+    await db.commit()
+    await db.refresh(item)
+    await menu_service.invalidate_menu_cache(ctx.tenant_id)
+    return item
+
+
+_IMAGE_ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp"}
+_IMAGE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+_IMAGE_EXT_MAP = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+
+
+@router.post("/items/{item_id}/image")
+async def upload_item_image(
+    item_id: UUID,
+    image: UploadFile = File(...),
+    ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_role(*ADMIN_ROLES)),
+):
+    if image.content_type not in _IMAGE_ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Only PNG, JPEG, and WebP images are accepted")
+
+    contents = await image.read()
+    if len(contents) > _IMAGE_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="Image must be ≤ 5 MB")
+
+    result = await db.execute(
+        select(MenuItem).where(
+            MenuItem.item_id == item_id,
+            MenuItem.tenant_id == ctx.tenant_id,
+        )
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    ext = _IMAGE_EXT_MAP[image.content_type]
+    menu_dir = Path(settings.MEDIA_ROOT) / "menu"
+    menu_dir.mkdir(parents=True, exist_ok=True)
+    file_path = menu_dir / f"{item_id}.{ext}"
+    file_path.write_bytes(contents)
+
+    image_url = f"/media/menu/{item_id}.{ext}"
+    item.image_url = image_url
+    await db.commit()
+    return {"image_url": image_url}

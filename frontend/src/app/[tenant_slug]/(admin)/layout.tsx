@@ -6,12 +6,15 @@ import { useParams, usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
   Box,
+  Download,
   FileText,
   LayoutDashboard,
   Menu,
   Settings,
   ShoppingBag,
+  Table2,
   Users,
+  UtensilsCrossed,
   Warehouse,
   X,
 } from 'lucide-react'
@@ -29,6 +32,8 @@ type NavItem = {
 const NAV_DEFS: NavItem[] = [
   { label: 'Dashboard', path: 'dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: 'Orders', path: 'orders', icon: <ShoppingBag className="h-4 w-4" /> },
+  { label: 'Tables', path: 'tables', icon: <Table2 className="h-4 w-4" /> },
+  { label: 'Menu', path: 'menu', icon: <UtensilsCrossed className="h-4 w-4" /> },
   { label: 'Inventory', path: 'inventory', icon: <Box className="h-4 w-4" /> },
   {
     label: 'Central Inventory',
@@ -37,7 +42,8 @@ const NAV_DEFS: NavItem[] = [
     allowedTypes: ['franchise_brand'],
   },
   { label: 'Users', path: 'users', icon: <Users className="h-4 w-4" /> },
-  { label: 'Analytics', path: 'reports', icon: <BarChart3 className="h-4 w-4" /> },
+  { label: 'Analytics', path: 'analytics', icon: <BarChart3 className="h-4 w-4" /> },
+  { label: 'Reports', path: 'reports', icon: <Download className="h-4 w-4" /> },
   { label: 'Memo', path: 'memo', icon: <FileText className="h-4 w-4" /> },
   { label: 'Settings', path: 'settings', icon: <Settings className="h-4 w-4" /> },
 ]

@@ -3,9 +3,20 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.tenant import SubscriptionTier, TenantType
+
+
+# Tenant types an owner may create via public self-serve signup (RFC-006, BR-ORG-1).
+# franchise_outlet / food_court_vendor are excluded — they require a parent_tenant_id.
+SELF_SERVE_TENANT_TYPES: set[TenantType] = {
+    TenantType.independent_restaurant,
+    TenantType.corporate,
+    TenantType.academic,
+    TenantType.franchise_brand,
+    TenantType.food_court,
+}
 
 
 class TenantPublicResponse(BaseModel):
@@ -46,6 +57,30 @@ class TenantCreate(BaseModel):
     contact_email: str | None = None
     homemade_enabled: bool = False
     inventory_strict_mode: bool = False
+
+
+class OrgRegisterDetails(BaseModel):
+    """Organization fields for public self-serve signup (RFC-006)."""
+    name: str = Field(..., min_length=2, max_length=150)
+    slug: str = Field(..., min_length=2, max_length=80, pattern=r"^[a-z0-9-]+$")
+    tenant_type: TenantType
+    city: str | None = Field(default=None, max_length=100)
+    contact_email: EmailStr | None = None
+    brand_color: str = Field(default="#1A4D2E", max_length=7)
+    allowed_email_domain: str | None = Field(default=None, max_length=150)
+
+
+class OrgRegisterAdmin(BaseModel):
+    """First-admin account for a self-registered organization (RFC-006)."""
+    full_name: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class TenantRegister(BaseModel):
+    """Public organization onboarding — creates a tenant + its first admin (RFC-006)."""
+    organization: OrgRegisterDetails
+    admin: OrgRegisterAdmin
 
 
 class OutletCreate(BaseModel):

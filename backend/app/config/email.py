@@ -12,18 +12,25 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_mail_config = ConnectionConfig(
-    MAIL_USERNAME=settings.MAIL_USERNAME,
-    MAIL_PASSWORD=settings.MAIL_PASSWORD,
-    MAIL_FROM=settings.MAIL_FROM,
-    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-    MAIL_PORT=settings.MAIL_PORT,
-    MAIL_SERVER=settings.MAIL_SERVER,
-    MAIL_STARTTLS=settings.MAIL_STARTTLS,
-    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
-)
+_mail_config: "ConnectionConfig | None" = None
+
+
+def _get_mail_config() -> "ConnectionConfig":
+    global _mail_config
+    if _mail_config is None:
+        _mail_config = ConnectionConfig(
+            MAIL_USERNAME=settings.MAIL_USERNAME,
+            MAIL_PASSWORD=settings.MAIL_PASSWORD,
+            MAIL_FROM=settings.MAIL_FROM,
+            MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
+            MAIL_PORT=settings.MAIL_PORT,
+            MAIL_SERVER=settings.MAIL_SERVER,
+            MAIL_STARTTLS=settings.MAIL_STARTTLS,
+            MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+            USE_CREDENTIALS=True,
+            VALIDATE_CERTS=True,
+        )
+    return _mail_config
 
 _PURPOSE_LABELS = {
     "email_verification": "email verification",
@@ -57,6 +64,31 @@ async def send_otp_email(to_email: str, otp_code: str, purpose: str) -> None:
         body=body,
         subtype=MessageType.plain,
     )
-    fm = FastMail(_mail_config)
+    fm = FastMail(_get_mail_config())
     await fm.send_message(message)
     logger.info("OTP email sent to %s (purpose=%s)", to_email, purpose)
+
+
+async def send_invite_email(to_email: str, invite_link: str, role: str, org_name: str) -> None:
+    """Send a staff invitation email with the accept link."""
+    if not settings.mail_enabled:
+        logger.warning("[DEV — no SMTP] Invite for %s (%s): %s", to_email, role, invite_link)
+        return
+
+    body = (
+        f"Hello,\n\n"
+        f"You have been invited to join {org_name} as {role}.\n\n"
+        f"Click the link below to accept your invitation and create your account:\n\n"
+        f"    {invite_link}\n\n"
+        f"This invitation expires in 48 hours. If you did not expect this, you can ignore it.\n\n"
+        f"— {settings.MAIL_FROM_NAME}"
+    )
+    message = MessageSchema(
+        subject=f"You've been invited to join {org_name}",
+        recipients=[to_email],
+        body=body,
+        subtype=MessageType.plain,
+    )
+    fm = FastMail(_get_mail_config())
+    await fm.send_message(message)
+    logger.info("Invite email sent to %s (role=%s)", to_email, role)

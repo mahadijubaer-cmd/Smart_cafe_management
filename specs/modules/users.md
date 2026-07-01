@@ -1,28 +1,30 @@
 # Module: Users
 
-**Router:** Inline in `auth.py` and planned `users.py`  
+**Routers:** `backend/app/routers/users.py` (directory + activation), `backend/app/routers/invitations.py` (invite flow)  
 **Schemas:** `backend/app/schemas/user.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-02
 
 ---
 
 ## Overview
 
-User management within a tenant. Admins can list, activate, and deactivate users. Self-registration and profile updates are handled in the Auth module (`modules/auth.md`). Staff invitations are planned for Phase 21.
+User management within a tenant. Admins can list users and toggle account activation. Self-registration and profile updates are handled in the Auth module (`modules/auth.md`). New staff/cleaner/server/outlet-admin accounts are provisioned exclusively via the invite flow (below) — there is no direct "create user" endpoint for admin-provisioned roles.
+
+**Fixed 2026-07-02:** The admin "Manage Users" frontend page previously called `GET /users` and `PATCH /users/{id}/toggle`, but neither endpoint existed anywhere in the backend — the page silently failed on every load. `users.py` was added to close that gap. See `specs/decisions/rfcs/` history in `CHANGELOG.md` for the full defect writeup.
 
 ---
 
 ## Access
 
-**Auth:** Required | **Roles:** Admin roles (all endpoints below unless noted)
+**Auth:** Required | **Roles:** Admin roles (`ADMIN_ROLES` — `outlet_admin`, `tenant_admin`, `food_court_admin`, `super_admin`, `platform_admin`) unless noted
 
 ---
 
 ## API Endpoints
 
-### `GET /api/v1/users/`
+### `GET /api/v1/users`
 
-Lists all users in the calling admin's tenant.
+Lists all users belonging to the calling admin's tenant (`ctx.tenant_id`), most recently created first.
 
 **Response `200`:** `list[UserResponse]`
 
@@ -35,7 +37,6 @@ Lists all users in the calling admin's tenant.
     "role": "staff",
     "tenant_id": "...",
     "outlet_id": null,
-    "employee_id": "EMP-001",
     "wallet_balance": "0.00",
     "reward_points": 0,
     "email_verified": true,
@@ -45,31 +46,44 @@ Lists all users in the calling admin's tenant.
 ]
 ```
 
----
-
-### `PATCH /api/v1/users/{user_id}/activate`
-
-Sets `user.is_active = True`.
-
-**Rules:** User must belong to the admin's tenant.
-
-**Response `200`:** `{ "is_active": true }`
+**Errors:** `403` if caller is not an admin role.
 
 ---
 
-### `PATCH /api/v1/users/{user_id}/deactivate`
+### `PATCH /api/v1/users/{user_id}/toggle`
 
-Sets `user.is_active = False`.
+Flips `user.is_active` (active → inactive, or inactive → active). A single endpoint, not separate activate/deactivate routes.
 
-**Rules:** User must belong to the admin's tenant.
+**Rules:**
+- `user_id` must belong to the caller's tenant (`ctx.tenant_id`) → else `404 "User not found"` (cross-tenant existence is never revealed)
+- An admin **cannot toggle their own account** → `400 "You cannot deactivate your own account"`
 
-**Response `200`:** `{ "is_active": false }`
+**Response `200`:** `UserResponse` (updated `is_active` reflected)
 
-**Effect:** Deactivated users immediately fail `get_current_user()` dependency on all subsequent requests. Existing tokens do not need to be blacklisted — the `is_active` check catches them.
+**Effect:** Deactivated users immediately fail `get_current_user()` on all subsequent requests. Existing JWTs are NOT individually blacklisted — deactivation takes effect within one token lifetime (up to 60 min), same trade-off as documented below.
 
 ---
 
-## Planned Endpoints ❌ [Phase 21]
+## Staff Invitation Endpoints (`backend/app/routers/invitations.py`)
+
+### `GET /api/v1/users/invite`
+
+Lists invitations sent for the calling admin's tenant, most recently created first. Used by the "Invite Staff" admin page to show sent invitations across page loads/refreshes (previously tracked only in frontend session state and lost on refresh — fixed 2026-07-02).
+
+**Response `200`:** `list[InvitationResponse]`
+```json
+[
+  {
+    "invite_id": "3fa85f64-...",
+    "email": "newstaff@bracu.scms",
+    "role": "staff",
+    "expires_at": "2026-07-04T10:00:00Z",
+    "accepted_at": null
+  }
+]
+```
+
+---
 
 ### `POST /api/v1/users/invite`
 
@@ -120,16 +134,20 @@ Sets `user.is_active = False`.
 | `outlet_admin` | `platform_admin` or `super_admin` | No |
 | `tenant_admin` | `platform_admin` | No |
 | `food_court_admin` | `platform_admin` | No |
-| `staff` | Invite (Phase 21) | No |
-| `cleaner` | Invite (Phase 21) | No |
-| `server` | Invite (Phase 21) | No |
+| `staff` | Invite | No |
+| `cleaner` | Invite | No |
+| `server` | Invite | No |
+| `outlet_admin` | Invite (also invitable, not just `platform_admin`) | No |
 | `student` | Self-registration | Yes |
 | `customer` | Self-registration | Yes |
+
+> `_INVITABLE_ROLES` in `invitations.py`: `staff`, `cleaner`, `server`, `outlet_admin`. All other roles are assigned directly (seed/admin), not via invite.
 
 ---
 
 ## User Deactivation Behaviour
 
+- Toggled via `PATCH /api/v1/users/{user_id}/toggle` (see above) — flips `is_active`
 - `is_active = FALSE` causes `401` on all future requests (checked in `get_current_user()`)
 - Existing JWTs for that user are NOT individually blacklisted
 - This is an intentional trade-off: deactivation is effective within one token lifetime (up to 60 min)

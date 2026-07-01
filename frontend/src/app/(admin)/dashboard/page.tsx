@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, BarChart3, Users, UtensilsCrossed, Warehouse } from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, Users, UtensilsCrossed, Warehouse } from 'lucide-react'
 
 import ActiveTableMap from '@/components/admin/ActiveTableMap'
 import SalesChart from '@/components/admin/SalesChart'
@@ -80,6 +82,9 @@ function getTrend(current: number, previous: number) {
 }
 
 export default function AdminDashboardPage() {
+  const params = useParams<{ tenant_slug: string }>()
+  const slug = params?.tenant_slug ?? ''
+
   const [summary, setSummary] = useState<SummaryResponse | null>(null)
   const [revenueData, setRevenueData] = useState<RevenuePoint[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,8 +164,14 @@ export default function AdminDashboardPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="border-black/10 bg-white/90 shadow-sm">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Sales Trend</CardTitle>
+              <Link
+                href={`/${slug}/analytics`}
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                View full analytics <ArrowRight className="h-3 w-3" />
+              </Link>
             </CardHeader>
             <CardContent>
               <SalesChart

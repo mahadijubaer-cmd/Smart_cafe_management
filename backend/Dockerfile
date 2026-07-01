@@ -16,7 +16,9 @@ COPY app ./app
 COPY scripts ./scripts
 COPY alembic ./alembic
 
-RUN useradd -m appuser
+RUN useradd -m appuser \
+    && mkdir -p /app/media/qr_codes \
+    && chown -R appuser:appuser /app
 
 USER appuser
 

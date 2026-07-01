@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 FROM node:20-alpine AS dev
 

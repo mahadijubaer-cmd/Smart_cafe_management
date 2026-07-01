@@ -14,11 +14,39 @@ from datetime import datetime, timezone
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.dialects.postgresql import UUID as _PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.compiler import compiles as _compiles
 from sqlalchemy.pool import StaticPool
+
+
+# ── Cross-dialect UUID support for the SQLite test database ───────────────────
+# Production models use PostgreSQL's UUID type. SQLite has no native UUID, so
+# without this hook `CREATE TABLE` fails with:
+#   'SQLiteTypeCompiler' object has no attribute 'visit_UUID'
+# Render UUID columns as CHAR(36) on SQLite; asyncpg/postgres are unaffected.
+@_compiles(_PG_UUID, "sqlite")
+def _visit_uuid_sqlite(element, compiler, **kw):  # noqa: ANN001, ANN201
+    return "CHAR(36)"
+
 
 import app.core.redis as redis_module
 from app.core.database import Base, get_db
+
+
+# PostgreSQL server-defaults like `uuid_generate_v4()` are invalid DDL on SQLite.
+# The models also carry Python-side defaults (`default=uuid.uuid4`), so it is safe
+# to drop these PG-only server_defaults for the test database.
+def _strip_pg_only_server_defaults() -> None:
+    for table in Base.metadata.tables.values():
+        for column in table.columns:
+            sd = column.server_default
+            if sd is None:
+                continue
+            arg = getattr(sd, "arg", None)
+            text_val = getattr(arg, "text", None) or str(arg or "")
+            if "uuid_generate_v4" in text_val:
+                column.server_default = None
 from app.core.security import hash_password
 from app.main import app
 from app.models.menu import Category, MenuItem
@@ -135,6 +163,7 @@ async def db_session(fake_redis: FakeAsyncRedis) -> AsyncSession:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    _strip_pg_only_server_defaults()  # after all models are registered on Base.metadata
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

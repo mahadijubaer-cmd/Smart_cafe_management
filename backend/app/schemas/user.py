@@ -59,3 +59,26 @@ class TokenData(BaseModel):
     tenant_slug: str | None = None
     outlet_id: UUID | None = None
     jti: str | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+    tenant_slug: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp_code: str
+    new_password: str
+    tenant_slug: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ProfileUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=150)
+    phone: str | None = None
+    student_id: str | None = None

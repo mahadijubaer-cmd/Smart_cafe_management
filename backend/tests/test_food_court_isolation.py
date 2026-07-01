@@ -38,10 +38,10 @@ FC_SLUG    = "unimart-hall"
 VA_SLUG    = "unimart-burger"
 VB_SLUG    = "unimart-sushi"
 
-FC_ADMIN_EMAIL = "fc_admin@unimart.test"
-SERVER_EMAIL   = "server1@unimart.test"
-VA_ADMIN_EMAIL = "burger_admin@unimart.test"
-VB_ADMIN_EMAIL = "sushi_admin@unimart.test"
+FC_ADMIN_EMAIL = "fc_admin@unimart.com"
+SERVER_EMAIL   = "server1@unimart.com"
+VA_ADMIN_EMAIL = "burger_admin@unimart.com"
+VB_ADMIN_EMAIL = "sushi_admin@unimart.com"
 
 
 @pytest.fixture
@@ -402,3 +402,25 @@ async def test_unified_menu_shows_both_vendors(
     item_names = {i["name"] for i in all_items}
     assert "Burger" in item_names
     assert "Sushi" in item_names
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 8 — settlements endpoint accessible to food_court_admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def test_settlements_returns_200_for_fc_admin(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    fc_tenants: dict,
+    fc_users: dict,
+    fake_redis,
+):
+    """GET /food-court/settlements must succeed (200) for food_court_admin.
+    No orders required — an empty list is a valid response."""
+    token = await get_token(async_client, FC_ADMIN_EMAIL, FC_SLUG)
+    resp = await async_client.get(
+        "/api/v1/food-court/settlements",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)

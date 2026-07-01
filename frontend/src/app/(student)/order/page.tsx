@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Clock3, CreditCard, Loader2, MapPin, ShoppingBag, Wallet } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -182,6 +182,9 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
 
 export default function StudentOrderPage() {
   const router = useRouter()
+  const params = useParams<{ tenant_slug?: string }>()
+  const tenantSlugFromStore = useStore((state) => state.tenantSlug)
+  const slug = params?.tenant_slug ?? tenantSlugFromStore ?? ''
   const cart = useStore((state) => state.cart)
   const user = useStore((state) => state.user)
   const walletBalance = useStore((state) => state.walletBalance)
@@ -315,7 +318,7 @@ export default function StudentOrderPage() {
       await syncProfile()
       clearCart()
       toast.success('Order confirmed successfully')
-      router.push(`/track/${order.order_id}`)
+      router.push(`/${slug}/track/${order.order_id}`)
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Unable to place the order')
     } finally {
@@ -326,7 +329,7 @@ export default function StudentOrderPage() {
   const availableTables = useMemo(() => tables.filter((table) => table.status === 'available'), [tables])
 
   return (
-    <ProtectedRoute allowedRoles={['student']}>
+    <ProtectedRoute allowedRoles={['student', 'customer']}>
       <main className="min-h-screen bg-[linear-gradient(180deg,#f5f0e8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-start justify-between gap-4">
@@ -519,7 +522,7 @@ export default function StudentOrderPage() {
               <AlertDialogCancel>Stay here</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  router.push('/menu')
+                  router.push(`/${slug}/menu`)
                 }}
                 className="bg-[#1A4D2E] text-white hover:bg-[#163f25]"
               >

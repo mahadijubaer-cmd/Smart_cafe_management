@@ -222,7 +222,7 @@ export default function StudentMenuPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={["student"]}>
+    <ProtectedRoute allowedRoles={["student", "customer"]}>
       <main className="min-h-screen bg-[#F5F0E8]">
         <section className="relative h-32 overflow-hidden bg-gradient-to-r from-[#1A4D2E] to-[#2D6A4F] px-4 py-6 text-white lg:h-40 lg:px-8">
           <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-6">

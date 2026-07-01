@@ -9,8 +9,7 @@ Final Year Thesis — CSE400, BRAC University | Mahadi Jubaer (22301162)
 
 This project follows **spec-first development**. Before reading any code, read the specification.
 
-> **`specs/` is the authoritative source of truth.**  
-> `docs/` is legacy — kept for reference, but `specs/` is what all AI and human contributors must follow.
+> **`specs/` is the single, authoritative source of truth.** All spec content — module specs, ADRs, RFCs, workflows — lives under `specs/`. There is no other spec directory.
 
 | Start Here | |
 |---|---|
@@ -83,7 +82,7 @@ Full deployment instructions: [specs/operations/deployment.md](specs/operations/
 
 ## Demo Credentials
 
-Seeded by `scripts/seed_demo.py`. Full table in [docs/spec/10-testing.md](docs/spec/10-testing.md).
+Seeded by `scripts/seed_demo.py`. Full table in [specs/operations/testing.md](specs/operations/testing.md).
 
 | Role | Email | Password | Slug |
 |---|---|---|---|

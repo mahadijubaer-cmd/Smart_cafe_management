@@ -128,6 +128,53 @@ Platform-level management of tenant organisations. Only `platform_admin` can acc
 
 ---
 
+### `POST /api/v1/tenants/register` ✅ [RFC-006 — Public organization onboarding]
+
+**Auth:** None (public)
+
+Creates a brand-new organization (tenant) **and** its first admin user in one atomic transaction, then returns a JWT so the owner is logged straight in. Distinct from `POST /auth/register` (which registers a *user* under an *existing* tenant). See `decisions/rfcs/RFC-006-organization-registration.md` and business rules **BR-ORG-1 … BR-ORG-7** below.
+
+**Request body:** `TenantRegister`
+
+```json
+{
+  "organization": {
+    "name": "Green Fork Bistro",
+    "slug": "green-fork",
+    "tenant_type": "independent_restaurant",
+    "city": "Dhaka",
+    "contact_email": "owner@greenfork.com",
+    "brand_color": "#1A4D2E",
+    "allowed_email_domain": null
+  },
+  "admin": {
+    "full_name": "Owner Name",
+    "email": "owner@greenfork.com",
+    "password": "Owner@1234"
+  }
+}
+```
+
+| Field | Type | Constraint |
+|---|---|---|
+| `organization.slug` | str | 2–80 chars, `^[a-z0-9-]+$`, globally unique |
+| `organization.tenant_type` | enum | Self-serve only: `independent_restaurant`, `corporate`, `academic`, `franchise_brand`, `food_court`. `franchise_outlet` / `food_court_vendor` → `400` (BR-ORG-1) |
+| `admin.password` | str | ≥8 chars, 1 uppercase, 1 digit, 1 special (BR-ORG-6) |
+
+**Business logic (single atomic transaction — BR-ORG-7):**
+1. Validate `tenant_type ∈ SELF_SERVE_TENANT_TYPES` (BR-ORG-1) → else `400`
+2. Validate `slug` globally unique (BR-ORG-2) → else `400 "Slug '{slug}' already taken"`
+3. Validate password complexity (BR-ORG-6) → else `400`
+4. Create `Tenant` (`subscription_tier=free`, `is_active=TRUE`, `parent_tenant_id=NULL` — BR-ORG-4)
+5. Create first admin `User` (`role=food_court_admin` if `tenant_type=food_court` else `tenant_admin`, `is_active=TRUE`, `email_verified=TRUE` — BR-ORG-5)
+6. Issue JWT
+
+**Response `201`:** `Token` — same shape as `POST /auth/login` (`outlet_id=null`).
+
+**Errors:** `400` slug taken · `400` non-self-serve tenant type · `400` weak password · `422` validation.
+
+---
+
 ### `GET /api/v1/tenants/{tenant_id}`
 
 **Response `200`:** `TenantResponse`
@@ -407,6 +454,67 @@ class TenantListResponse(BaseModel):
     items: list[TenantResponse]
     total: int
 ```
+
+---
+
+### Organization Registration Schemas (RFC-006)
+
+> `SELF_SERVE_TENANT_TYPES` (module constant in `schemas/tenant.py`): `independent_restaurant`, `corporate`, `academic`, `franchise_brand`, `food_court`. `franchise_outlet` and `food_court_vendor` are excluded (BR-ORG-1) — they require a `parent_tenant_id`.
+
+#### `OrgRegisterDetails` (nested inside `TenantRegister.organization`)
+
+| Field | Type | Req? | Default | Constraints |
+|---|---|---|---|---|
+| `name` | `str` | Yes | — | `min_length=2`, `max_length=150` |
+| `slug` | `str` | Yes | — | `min_length=2`, `max_length=80`, pattern `^[a-z0-9-]+$` |
+| `tenant_type` | `TenantType` | Yes | — | Self-serve only — see `SELF_SERVE_TENANT_TYPES` (BR-ORG-1) |
+| `city` | `str \| None` | No | `None` | `max_length=100` |
+| `contact_email` | `EmailStr \| None` | No | `None` | — |
+| `brand_color` | `str` | No | `"#1A4D2E"` | `max_length=7` |
+| `allowed_email_domain` | `str \| None` | No | `None` | `max_length=150` |
+
+#### `OrgRegisterAdmin` (nested inside `TenantRegister.admin`)
+
+| Field | Type | Req? | Default | Constraints |
+|---|---|---|---|---|
+| `full_name` | `str` | Yes | — | `min_length=2`, `max_length=100` |
+| `email` | `EmailStr` | Yes | — | — |
+| `password` | `str` | Yes | — | `min_length=8`, `max_length=128`; complexity enforced in router (BR-ORG-6) |
+
+#### `TenantRegister` (Request — `POST /tenants/register`)
+
+Public self-serve organization onboarding. Response is a `Token` (see `modules/auth.md`) — same shape as `POST /auth/login`.
+
+```json
+{ "organization": OrgRegisterDetails, "admin": OrgRegisterAdmin }
+```
+
+---
+
+## Organization Registration Rules (RFC-006)
+
+Public self-serve onboarding of a new organization (tenant) via `POST /tenants/register`.
+
+### BR-ORG-1: Only Self-Serve Tenant Types May Self-Register
+Allowed: `independent_restaurant`, `corporate`, `academic`, `franchise_brand`, `food_court`. `franchise_outlet` and `food_court_vendor` are **rejected with 400** — they require a `parent_tenant_id` and must be created under an existing parent (`POST /tenants/{id}/outlets`, or by a food-court admin), never as a standalone public signup.
+
+### BR-ORG-2: Slug Uniqueness & Format
+`organization.slug` must be globally unique and match `^[a-z0-9-]+$`. A taken slug → 400.
+
+### BR-ORG-3: First Admin Email Unique in New Tenant
+The first admin's email must be unique within the newly created tenant (trivially true at creation; enforced defensively).
+
+### BR-ORG-4: New Tenant Defaults
+A self-registered tenant starts with `subscription_tier = free`, `is_active = TRUE`, `parent_tenant_id = NULL`.
+
+### BR-ORG-5: First Admin Role
+The first admin is created with role `food_court_admin` when `tenant_type = food_court`, otherwise `tenant_admin`.
+
+### BR-ORG-6: Password Complexity
+`admin.password` must satisfy the platform password rule (≥8 chars, ≥1 uppercase, ≥1 digit, ≥1 special character) — the same validator used by `POST /auth/reset-password`. Weak password → 400.
+
+### BR-ORG-7: Atomic Creation
+Tenant + first-admin creation happens in a single transaction. If admin creation fails, the tenant is rolled back and not persisted.
 
 ---
 
