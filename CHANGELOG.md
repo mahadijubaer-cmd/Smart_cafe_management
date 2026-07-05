@@ -9,6 +9,190 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Franchise self-service outlet provisioning (Phase 23, 2026-07-05)
+
+A franchise brand's own admin (`super_admin`/`tenant_admin`) can now create and list their own
+outlets directly (`GET`/`POST /tenants/{tenant_id}/outlets`), without a platform-admin
+intermediary. Access is strictly scoped to the caller's own brand (`BR-FRAN-1`); platform-admin
+access to any brand's outlets is unchanged. New frontend page `[tenant_slug]/(admin)/outlets`. See
+RFC-008.
+
+### Fix — Guest order vendor attribution disappeared after the first response (2026-07-05)
+
+Found by actually running the app end-to-end in Docker (not just the test suite) against a
+food-court tenant: `GET /public/orders/{guest_token}` (tracking) and `POST .../pay` returned
+`vendor_id`/`vendor_name` as `null`, even though the create response had them populated correctly.
+
+**Root cause:** `order_service.create_food_court_guest_order` set a transient Python attribute
+(`order._vendor_name`) on the freshly-created ORM objects, and `public.py`'s response builder read
+it back. That only worked within the same request — any later request (tracking, pay, the guest
+WebSocket's re-fetch) queries fresh `Order` rows from the DB with no such attribute, silently
+dropping vendor attribution.
+
+**Fix:**
+- **`app/routers/public.py`** — `_group_response()` is now `async` and takes `db`; it looks up each order's own tenant via `Tenant.tenant_id.in_(...)` and only attaches `vendor_id`/`vendor_name` when that tenant is actually a `food_court_vendor` — derived fresh every time, not cached on the object.
+- **`app/services/order_service.py`** — Removed the now-dead `_vendor_name` transient attribute assignment in `create_food_court_guest_order`.
+
+Also created **`backend/alembic.ini`** (was missing entirely — Alembic had never actually been
+runnable in this project; `docker compose` only ever used `Base.metadata.create_all()` at startup,
+which doesn't add columns to already-existing tables). Applied migrations `0006` and `0007` to the
+running dev database via `alembic stamp 0005` + `alembic upgrade head` (non-destructive — preserves
+existing seed/demo data).
+
+### Phase 22 follow-up — Cafeteria-segment read-only public menu (2026-07-05)
+
+RFC-007's Phase D listed "cafeteria-segment optional public menu (read-only)" as explicitly out of
+MVP scope, alongside a real payment gateway and kiosk hardware integration. Unlike those two, this
+one needed no external resource — just a rule relaxation — so it's now done. **This completes
+RFC-007**; the only two remaining items are genuinely blocked on merchant credentials and physical
+card-reader hardware, not on more engineering time.
+
+#### Backend
+- **`app/routers/tenants.py`** — Removed the restaurant-segment-only gate on `public_menu_enabled` in `PATCH /tenants/me/settings`. Any tenant may now enable a public menu.
+- **`app/routers/public.py`** — `POST /{public_slug}/orders` now rejects with `400` when the resolved tenant's segment is not `restaurant` (BR-SEG-3) — menu/info stay segment-agnostic.
+- **`app/schemas/public.py`** — `PublicTenantInfoResponse` gains `tenant_type` so the frontend can derive the segment without a second call.
+- **`tests/test_public_surface.py`** — 2 new tests: cafeteria menu is browsable but ordering is 400; cafeteria admin can enable `public_menu_enabled`. 28 tests total, all passing.
+
+#### Frontend
+- **`types/index.ts`** — `PublicTenantInfoResponse` gains `tenant_type`.
+- **`app/m/[public_slug]/page.tsx`** — Hides add-to-cart/checkout entirely when the tenant isn't restaurant-segment; header copy adapts ("Browse our menu — log in to your account to order").
+- **`[tenant_slug]/(admin)/public-link/page.tsx`** — No longer gated to restaurant segment; shows segment-appropriate copy and hides the checkout-mode toggle / QR-sheet download for cafeteria tenants (browsing only, no tables to print QRs for in that flow).
+- **`[tenant_slug]/(admin)/layout.tsx`** — "Public Link" nav item no longer restricted by tenant type.
+
+#### Spec
+- **`specs/system/segments.md`** — NEW BR-SEG-3 (cafeteria public menu is read-only); capability matrix updated.
+- **`specs/modules/public-surface.md`** — Overview and order-create endpoint doc updated with the segment gate.
+- **`specs/modules/tenants.md`**, **`specs/operations/roadmap.md`**, **`specs/decisions/rfcs/RFC-007-...md`** — Updated to reflect RFC-007 as fully implemented except the two externally-blocked items.
+
+### Phase 22 follow-up — Food-court multi-vendor guest carts (2026-07-05)
+
+RFC-007 §Phase D. A food court's vendors are separate tenants, so a guest cart spanning multiple
+stalls needed to become multiple orders. After discussing the tradeoff with the user (single-vendor
+checkout only vs. a true multi-vendor cart), implemented the latter: the cart is split into one
+`Order` per vendor, all sharing one `guest_token` — a "guest session".
+
+#### Backend
+- **`app/models/order.py`** — `orders.guest_token` is no longer `UNIQUE` (indexed instead) — a guest session can span sibling orders across vendor tenants.
+- **`alembic/versions/0007_food_court_guest_sessions.py`** — NEW migration: drops `uq_orders_guest_token`, adds `ix_orders_guest_token`.
+- **`app/services/order_service.py`** — NEW `create_guest_order_session()` (dispatches single-vendor vs. food-court), `create_food_court_guest_order()` (derives each item's vendor server-side from `menu_items.tenant_id`, splits into per-vendor orders sharing one `guest_token`, one DB transaction), `get_guest_order_group()` (replaces `get_guest_order`, returns all sibling orders), `resolve_public_owner_tenant()` (recovers the food-court parent — or the tenant itself — via the shared table's `tenant_id`, since `public_slug`/`guest_checkout_mode` only ever live on the parent). `pay_guest_order_online()` now pays every non-cancelled sibling order in one call.
+- **`app/routers/public.py`** — Menu endpoint now branches on `tenant_type=food_court` (unified multi-vendor menu, grouped by vendor); order-create/tracking/pay/QR endpoints all operate on the group and return the new `GuestOrderGroupResponse` shape (`{guest_token, total_amount, orders: [...]}`) — this is a breaking response-shape change from the prior single-order shape, updated consistently on both ends.
+- **`app/schemas/public.py`** — NEW `PublicMenuItem` (adds `vendor_id`/`vendor_name`), `PublicFoodCourtVendor`, `GuestOrderGroupResponse`; `GuestOrderResponse` gains `vendor_id`/`vendor_name`.
+- **`app/services/ws_pubsub.py`** — NEW `subscribe_and_forward_many()` — a guest WebSocket now subscribes to every sibling order's tenant channel at once (a food-court session spans multiple vendor channels).
+- **`app/services/websocket_manager.py`** — `broadcast_to_tenant()` now matches purely on `target_guest_token` when present, bypassing the tenant_id filter — a guest connection isn't tenant-scoped the way staff connections are, since its sibling orders can belong to different tenants.
+- **`app/routers/websocket.py`** — Guest WS endpoint resolves all sibling orders' tenant IDs and subscribes to all of them.
+- **`tests/test_public_surface.py`** — Updated all guest create/tracking/pay assertions for the new group response shape; added 4 new food-court tests (unified menu grouping, cart splits into per-vendor orders with independent staff visibility, one online payment pays both vendor tickets, cross-food-court item injection rejected with 404) — 26 tests total, all passing.
+
+#### Frontend
+- **`types/index.ts`** — NEW `PublicFoodCourtVendor`, `PublicMenuItem`, `GuestOrderGroup`; `GuestOrder` gains `vendor_id`/`vendor_name`.
+- **`app/m/[public_slug]/page.tsx`** — Vendor tabs (in addition to category tabs) when the menu response includes `vendors`; checkout always posts one flat cart regardless of vendor mix (the backend splits it); success screen lists one line per resulting ticket with its own vendor name and subtotal.
+- **`app/m/[public_slug]/track/[guestToken]/page.tsx`** — Renders one "ticket" card per sibling order (own status timeline, own items) plus a shared grand total and live/reconnecting indicator — works identically for single-vendor and food-court sessions.
+
+#### Spec
+- **`specs/system/data-model.md`** — Documented the `guest_token` uniqueness relaxation.
+- **`specs/modules/public-surface.md`** — NEW "Food Courts: Guest Sessions" section; rewrote the order-create/tracking/pay/QR endpoint docs around `GuestOrderGroupResponse`; PUB-6 redefined as a session capability; NEW PUB-8 (server-side vendor re-derivation); fixed the table-QR payload doc (no `outlet_slug` — was never actually implemented that way).
+- **`specs/modules/payments.md`** — WAL-5 updated: online payment now pays the whole guest session, not one order.
+- **`specs/decisions/rfcs/RFC-007-segment-split-guest-ordering.md`** — Added the design-fork decision to §3 Alternatives Considered and a new status update.
+- **`specs/operations/roadmap.md`** — Phase 22 entry updated with the food-court work; removed "food-court multi-vendor guest cart" from the not-yet-implemented list.
+
+### Phase 22 — Segment Split & Guest QR Ordering (2026-07-05)
+
+RFC-007: derives a `cafeteria`/`restaurant` segment from existing `tenant_type` (no new column) and
+adds a public, unauthenticated guest-QR ordering surface for restaurant-segment tenants with
+pay-at-counter checkout. Spec landed first (see below), then backend + frontend implementation in
+the same day.
+
+#### Backend
+- **`app/core/segments.py`** — NEW: `SEGMENT_MAP`, `get_segment()`, `is_restaurant_segment()`.
+- **`app/models/order.py`** — `orders.user_id` now nullable; added `order_source` (`customer_app|staff_pos|guest_qr|kiosk`), `guest_token`, `guest_name`, `guest_phone`, `chk_order_identity` constraint; new `OrderStatus.pending_confirmation`.
+- **`app/models/tenant.py`** — Added `public_menu_enabled`, `public_slug`, `guest_checkout_mode` (+ check constraint).
+- **`alembic/versions/0006_add_guest_orders.py`** — NEW migration for the above.
+- **`app/routers/auth.py`** — `POST /auth/register` returns `400` for restaurant-segment tenants (BR-SEG-1).
+- **`app/routers/public.py`** — NEW `/api/v1/public` router: `GET /{public_slug}/menu` (price-only, Redis-cached 60s), `GET /{public_slug}/info`, `POST /{public_slug}/orders` (Redis rate limit 5/min/IP+table, per-table pending cap of 3), `GET /orders/{guest_token}` (`Cache-Control: no-store`, lazy 20-min auto-expiry).
+- **`app/services/order_service.py`** — `create_guest_order()`, `create_staff_pos_order()`, `mark_paid_at_counter()`; `update_status()` now accepts `pending_confirmation → confirmed/cancelled` (staff confirmation gate).
+- **`app/routers/orders.py`** — `POST /orders/staff-pos` (staff POS entry, attributed to the staff account, `status=confirmed` immediately); `PATCH /orders/{id}/mark-paid`.
+- **`app/routers/websocket.py`**, **`app/services/websocket_manager.py`** — NEW `/ws/public/orders/{guest_token}` guest tracking channel; `broadcast_to_tenant` now also routes by `target_guest_token`.
+- **`app/services/qr_service.py`**, **`app/routers/qr.py`** — Table QR now encodes `/m/{public_slug}?t={table_number}` when the tenant has public ordering enabled; NEW `GET /qr/table-sheet/pdf` (one page per table).
+- **`app/services/pdf_service.py`** — NEW `generate_table_qr_sheet_pdf()`.
+- **`app/schemas/public.py`** — NEW: `GuestOrderCreate/Response`, `PublicMenuResponse`, `PublicTenantInfoResponse`.
+- **`app/schemas/order.py`**, **`app/schemas/tenant.py`** — `OrderResponse` gains `order_source`/`guest_name`/`guest_phone`/nullable `user_id`; `StaffPosOrderCreate`; `TenantSettingsUpdate`/`TenantResponse` gain the public-surface fields.
+
+#### Frontend
+- **`lib/segments.ts`** — NEW, mirrors backend segment derivation.
+- **`app/page.tsx`**, **`app/discover/page.tsx`** — Segment landing cards → segment-filtered discovery.
+- **`[tenant_slug]/(customer)/layout.tsx`**, **`(auth)/register/page.tsx`** — Redirect away for restaurant-segment tenants (BR-SEG-1).
+- **`app/m/[public_slug]/page.tsx`** — NEW: public menu, cart, guest checkout, `?mode=kiosk` (90s idle-reset).
+- **`app/m/[public_slug]/track/[guestToken]/page.tsx`** — NEW: guest order tracking (polling).
+- **`[tenant_slug]/display/page.tsx`** — NEW: signage, auto-rotating categories.
+- **`[tenant_slug]/(admin)/public-link/page.tsx`** — NEW: toggle public menu, edit slug, download table-QR PDF sheet.
+- **`(staff)/pos/page.tsx`** (+ tenant-scoped re-export) — NEW: staff POS order entry.
+- **`(staff)/orders/page.tsx`** — "Guest" badge, handles `pending_confirmation`.
+- **`types/index.ts`** — `OrderStatus` gains `pending_confirmation`; new `GuestOrder*`/`PublicMenuResponse`/`PublicTenantInfoResponse` types; `Tenant` gains public-surface fields.
+
+#### Tests
+- **`tests/test_public_surface.py`** — NEW: 16 tests — guest lifecycle, price/inventory stripping, cross-tenant slug isolation, rate-limit rejection, per-table pending cap, staff confirmation gate, mark-paid (guest + staff POS + rejected for `customer_app`), table QR + PDF sheet, BR-SEG-1 both directions.
+
+#### Repo hygiene
+- **`.gitignore`** — Anchored the Python-template `lib/`/`lib64/` rules to the repo root (`/lib/`, `/lib64/`) — they were unintentionally matching `frontend/src/lib/`, so that entire directory had never been tracked by git.
+
+#### Spec (canonical — `specs/`)
+- **`specs/decisions/rfcs/RFC-007-segment-split-guest-ordering.md`** — Status: Draft → Implemented; checklist ticked.
+- **`specs/system/segments.md`**, **`specs/modules/public-surface.md`**, **`specs/system/data-model.md`**, **`specs/modules/orders.md`**, **`specs/modules/payments.md`**, **`specs/modules/tenants.md`**, **`specs/modules/qr-pdf.md`**, **`specs/frontend/overview.md`**, **`specs/system/overview.md`** — All "❌ Not yet implemented" phase markers flipped to "✅ Implemented 2026-07-05".
+- **`specs/operations/roadmap.md`** — Phase 22 marked done with the final file list.
+
+**Not implemented yet (explicit follow-up, out of MVP per RFC-007):** online guest payment (`guest_checkout_mode='online'`); cafeteria-segment optional public menu; kiosk card-reader integration.
+
+### Phase 22 follow-up — Success screen QR + live guest tracking via WS (2026-07-05)
+
+Closed two gaps against the original Sprint 7.5 frontend spec ("success screen with tracking link +
+on-screen QR", "guest tracking page (live via WS)") that the first implementation pass had left as
+polling-only / redirect-without-a-screen.
+
+#### Backend
+- **`app/services/qr_service.py`** — NEW `generate_url_qr_bytes(url)`.
+- **`app/routers/public.py`** — NEW `GET /public/orders/{guest_token}/qr` — base64 PNG of the guest's own tracking URL, resolved server-side from the order's tenant (no `public_slug` param needed from the client).
+- **`tests/test_public_surface.py`** — 1 new test (404 for unknown token QR) + QR assertion added to the existing guest-lifecycle test — 17 tests total, all passing.
+
+#### Frontend
+- **`app/m/[public_slug]/page.tsx`** — Order placement now shows a success screen (checkmark, on-screen QR, "Track my order" / "Back to menu") instead of redirecting straight to the tracking page. Kiosk idle-reset also clears the success screen.
+- **`app/m/[public_slug]/track/[guestToken]/page.tsx`** — Now opens a real WebSocket to `/ws/public/orders/{guest_token}` (auto-reconnect after 4s), re-fetching full order state on every message; a 20s poll remains as a safety net. Shows a "Live / Reconnecting…" indicator.
+
+#### Spec
+- **`specs/modules/public-surface.md`** — Documented the new QR endpoint and the WS-primary/poll-fallback tracking behaviour.
+- **`specs/decisions/rfcs/RFC-007-segment-split-guest-ordering.md`** — Added the QR endpoint (and the staff-POS/mark-paid/QR-sheet endpoints from the prior pass, which had been implemented but not yet listed in the endpoint table) to §2.3.
+
+### Phase 22 follow-up — BR-SEG-1 login gap + simulated online guest payment (2026-07-05)
+
+Closed the last two known gaps in RFC-007: (1) the S1 hook only blocked *registration* on
+restaurant-segment tenants, not login for a pre-existing customer account; (2) `guest_checkout_mode`
+accepted `'counter'` only — `'online'` was rejected with a hardcoded `400` pending "Phase 2". Phase 2
+starts now, implemented as a **simulated** payment (mirrors the existing authenticated
+`PaymentMethod.simulation` — always succeeds, no real gateway call). A genuine SSLCOMMERZ/card
+integration remains a separate future task requiring real merchant credentials.
+
+#### Backend
+- **`app/routers/auth.py`** — `POST /auth/login` now returns `403` for `customer`/`student` roles on restaurant-segment tenants (BR-SEG-1).
+- **`app/routers/tenants.py`** — Removed the hardcoded `400` block on `guest_checkout_mode='online'`.
+- **`app/services/order_service.py`** — NEW `pay_guest_order_online()` — sets `payment_status='paid'`, `payment_method='simulation'`; rejects if the tenant is still `counter`-only, already paid, or cancelled.
+- **`app/routers/public.py`** — NEW `POST /public/orders/{guest_token}/pay`; publishes `ORDER_PAID` (`target_guest_token`).
+- **`app/schemas/public.py`** — `GuestOrderResponse` gains `payment_status`/`payment_method`; `PublicTenantInfoResponse` gains `guest_checkout_mode` (so the guest menu page knows whether to offer online payment, without auth).
+- **`tests/test_public_surface.py`** — 5 new tests: login blocked/allowed for restaurant segment, online payment success + double-pay rejection + rejected when counter-only, admin can toggle `guest_checkout_mode` — 22 tests total, all passing.
+- **Regression fix:** the login-block change broke two pre-existing `test_tenant_isolation.py` tests that used the `beta` (restaurant-segment) tenant's *customer* account purely as a second-tenant fixture for tenant-scoping checks — switched them to the `beta` admin account (tenant-scoping is role-agnostic, so the check is equivalent).
+
+#### Frontend
+- **`app/m/[public_slug]/page.tsx`** — Success screen now shows a "Pay online now" button when the venue has `guest_checkout_mode='online'`, and reflects paid/pending state.
+- **`app/m/[public_slug]/track/[guestToken]/page.tsx`** — Shows "(paid)" vs "(pay at counter)" on the total.
+- **`[tenant_slug]/(admin)/public-link/page.tsx`** — NEW counter/online toggle, with a note that online is a simulated gateway for now.
+- **`types/index.ts`** — `GuestOrder` gains `payment_status`/`payment_method`; `PublicTenantInfoResponse` gains `guest_checkout_mode`.
+
+#### Spec
+- **`specs/system/segments.md`** — BR-SEG-1 now documents the login-side block explicitly.
+- **`specs/modules/payments.md`** — NEW WAL-5 (simulated online guest payment); WAL-4 tightened to the pay-at-counter path only.
+- **`specs/modules/public-surface.md`** — Documented `POST /public/orders/{guest_token}/pay`.
+- **`specs/modules/websocket.md`** — NEW `ORDER_PAID` event (12 event types total).
+- **`specs/modules/tenants.md`**, **`specs/operations/roadmap.md`**, **`specs/decisions/rfcs/RFC-007-...md`** — Updated to reflect `guest_checkout_mode='online'` as implemented (simulated), not rejected.
+
+**Still not implemented (explicit, out of scope for this thesis):** a real payment-gateway integration; cafeteria-segment optional public menu; kiosk card-reader integration; food-court multi-vendor guest cart.
+
 ### Fix — Admin "Manage Users" page was calling nonexistent backend endpoints (2026-07-02)
 
 Found during a documentation-vs-code verification pass: the admin "Users" sidebar page called `GET /users` and `PATCH /users/{id}/toggle`, but no backend router registered either route — every admin got a silent "Unable to load users" failure. The "Invite Staff" page (which did work) also had no link from anywhere in the admin UI, and its sent-invitations list was tracked only in frontend session state, so it reset on every page refresh.

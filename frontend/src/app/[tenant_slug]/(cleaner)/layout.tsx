@@ -26,7 +26,7 @@ export default function CleanerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
       <nav className="bg-[#1A4D2E] text-white px-6 py-3 flex items-center justify-between shadow-md">
-        <Link href={`/${slug}/tables`} className="flex items-center gap-2 text-lg font-bold tracking-tight">
+        <Link href={`/${slug}/cleaning-queue`} className="flex items-center gap-2 text-lg font-bold tracking-tight">
           <Sparkles className="h-5 w-5" />
           Cleaner — Table Assignments
         </Link>

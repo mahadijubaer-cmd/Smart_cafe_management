@@ -1,0 +1,199 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+
+import apiClient from '@/lib/api'
+import type { GuestOrder, GuestOrderGroup, OrderStatus } from '@/types'
+
+const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
+  { key: 'pending_confirmation', label: 'Waiting for confirmation' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'delivered', label: 'Delivered' },
+]
+
+// WS is the primary channel; this is only a safety-net poll in case the guest's
+// connection drops silently (mobile browsers backgrounding the tab, etc.).
+const FALLBACK_POLL_INTERVAL_MS = 20000
+const WS_RECONNECT_DELAY_MS = 4000
+
+function formatCurrency(amount: number) {
+  return `৳ ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function TicketCard({ order }: { order: GuestOrder }) {
+  const isCancelled = order.status === 'cancelled'
+  const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status)
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          {order.vendor_name ? order.vendor_name : `Order #${order.order_id.slice(0, 8)}`}
+        </p>
+        {order.payment_status === 'paid' ? (
+          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Paid</span>
+        ) : null}
+      </div>
+      <h2 className="mt-1 text-xl font-black text-slate-900">
+        {isCancelled ? 'Cancelled' : STATUS_STEPS[currentStepIndex]?.label ?? order.status}
+      </h2>
+
+      {!isCancelled ? (
+        <div className="mt-4 space-y-2">
+          {STATUS_STEPS.map((step, index) => {
+            const done = currentStepIndex >= 0 && index <= currentStepIndex
+            return (
+              <div key={step.key} className="flex items-center gap-3">
+                <span
+                  className={[
+                    'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                    done ? 'bg-[#1A4D2E] text-white' : 'bg-slate-200 text-slate-500',
+                  ].join(' ')}
+                >
+                  {done ? '✓' : index + 1}
+                </span>
+                <span className={`text-sm ${done ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{step.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">
+          This ticket was cancelled — it may have expired before being confirmed, or was rejected.
+        </p>
+      )}
+
+      <ul className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
+        {order.items.map((line) => (
+          <li key={line.order_item_id} className="flex justify-between">
+            <span>{line.quantity}×</span>
+            <span className="flex-1 px-2">{line.item_id.slice(0, 8)}</span>
+            <span>{formatCurrency(Number(line.subtotal))}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-sm font-semibold">
+        <span>Subtotal</span>
+        <span>{formatCurrency(Number(order.total_amount))}</span>
+      </div>
+    </div>
+  )
+}
+
+export default function GuestOrderTrackPage() {
+  const params = useParams<{ public_slug: string; guestToken: string }>()
+  const [group, setGroup] = useState<GuestOrderGroup | null>(null)
+  const [error, setError] = useState(false)
+  const [live, setLive] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchGroup = async () => {
+      try {
+        const res = await apiClient.get<GuestOrderGroup>(`/public/orders/${params.guestToken}`)
+        if (!cancelled) {
+          setGroup(res.data)
+          setError(false)
+        }
+      } catch {
+        if (!cancelled) setError(true)
+      }
+    }
+
+    fetchGroup()
+    const interval = window.setInterval(fetchGroup, FALLBACK_POLL_INTERVAL_MS)
+
+    // Live channel: /ws/public/orders/{guest_token} — re-fetches on any event so
+    // the UI always reflects full session state (event payloads are partial and
+    // may originate from any sibling vendor order in a food-court session).
+    let socket: WebSocket | null = null
+    let reconnectTimer: number | null = null
+
+    const connect = () => {
+      if (cancelled) return
+      const wsBaseUrl = (process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000').replace(/\/$/, '')
+      socket = new WebSocket(`${wsBaseUrl}/ws/public/orders/${params.guestToken}`)
+
+      socket.onopen = () => {
+        if (!cancelled) setLive(true)
+      }
+      socket.onmessage = () => {
+        void fetchGroup()
+      }
+      socket.onclose = () => {
+        if (cancelled) return
+        setLive(false)
+        reconnectTimer = window.setTimeout(connect, WS_RECONNECT_DELAY_MS)
+      }
+      socket.onerror = () => {
+        socket?.close()
+      }
+    }
+    connect()
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      socket?.close()
+    }
+  }, [params.guestToken])
+
+  if (error && !group) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-center">
+        <p className="text-slate-500">Order not found or this tracking link has expired.</p>
+      </main>
+    )
+  }
+
+  if (!group) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+        <p className="text-sm text-slate-500">Loading order…</p>
+      </main>
+    )
+  }
+
+  const isMultiVendor = group.orders.length > 1
+  const guestName = group.orders[0]?.guest_name
+  const tableId = group.orders[0]?.table_id
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-10">
+      <div className="mx-auto max-w-md">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-slate-500">
+              {guestName}
+              {tableId ? ` · Table #${tableId}` : ''}
+            </p>
+            {isMultiVendor ? (
+              <p className="text-xs text-slate-400">{group.orders.length} tickets from different stalls</p>
+            ) : null}
+          </div>
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+            {live ? 'Live' : 'Reconnecting…'}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {group.orders.map((order) => (
+            <TicketCard key={order.order_id} order={order} />
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-6 py-4 font-bold text-slate-900">
+          <span>Grand total{group.orders.every((o) => o.payment_status === 'paid') ? ' (paid)' : ' (pay at counter)'}</span>
+          <span>{formatCurrency(Number(group.total_amount))}</span>
+        </div>
+      </div>
+    </main>
+  )
+}

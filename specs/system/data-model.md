@@ -97,6 +97,20 @@ CREATE TABLE tenants (
 - `allowed_email_domain` blocks self-registration from other email domains when set (checked only at register time)
 - `inventory_strict_mode = TRUE` blocks orders when any ingredient stock is insufficient
 
+**✅ [Phase 22 — Implemented 2026-07-05] Planned columns (RFC-007, migration `v3_2_guest_orders`):**
+
+```sql
+ALTER TABLE tenants
+  ADD COLUMN public_menu_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN public_slug          VARCHAR(60) UNIQUE,       -- short, printable on QR
+  ADD COLUMN guest_checkout_mode  VARCHAR(16) NOT NULL DEFAULT 'counter'
+    CHECK (guest_checkout_mode IN ('counter','online'));    -- 'online' = Phase 2
+```
+
+- `public_slug` is distinct from `slug` — it is the short, guest-facing identifier used in
+  `/m/{public_slug}` and on printed table QR codes; `slug` remains the tenant-scoped app URL.
+- See `system/segments.md` and `modules/public-surface.md`.
+
 ---
 
 ## Table: `users`
@@ -234,6 +248,37 @@ CREATE TABLE orders (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
+
+**✅ [Phase 22 — Implemented 2026-07-05] Planned columns (RFC-007, migration `v3_2_guest_orders`):**
+
+```sql
+ALTER TABLE orders ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE orders
+  ADD COLUMN order_source VARCHAR(16) NOT NULL DEFAULT 'customer_app'
+    CHECK (order_source IN ('customer_app','staff_pos','guest_qr','kiosk')),
+  ADD COLUMN guest_token UUID,               -- see index note below (NOT unique)
+  ADD COLUMN guest_name VARCHAR(80),
+  ADD COLUMN guest_phone VARCHAR(20);
+
+-- integrity: an order is either a user order or a guest order
+ALTER TABLE orders ADD CONSTRAINT chk_order_identity CHECK (
+  (user_id IS NOT NULL AND guest_token IS NULL)
+  OR (user_id IS NULL AND guest_token IS NOT NULL AND order_source IN ('guest_qr','kiosk'))
+);
+```
+
+- `user_id` becomes nullable **only** for guest orders; `chk_order_identity` is the invariant that
+  keeps every other order (`customer_app`, `staff_pos`) tied to exactly one user.
+- Every `JOIN users` in `modules/analytics.md` queries must become a `LEFT JOIN` once this ships —
+  tracked as a risk in RFC-007.
+- See `modules/orders.md` (OR-11) and `modules/public-surface.md`.
+
+**✅ [Phase D — Implemented 2026-07-05] `guest_token` is NOT unique** (migration
+`0007_food_court_guest_sessions.py` dropped `uq_orders_guest_token` in favour of a plain index
+`ix_orders_guest_token`). A food-court guest cart spanning multiple vendors is split into one
+`Order` row **per vendor tenant**, all sharing one `guest_token` — a "guest session". Single-vendor
+restaurants still get exactly one order per `guest_token` in practice, but the schema no longer
+enforces that as an invariant. See `modules/public-surface.md` "Guest Sessions".
 
 ---
 

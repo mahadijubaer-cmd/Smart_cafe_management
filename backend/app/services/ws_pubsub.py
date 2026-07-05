@@ -57,27 +57,45 @@ async def subscribe_and_forward(
     Runs as a long-lived asyncio Task per WebSocket connection.  Cancelled
     automatically when the WebSocket disconnects.
     """
-    channel = _channel(tenant_id, outlet_id)
+    await subscribe_and_forward_many([tenant_id], ws_manager, outlet_id=outlet_id)
+
+
+async def subscribe_and_forward_many(
+    tenant_ids: list[str | UUID],
+    ws_manager,
+    outlet_id: str | UUID | None = None,
+) -> None:
+    """Like subscribe_and_forward, but for multiple tenant channels at once.
+
+    Used by the food-court guest tracking WS (RFC-007 Phase D): a guest session
+    can contain sibling orders across several vendor tenants, each publishing to
+    its own channel, but the guest has exactly one WebSocket connection.
+    """
+    channels = [_channel(tid, outlet_id) for tid in tenant_ids]
     redis = await get_redis()
     pubsub = redis.pubsub()
 
     try:
-        await pubsub.subscribe(channel)
-        logger.debug("Subscribed to Redis channel %s", channel)
+        await pubsub.subscribe(*channels)
+        logger.debug("Subscribed to Redis channels %s", channels)
         async for message in pubsub.listen():
             if message["type"] != "message":
                 continue
             try:
                 event = json.loads(message["data"])
             except (json.JSONDecodeError, TypeError):
-                logger.warning("Malformed pub/sub message on %s: %r", channel, message["data"])
+                logger.warning("Malformed pub/sub message on %s: %r", message.get("channel"), message["data"])
                 continue
-            await ws_manager.broadcast_to_tenant(str(tenant_id), event)
+            channel_bytes = message.get("channel")
+            channel_name = channel_bytes.decode() if isinstance(channel_bytes, bytes) else channel_bytes
+            # Recover which tenant this channel belongs to for broadcast_to_tenant's filtering.
+            source_tenant_id = str(tenant_ids[channels.index(channel_name)]) if channel_name in channels else str(tenant_ids[0])
+            await ws_manager.broadcast_to_tenant(source_tenant_id, event)
     except asyncio.CancelledError:
-        logger.debug("subscribe_and_forward cancelled for channel %s", channel)
+        logger.debug("subscribe_and_forward_many cancelled for channels %s", channels)
     finally:
         try:
-            await pubsub.unsubscribe(channel)
+            await pubsub.unsubscribe(*channels)
             await pubsub.aclose()
         except Exception:
             pass

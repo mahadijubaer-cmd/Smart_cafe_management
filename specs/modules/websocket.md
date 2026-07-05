@@ -149,6 +149,18 @@ Emitted by: `DELETE /orders/{id}` or `PATCH /orders/{id}/status` → status=`can
 }
 ```
 
+### `ORDER_PAID` ✅ [Phase 22 — Implemented 2026-07-05] (RFC-007 Phase 2)
+Emitted by: `POST /public/orders/{guest_token}/pay` (simulated online guest payment)
+Audience: the guest tracking connection only (`target_guest_token`, not `target_user_id`)
+
+```json
+{
+  "type": "ORDER_PAID",
+  "order_id": "...",
+  "target_guest_token": "..."
+}
+```
+
 ### `TABLE_UPDATE`
 Emitted by: `POST /cleaners/logs` (when admin assigns a cleaner, table status → `cleaning`)  
 Audience: All in tenant
@@ -233,7 +245,7 @@ Audience: All in `ws:channel:{tenant_id}` (admin users)
 | `MEAL_DONE` | Customer finished eating | Admin / server |
 | `LOW_STOCK` | Stock below reorder level | Admin |
 
-Total: **11 event types**
+Total: **12 event types**
 
 ---
 

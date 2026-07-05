@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, String, Text, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SQLEnum, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,12 @@ class SubscriptionTier(str, enum.Enum):
 
 class Tenant(Base):
     __tablename__ = "tenants"
+    __table_args__ = (
+        CheckConstraint(
+            "guest_checkout_mode IN ('counter', 'online')",
+            name="ck_tenants_guest_checkout_mode",
+        ),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -64,6 +70,10 @@ class Tenant(Base):
     contact_email: Mapped[str | None] = mapped_column(String(150), nullable=True)
     homemade_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     inventory_strict_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # RFC-007 (Phase 22): public/guest ordering surface config
+    public_menu_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    public_slug: Mapped[str | None] = mapped_column(String(60), unique=True, nullable=True)
+    guest_checkout_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="counter", server_default=text("'counter'"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )

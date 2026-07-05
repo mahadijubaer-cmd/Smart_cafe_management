@@ -6,10 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.models import Order
 from app.models.user import User
 from app.services.auth_service import AuthService
 from app.services.websocket_manager import manager
-from app.services.ws_pubsub import subscribe_and_forward
+from app.services.ws_pubsub import subscribe_and_forward, subscribe_and_forward_many
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -85,6 +86,56 @@ async def websocket_endpoint(
         logger.error("WebSocket error for user %s: %s", user_id, exc)
     finally:
         manager.disconnect(user_id)
+        if sub_task and not sub_task.done():
+            sub_task.cancel()
+            try:
+                await sub_task
+            except asyncio.CancelledError:
+                pass
+        await db_gen.aclose()
+
+
+@router.websocket("/ws/public/orders/{guest_token}")
+async def guest_order_websocket_endpoint(websocket: WebSocket, guest_token: str):
+    """RFC-007 (Phase 22 / Phase D): token-authenticated tracking channel for a
+    guest session (1+ sibling orders — a food-court cart split across vendors
+    shares one guest_token, see order_service.create_food_court_guest_order).
+
+    The guest_token IS the credential — no JWT, no user_id. Only events targeting
+    this exact guest_token are ever delivered, regardless of which sibling
+    order's tenant published them (see ConnectionManager.broadcast_to_tenant).
+    """
+    db_gen = get_db()
+    db: AsyncSession = await db_gen.__anext__()
+    sub_task: asyncio.Task | None = None
+    conn_id = f"guest:{guest_token}"
+
+    try:
+        result = await db.execute(select(Order).where(Order.guest_token == guest_token))
+        orders = result.scalars().all()
+        if not orders:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        tenant_ids = {str(o.tenant_id) for o in orders}
+        # Registered tenant_id is only used for staff-facing (non-guest-targeted)
+        # broadcasts, which guest connections never receive — any one is fine.
+        await manager.connect(websocket, conn_id, "guest", next(iter(tenant_ids)))
+
+        sub_task = asyncio.create_task(subscribe_and_forward_many(list(tenant_ids), manager))
+        logger.info("Guest WebSocket session started: orders=%s tenants=%s", [o.order_id for o in orders], tenant_ids)
+
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "PING":
+                await websocket.send_json({"type": "PONG"})
+
+    except WebSocketDisconnect:
+        logger.info("Guest WebSocket disconnected: token=%s", guest_token)
+    except Exception as exc:
+        logger.error("Guest WebSocket error for token %s: %s", guest_token, exc)
+    finally:
+        manager.disconnect(conn_id)
         if sub_task and not sub_task.done():
             sub_task.cancel()
             try:

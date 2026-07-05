@@ -11,6 +11,11 @@
 
 Handles order placement, status progression, cancellation, and completion signalling. Orders are time-slotted, wallet-funded, and drive real-time WebSocket notifications. All monetary calculations are server-side.
 
+> **✅ [Phase 22 — Implemented 2026-07-05]** This module also gains an `order_source` field and
+> nullable `user_id` to support guest orders. See OR-11 below, `system/data-model.md`, and
+> `modules/public-surface.md` for the full guest ordering flow (RFC-007). Everything else in this
+> file describes the current, implemented behaviour for `customer_app` orders.
+
 ---
 
 ## API Endpoints
@@ -287,6 +292,22 @@ A positive `wallet_transaction` is created. No new `payment` record.
 ### OR-10: Customer Can Only Cancel Pending Orders
 A customer can cancel only their own orders when `status=pending`.  
 Admin roles can cancel any order in `pending` or `confirmed` status.
+
+### OR-11: `order_source` Is Set on Every Order-Creation Path
+✅ [Phase 22 — Implemented 2026-07-05]. Every code path that creates an `order` row sets
+`order_source`:
+
+| Path | `order_source` |
+|---|---|
+| `POST /orders/` (this endpoint, authenticated customer/student) | `customer_app` (default) |
+| Staff POS entry form (planned, `modules/public-surface.md` context — restaurant segment) | `staff_pos` |
+| `POST /public/{public_slug}/orders` (guest QR) | `guest_qr` |
+| `POST /public/{public_slug}/orders` with kiosk flag | `kiosk` |
+
+`guest_qr` and `kiosk` orders have `user_id IS NULL` and a non-null `guest_token`; all other sources
+require `user_id`. Enforced by the `chk_order_identity` constraint (`system/data-model.md`).
+Analytics (`modules/analytics.md`) must report the `order_source` breakdown per RFC-007's
+guest-vs-staff dimension.
 
 ---
 

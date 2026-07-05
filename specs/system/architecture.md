@@ -167,6 +167,25 @@ Absence of this filter is a **critical security bug**. Cross-tenant data leakage
 
 ---
 
+## Role Terminology: Product Spec ↔ `UserRole` (RFC-008)
+
+The platform's product spec describes admin tiers using business terms that don't map 1:1 onto
+`UserRole` enum names. This table is the canonical cross-reference — consult it instead of guessing:
+
+| Product spec term | `UserRole` value(s) | Scope |
+|---|---|---|
+| Franchise Admin | `super_admin` (also accepted: `tenant_admin`) | A whole `franchise_brand` tenant and all its `franchise_outlet` children (see `GET /analytics/outlets`, `POST /tenants/{id}/outlets`) |
+| Tenant Admin / Shop Admin | `tenant_admin` / `outlet_admin` | A single outlet, independent restaurant, cafeteria, or food-court tenant |
+| Global Admin | `platform_admin` | Cross-tenant, platform-wide (tenant CRUD, suspend/activate) |
+| Consumer | `customer` (legacy: `student`) | End customer within a cafeteria tenant, or a guest (no account) on a restaurant tenant |
+| Staff | `staff` / `server` | Floor operations (POS, order delivery) |
+| Cleaner | `cleaner` | Cleaning task queue |
+
+No new `UserRole` values were introduced for "Franchise Admin" — `super_admin` already carries this
+meaning elsewhere in the codebase (brand-wide analytics). See RFC-008 for the decision record.
+
+---
+
 ## Redis Key Namespace
 
 | Key pattern | TTL | Purpose |

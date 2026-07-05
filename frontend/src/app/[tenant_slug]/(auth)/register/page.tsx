@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTenantInfo } from '@/hooks/useTenantInfo'
+import { isRestaurantSegment } from '@/lib/segments'
 import type { TenantPublicResponse, UserRole } from '@/types'
 
 const detailsSchema = z.object({
@@ -91,6 +92,14 @@ export default function TenantRegisterPage() {
   // but the user may change it in the "organisation" step.
   const [selectedSlug, setSelectedSlug] = useState<string>(urlSlug)
   const { tenant, loading: tenantLoading } = useTenantInfo(selectedSlug)
+
+  // BR-SEG-1 (RFC-007): restaurant-segment tenants have no consumer self-registration.
+  useEffect(() => {
+    if (!inviteToken && tenant && isRestaurantSegment(tenant.tenant_type)) {
+      toast.error('This organisation does not offer customer self-registration.')
+      router.replace(`/${selectedSlug}/login`)
+    }
+  }, [inviteToken, router, selectedSlug, tenant])
 
   const [step, setStep] = useState<Step>(inviteToken ? 'details' : 'organisation')
   const [selectedRole, setSelectedRole] = useState<UserRole>('customer')

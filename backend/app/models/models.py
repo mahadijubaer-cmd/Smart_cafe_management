@@ -14,7 +14,7 @@ from app.core.database import Base
 from app.models.tenant import Tenant, TenantType, SubscriptionTier  # noqa: F401
 from app.models.user import User, UserRole  # noqa: F401
 from app.models.menu import Category, MenuItem  # noqa: F401
-from app.models.order import Order, OrderItem, OrderStatus, PaymentStatus, PaymentMethod  # noqa: F401
+from app.models.order import Order, OrderItem, OrderStatus, OrderSource, PaymentStatus, PaymentMethod  # noqa: F401
 from app.models.table import TablesMap, TableMap, TableStatus  # noqa: F401
 from app.models.inventory import (  # noqa: F401
     InventoryCategory, InventoryItem, MenuItemRecipe,

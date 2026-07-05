@@ -127,7 +127,10 @@ async def test_menu_items_scoped_to_caller_tenant(
     await _seed_menu_item(db_session, tenants["beta"])
 
     token_alpha = await get_token(async_client, "customer@alpha.com", SLUG_ALPHA)
-    token_beta = await get_token(async_client, "customer@beta.com", SLUG_BETA)
+    # beta is an independent_restaurant (restaurant segment) — BR-SEG-1 blocks
+    # consumer login there, so use the admin account to prove tenant-scoping
+    # instead. Tenant-scoping is role-agnostic, so this is an equivalent check.
+    token_beta = await get_token(async_client, "admin@beta.com", SLUG_BETA)
 
     resp_alpha = await async_client.get(
         "/api/v1/menu/items",
@@ -164,7 +167,10 @@ async def test_order_list_returns_only_own_tenant_orders(
     """GET /orders returns an empty list for a tenant that has no orders,
     even when another tenant has placed orders (verified indirectly by list length)."""
     token_alpha = await get_token(async_client, "customer@alpha.com", SLUG_ALPHA)
-    token_beta = await get_token(async_client, "customer@beta.com", SLUG_BETA)
+    # beta is an independent_restaurant (restaurant segment) — BR-SEG-1 blocks
+    # consumer login there, so use the admin account to prove tenant-scoping
+    # instead. Tenant-scoping is role-agnostic, so this is an equivalent check.
+    token_beta = await get_token(async_client, "admin@beta.com", SLUG_BETA)
 
     # Neither tenant has any orders — both should see empty lists.
     resp_alpha = await async_client.get(

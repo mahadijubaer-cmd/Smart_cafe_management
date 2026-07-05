@@ -18,12 +18,13 @@ type OrderWithMeta = Order & {
 type ColumnKey = 'pending' | 'in_progress' | 'ready'
 
 const columnConfig: Record<ColumnKey, { title: string; statuses: Order['status'][] }> = {
-  pending: { title: 'Pending', statuses: ['pending'] },
+  pending: { title: 'Pending', statuses: ['pending_confirmation', 'pending'] },
   in_progress: { title: 'In Progress', statuses: ['confirmed', 'preparing'] },
   ready: { title: 'Ready', statuses: ['ready'] },
 }
 
 const statusStyles: Record<Order['status'], string> = {
+  pending_confirmation: 'border-amber-300 bg-amber-50',
   pending: 'border-amber-300 bg-amber-50',
   confirmed: 'border-sky-300 bg-sky-50',
   preparing: 'border-violet-300 bg-violet-50',
@@ -37,7 +38,7 @@ function formatTime(value: string) {
 }
 
 function statusColumn(status: Order['status']): ColumnKey | null {
-  if (status === 'pending') return 'pending'
+  if (status === 'pending_confirmation' || status === 'pending') return 'pending'
   if (status === 'confirmed' || status === 'preparing') return 'in_progress'
   if (status === 'ready') return 'ready'
   return null
@@ -45,6 +46,8 @@ function statusColumn(status: Order['status']): ColumnKey | null {
 
 function nextStatus(status: Order['status']): Order['status'] | null {
   switch (status) {
+    case 'pending_confirmation':
+      return 'confirmed'
     case 'pending':
       return 'confirmed'
     case 'confirmed':
@@ -116,6 +119,11 @@ function OrderCard({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Table {order.table_number || order.table_id || 'N/A'}</p>
           <p className="mt-1 text-sm text-slate-500">{formatTime(order.time_slot)}</p>
+          {order.order_source === 'guest_qr' || order.order_source === 'kiosk' ? (
+            <span className="mt-1 inline-flex w-fit rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+              Guest{order.guest_name ? ` · ${order.guest_name}` : ''}
+            </span>
+          ) : null}
         </div>
         <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm">
           {order.status.replace('_', ' ')}

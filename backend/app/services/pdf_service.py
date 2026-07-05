@@ -21,6 +21,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     HRFlowable,
+    Image,
+    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -323,6 +325,35 @@ def generate_stock_summary_pdf(
     story.append(Paragraph(
         "⬛ Red rows = stock at or below reorder level", _LABEL_STYLE
     ))
+
+    return _build_pdf(story)
+
+
+# ── TABLE QR SHEET PDF (RFC-007, Phase 22) ────────────────────────────────────
+
+def generate_table_qr_sheet_pdf(
+    tenant_name: str,
+    tables: list[dict],  # [{table_number, zone, qr_png_bytes}]
+) -> bytes:
+    """One page per table: QR code + table number + zone, for printing and
+    taping to physical tables (admin 'Public Link' page, RFC-007)."""
+    story: list[Any] = []
+
+    for index, table in enumerate(tables):
+        story.append(Paragraph(tenant_name, _SUB_STYLE))
+        story.append(Spacer(1, 8 * mm))
+        story.append(Image(io.BytesIO(table["qr_png_bytes"]), width=70 * mm, height=70 * mm))
+        story.append(Spacer(1, 6 * mm))
+        story.append(Paragraph(f"Table {table['table_number']}", ParagraphStyle(
+            "table_label", parent=_STYLES["Heading1"], alignment=TA_CENTER, fontSize=22,
+        )))
+        story.append(Paragraph(table["zone"].title(), _SUB_STYLE))
+        story.append(Paragraph("Scan to view the menu and order", ParagraphStyle(
+            "table_hint", parent=_STYLES["Normal"], alignment=TA_CENTER, fontSize=9, textColor=colors.grey,
+            spaceBefore=4 * mm,
+        )))
+        if index < len(tables) - 1:
+            story.append(PageBreak())
 
     return _build_pdf(story)
 

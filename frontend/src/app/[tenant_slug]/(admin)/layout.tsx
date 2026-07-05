@@ -10,8 +10,10 @@ import {
   FileText,
   LayoutDashboard,
   Menu,
+  QrCode,
   Settings,
   ShoppingBag,
+  Store,
   Table2,
   Users,
   UtensilsCrossed,
@@ -33,7 +35,7 @@ const NAV_DEFS: NavItem[] = [
   { label: 'Dashboard', path: 'dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: 'Orders', path: 'orders', icon: <ShoppingBag className="h-4 w-4" /> },
   { label: 'Tables', path: 'tables', icon: <Table2 className="h-4 w-4" /> },
-  { label: 'Menu', path: 'menu', icon: <UtensilsCrossed className="h-4 w-4" /> },
+  { label: 'Menu', path: 'menu-management', icon: <UtensilsCrossed className="h-4 w-4" /> },
   { label: 'Inventory', path: 'inventory', icon: <Box className="h-4 w-4" /> },
   {
     label: 'Central Inventory',
@@ -41,7 +43,20 @@ const NAV_DEFS: NavItem[] = [
     icon: <Warehouse className="h-4 w-4" />,
     allowedTypes: ['franchise_brand'],
   },
+  {
+    label: 'Outlets',
+    path: 'outlets',
+    icon: <Store className="h-4 w-4" />,
+    allowedTypes: ['franchise_brand'],
+  },
   { label: 'Users', path: 'users', icon: <Users className="h-4 w-4" /> },
+  {
+    label: 'Public Link',
+    path: 'public-link',
+    icon: <QrCode className="h-4 w-4" />,
+    // All tenant types may publish a public menu — restaurant segment gets guest
+    // ordering, cafeteria segment gets read-only browsing only (RFC-007 Phase D).
+  },
   { label: 'Analytics', path: 'analytics', icon: <BarChart3 className="h-4 w-4" /> },
   { label: 'Reports', path: 'reports', icon: <Download className="h-4 w-4" /> },
   { label: 'Memo', path: 'memo', icon: <FileText className="h-4 w-4" /> },

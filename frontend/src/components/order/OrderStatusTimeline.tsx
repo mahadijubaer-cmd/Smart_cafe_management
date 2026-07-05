@@ -11,6 +11,7 @@ const steps: { label: string; status: Order['status'] }[] = [
 ]
 
 const statusRank: Record<Order['status'], number> = {
+  pending_confirmation: 0,
   pending: 0,
   confirmed: 1,
   preparing: 2,

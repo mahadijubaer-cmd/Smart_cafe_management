@@ -8,6 +8,7 @@ import { BookOpenText, CircleUserRound, CreditCard, MenuSquare } from 'lucide-re
 import Navbar from '@/components/layout/Navbar'
 import CartSidebar from '@/components/menu/CartSidebar'
 import apiClient from '@/lib/api'
+import { isRestaurantSegment } from '@/lib/segments'
 import { useStore } from '@/store/useStore'
 
 type BottomNavItem = {
@@ -30,6 +31,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   const slug = params.tenant_slug
 
   const token = useStore((state) => state.token)
+  const tenantType = useStore((state) => state.tenantType)
   const isCartOpen = useStore((state) => state.isCartOpen)
   const closeCart = useStore((state) => state.closeCart)
   const setUser = useStore((state) => state.setUser)
@@ -41,6 +43,13 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
       router.replace(`/${slug}/login`)
     }
   }, [router, slug, token])
+
+  // BR-SEG-1 (RFC-007): restaurant-segment tenants have no consumer surface.
+  useEffect(() => {
+    if (tenantType && isRestaurantSegment(tenantType)) {
+      router.replace('/unauthorized')
+    }
+  }, [router, tenantType])
 
   useEffect(() => {
     if (!token) return
