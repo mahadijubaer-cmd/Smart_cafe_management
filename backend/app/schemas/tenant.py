@@ -126,6 +126,9 @@ class TenantSettingsUpdate(BaseModel):
     allowed_email_domain: str | None = None
     homemade_enabled: bool | None = None
     inventory_strict_mode: bool | None = None
+    public_menu_enabled: bool | None = None
+    public_slug: str | None = Field(default=None, min_length=2, max_length=60, pattern=r"^[a-z0-9-]+$")
+    guest_checkout_mode: str | None = Field(default=None, pattern="^(counter|online)$")
 
 
 class TenantResponse(BaseModel):
@@ -145,6 +148,9 @@ class TenantResponse(BaseModel):
     contact_email: str | None
     homemade_enabled: bool
     inventory_strict_mode: bool
+    public_menu_enabled: bool
+    public_slug: str | None
+    guest_checkout_mode: str
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

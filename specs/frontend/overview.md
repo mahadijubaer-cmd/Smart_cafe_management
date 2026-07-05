@@ -31,12 +31,21 @@
 ```
 src/app/
   page.tsx                           → Redirects to /{defaultSlug}/login
+                                        ✅ [Phase 22] Becomes segment landing (Cafeteria /
+                                        Restaurant cards → tenant directory filtered by segment) — RFC-007
   register-organization/page.tsx     → ✅ [RFC-006] Public org onboarding wizard
                                         (choose category → org details → admin account → auto-login)
-  
+  m/[public_slug]/                   → ✅ [Phase 22 — Implemented 2026-07-05] Public surface, no auth — RFC-007
+    page.tsx                         → Public menu + cart + guest checkout (name+phone);
+                                        `?mode=kiosk` = fullscreen locked kiosk variant
+    track/[guestToken]/page.tsx      → Guest order tracking (live via public WS)
+
   [tenant_slug]/                     → Tenant-scoped routes
     layout.tsx                       → Loads tenant context from JWT
-    
+                                        ✅ [Phase 22] Also derives segment (`system/segments.md`)
+                                        and hides/404s (customer) + register for restaurant tenants
+    display/page.tsx                → ✅ [Phase 22] Signage: read-only auto-rotating menu board — RFC-007
+
     (auth)/
       login/page.tsx                 → Login form + admin OTP step
       register/page.tsx              → 2-step: form → OTP verify
@@ -68,6 +77,12 @@ src/app/
         movements/page.tsx           → Movement log
         purchase-orders/page.tsx     → PO management
         central/page.tsx             → Central stock (franchise)
+      public-link/page.tsx           → ✅ [Phase 22 — Implemented 2026-07-05] Toggle public menu,
+                                        edit public_slug, download table-QR PDF sheet — RFC-007
+      outlets/page.tsx                → ✅ [Phase 23 — Implemented 2026-07-05] Franchise brand
+                                        self-service: list + create franchise_outlet tenants.
+                                        Nav item only rendered when tenant_type===franchise_brand
+                                        (RFC-008)
   
   (platform)/
     admin/

@@ -176,6 +176,117 @@ New DB migration:
 
 ---
 
+### Phase 22 — Segment Split & Guest QR Ordering (Public Surface)
+**RFC:** [RFC-007](../decisions/rfcs/RFC-007-segment-split-guest-ordering.md)
+**Priority:** P1
+**Status:** ✅ Implemented (2026-07-05) — backend + frontend + simulated online guest payment (Phase 2, simulated gateway)
+
+Backend (done):
+- `app/core/segments.py` — `SEGMENT_MAP`, `get_segment()`, `is_restaurant_segment()` — no new DB column
+- Alembic migration `0006_add_guest_orders.py`: nullable `orders.user_id`, `order_source`, `guest_token`,
+  `guest_name`, `guest_phone`, `chk_order_identity`; `tenants.public_menu_enabled`,
+  `tenants.public_slug`, `tenants.guest_checkout_mode`; new `pending_confirmation` order status
+- `POST /auth/register` blocks restaurant-segment tenants (BR-SEG-1)
+- `/api/v1/public` router (`app/routers/public.py`): menu (price-only, Redis-cached), info, guest
+  order create, guest order tracking (no JWT) — Redis rate limiting (5/min/IP+table), per-table
+  pending-order cap (3), 20-min auto-expiry (checked lazily on tracking/status reads)
+- Staff confirmation gate: `pending_confirmation → confirmed/cancelled` added to the order status
+  machine (`order_service.update_status`)
+- Guest WebSocket channel `/ws/public/orders/{guest_token}` (`ConnectionManager` now also routes by
+  `target_guest_token`)
+- Outlet-scoped table QR payload (`qr_service.generate_table_qr_bytes`) + `GET /qr/table-sheet/pdf`
+  admin endpoint (one page per table)
+- `PATCH /orders/{id}/mark-paid` — pay-at-counter for any non-`customer_app` order (WAL-4)
+- `POST /orders/staff-pos` — staff POS entry, attributed to the staff account, `status=confirmed`
+  immediately (skips the guest confirmation gate), pay-at-counter
+- `GET /public/orders/{guest_token}/qr` — success-screen tracking-link QR
+- `POST /public/orders/{guest_token}/pay` — simulated online guest payment (WAL-5), opt-in via
+  `guest_checkout_mode='online'`; publishes `ORDER_PAID`
+- `POST /auth/login` also blocks `customer`/`student` roles on restaurant-segment tenants (BR-SEG-1
+  login-side gap, closed after the initial pass only covered registration)
+- **Food-court multi-vendor guest carts** (RFC-007 §Phase D): `orders.guest_token` unique constraint
+  relaxed to a plain index (migration `0007_food_court_guest_sessions.py`) — a food-court guest cart
+  spanning multiple vendors splits into one order per vendor, all sharing one `guest_token` (a
+  "guest session"). `order_service.create_food_court_guest_order`, `create_guest_order_session`,
+  `get_guest_order_group`, `resolve_public_owner_tenant`. Public menu/order/tracking/pay/QR endpoints
+  and the guest WebSocket (`subscribe_and_forward_many`, `ConnectionManager.broadcast_to_tenant`
+  guest_token-based routing) all became session/group-aware. See `modules/public-surface.md`
+  "Food Courts: Guest Sessions".
+- Tests: `backend/tests/test_public_surface.py` — 26 tests, all passing
+
+Frontend (done):
+- `/` segment landing page (Cafeteria / Restaurant cards) → `/discover?segment=`
+- `lib/segments.ts`; `[tenant_slug]/(customer)/layout.tsx` and `(auth)/register/page.tsx` redirect
+  away for restaurant-segment tenants (BR-SEG-1)
+- `/m/[public_slug]/page.tsx` — public menu, cart, guest checkout; `?mode=kiosk` (idle-reset 90s)
+- `/m/[public_slug]/track/[guestToken]/page.tsx` — guest tracking, live via `/ws/public/orders/{guest_token}`
+  (auto-reconnect, 20s poll fallback)
+- `/m/[public_slug]/page.tsx` — success screen (on-screen QR, "Pay online now" when
+  `guest_checkout_mode='online'`) instead of an immediate redirect; vendor tabs + per-vendor price
+  labels for food-court menus (`menu.vendors`); checkout always posts a flat cart, backend splits it
+- `/m/[public_slug]/track/[guestToken]/page.tsx` — renders one "ticket" card per sibling order
+  (vendor name, own status timeline) plus a grand total, for both single-vendor and food-court sessions
+- `[tenant_slug]/display/page.tsx` — signage (auto-rotating categories)
+- `[tenant_slug]/(admin)/public-link/page.tsx` — toggle, slug editor, table-QR PDF download, guest
+  checkout mode switch (counter/online)
+- `(staff)/pos/page.tsx` (+ `[tenant_slug]/(staff)/pos/page.tsx` re-export) — staff POS order entry
+- Staff order queue (`(staff)/orders/page.tsx`) shows a "Guest" badge and handles `pending_confirmation`
+- **Cafeteria read-only public menu (BR-SEG-3):** `PATCH /tenants/me/settings` no longer blocks
+  `public_menu_enabled` for non-restaurant segments; `POST /public/{public_slug}/orders` rejects with
+  `400` for cafeteria-segment tenants (menu/info endpoints unaffected). `(admin)/public-link/page.tsx`
+  shows a segment-appropriate copy/feature set (no checkout-mode toggle or QR-sheet download for
+  cafeteria); `/m/[public_slug]/page.tsx` hides add-to-cart/checkout entirely when
+  `!isRestaurantSegment(info.tenant_type)`.
+
+**Not yet implemented (explicit follow-up, genuinely blocked on external resources):** a *real*
+payment-gateway integration (SSLCOMMERZ or similar, needs real merchant credentials) for online
+guest checkout — today `guest_checkout_mode='online'` uses a simulated payment identical in spirit
+to the existing authenticated `PaymentMethod.simulation`; kiosk card-reader integration (needs real
+hardware). These are the only two remaining RFC-007 items, and neither is buildable in this
+environment.
+
+**Definition of done — met:** Guest can order via `/m/{slug}` → appears in staff queue with a
+"Guest" badge → staff confirms → guest tracks live (polling) → staff marks paid at counter.
+Consumer registration returns 400 for restaurant tenants; cafeteria flow unaffected. Zero
+cross-tenant leakage in public endpoints (isolation tests pass).
+
+---
+
+### Phase 23 — Franchise Self-Service Outlet Provisioning
+**RFC:** [RFC-008](../decisions/rfcs/RFC-008-franchise-outlet-self-service.md)
+**Priority:** P1
+**Status:** ✅ Implemented (2026-07-05)
+
+A gap analysis against the platform's product spec found that a franchise brand's own admin could
+not create new outlets — `POST/GET /tenants/{tenant_id}/outlets` were `platform_admin`-only, with no
+frontend page at all. Fixed:
+
+Backend:
+- `app/routers/tenants.py::_require_own_brand_or_platform` — new guard dependency: accepts
+  `platform_admin` (any brand, unchanged), or the brand's own `super_admin`/`tenant_admin` when the
+  path `tenant_id` matches their own JWT `tenant_id` and their tenant is `franchise_brand`
+  (**BR-FRAN-1**). Replaces the blanket `_admin_only` on both outlet endpoints.
+- `backend/tests/test_franchise_outlets.py` — 7 tests: brand admin lists/creates own outlets (both
+  `super_admin` and `tenant_admin`), a different brand's admin gets 403, a non-franchise
+  `tenant_admin` gets 403, `platform_admin` access unchanged, plain `customer` gets 403.
+
+Frontend:
+- `[tenant_slug]/(admin)/outlets/page.tsx` — list + create outlets, visible only when
+  `tenant_type === 'franchise_brand'`; each outlet card links to its own `/{slug}/dashboard`.
+- `(admin)/layout.tsx` — new "Outlets" nav item, gated the same way as "Central Inventory".
+- `types/index.ts` — added `TenantListResponse`, `OutletCreate`.
+
+Also documented (no code change): the product spec's "Franchise Admin" / "Tenant Admin" / "Shop
+Admin" terminology mapped explicitly onto `UserRole` values in `specs/system/architecture.md`
+(`super_admin` = Franchise Admin). The spec's "Specific Category Restaurant" tenant formation was
+evaluated and intentionally **not** given a new `TenantType` — no business rule differs from
+`franchise_brand`, so it remains a wizard-copy nuance, not an engineering gap (see RFC-008 §3).
+
+**Definition of done — met:** a franchise brand's `super_admin`/`tenant_admin` can create a new
+outlet from `/outlets` without any platform-admin involvement; cross-brand isolation holds (tested).
+
+---
+
 ## Priority Matrix
 
 | Feature | User Impact | Effort | Priority |
@@ -192,3 +303,4 @@ New DB migration:
 | Staff invitation system | Medium | High | P2 |
 | Notification inbox | Medium | Medium | P2 |
 | Platform analytics + subscriptions | Low | Medium | P3 |
+| Segment split + guest QR ordering (public surface) | Very High (restaurant segment) | High | P1 |

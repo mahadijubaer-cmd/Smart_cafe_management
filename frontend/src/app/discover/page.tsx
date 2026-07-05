@@ -1,12 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import apiClient from '@/lib/api'
 import TenantCard from '@/components/auth/TenantCard'
+import { getSegment, type Segment } from '@/lib/segments'
 import type { TenantPublicListResponse, TenantPublicResponse } from '@/types'
 
 export default function DiscoverPage() {
+  const searchParams = useSearchParams()
+  const segmentFilter = searchParams.get('segment') as Segment | null
+
   const [tenants, setTenants] = useState<TenantPublicResponse[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -23,11 +28,24 @@ export default function DiscoverPage() {
       .finally(() => setLoading(false))
   }, [query])
 
+  // RFC-007: segment is derived client-side too — no backend filter param needed for the MVP.
+  const visibleTenants = useMemo(
+    () =>
+      segmentFilter
+        ? tenants.filter((t) => getSegment(t.tenant_type) === segmentFilter)
+        : tenants,
+    [tenants, segmentFilter]
+  )
+
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-[#1A4D2E] px-6 py-16 text-center text-white">
-        <h1 className="text-4xl font-black tracking-tight">Find your organisation</h1>
+        <h1 className="text-4xl font-black tracking-tight">
+          {segmentFilter === 'cafeteria' && 'Find your cafeteria'}
+          {segmentFilter === 'restaurant' && 'Find your restaurant'}
+          {!segmentFilter && 'Find your organisation'}
+        </h1>
         <p className="mt-3 text-white/70">Search cafeterias, restaurants, and food courts on the platform.</p>
 
         <div className="mx-auto mt-8 flex max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
@@ -54,15 +72,15 @@ export default function DiscoverPage() {
           </p>
         )}
 
-        {!loading && !error && tenants.length === 0 && (
+        {!loading && !error && visibleTenants.length === 0 && (
           <p className="text-center text-sm text-slate-500">
             {query ? `No results for "${query}".` : 'No organisations available yet.'}
           </p>
         )}
 
-        {!loading && !error && tenants.length > 0 && (
+        {!loading && !error && visibleTenants.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tenants.map((t) => (
+            {visibleTenants.map((t) => (
               <TenantCard key={t.slug} tenant={t} />
             ))}
           </div>

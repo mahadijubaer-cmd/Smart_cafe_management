@@ -15,12 +15,21 @@ from app.core.database import Base
 
 
 class OrderStatus(str, enum.Enum):
+    pending_confirmation = "pending_confirmation"  # RFC-007: guest orders awaiting staff confirmation
     pending = "pending"
     confirmed = "confirmed"
     preparing = "preparing"
     ready = "ready"
     delivered = "delivered"
     cancelled = "cancelled"
+
+
+class OrderSource(str, enum.Enum):
+    """RFC-007 (Phase 22): where an order originated."""
+    customer_app = "customer_app"
+    staff_pos = "staff_pos"
+    guest_qr = "guest_qr"
+    kiosk = "kiosk"
 
 
 class PaymentStatus(str, enum.Enum):
@@ -39,6 +48,13 @@ class PaymentMethod(str, enum.Enum):
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = (
+        CheckConstraint(
+            "(user_id IS NOT NULL AND guest_token IS NULL) OR "
+            "(user_id IS NULL AND guest_token IS NOT NULL AND order_source IN ('guest_qr', 'kiosk'))",
+            name="chk_order_identity",
+        ),
+    )
 
     order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -53,8 +69,20 @@ class Order(Base):
         nullable=True,
         index=True,
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     table_id: Mapped[int | None] = mapped_column(ForeignKey("tables_map.table_id"), nullable=True)
+    order_source: Mapped[OrderSource] = mapped_column(
+        SQLEnum(OrderSource, name="ordersource"),
+        nullable=False,
+        default=OrderSource.customer_app,
+        server_default=OrderSource.customer_app.value,
+    )
+    # Not unique: a food-court guest cart spanning multiple vendors is split into
+    # sibling Order rows (one per vendor tenant_id) that share one guest_token —
+    # see order_service.create_food_court_guest_order (RFC-007 §Phase D).
+    guest_token: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True, nullable=True)
+    guest_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    guest_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     time_slot: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(
         SQLEnum(OrderStatus, name="orderstatus"),

@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.redis import get_redis
+from app.core.segments import is_restaurant_segment
 from app.models.models import User
 from app.models.user import UserRole
 from app.schemas.user import (
@@ -65,6 +66,13 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     # Resolve tenant
     tenant = await auth_service.get_tenant_by_slug(user_data.tenant_slug, db)
 
+    # BR-SEG-1: restaurant-segment tenants have no consumer self-registration/login.
+    if is_restaurant_segment(tenant.tenant_type):
+        raise HTTPException(
+            status_code=400,
+            detail="Consumer registration is not available for this tenant",
+        )
+
     # Email must be unique within this tenant
     existing = await db.execute(
         select(User).where(
@@ -117,6 +125,14 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
+
+    # BR-SEG-1: restaurant-segment tenants have no consumer login either (only registration
+    # was blocked before — this closes the same gap for any pre-existing customer account).
+    if user.role in (UserRole.customer, UserRole.student) and is_restaurant_segment(tenant.tenant_type):
+        raise HTTPException(
+            status_code=403,
+            detail="Consumer login is not available for this tenant",
+        )
 
     access_token = auth_service.create_access_token(user, tenant)
 

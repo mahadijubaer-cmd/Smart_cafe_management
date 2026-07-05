@@ -13,7 +13,7 @@ from app.core.dependencies import (
     require_role,
 )
 from app.models.models import Order, TablesMap, User, UserRole
-from app.schemas.order import OrderCreate, OrderResponse, OrderUpdateStatus
+from app.schemas.order import OrderCreate, OrderResponse, OrderUpdateStatus, StaffPosOrderCreate
 from app.services.order_service import OrderService
 from app.services.qr_service import email_qr_attachment, generate_and_save_order_qr
 from app.services.ws_pubsub import publish_event
@@ -58,6 +58,30 @@ async def place_order(
                 }
                 for item in (getattr(order, "items", []) or [])
             ],
+        },
+        outlet_id=ctx.outlet_id,
+    )
+    return order
+
+
+@router.post("/staff-pos", response_model=OrderResponse, status_code=201)
+async def place_staff_pos_order(
+    order_data: StaffPosOrderCreate,
+    ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(*WORK_ROLES)),
+):
+    """RFC-007 (Phase 22): staff enters an order for a walk-in customer (restaurant-segment POS)."""
+    order = await order_service.create_staff_pos_order(db, ctx.tenant_id, current_user.user_id, order_data)
+
+    await publish_event(
+        ctx.tenant_id,
+        {
+            "type": "ORDER_PLACED",
+            "order_id": str(order.order_id),
+            "table_id": order.table_id,
+            "order_source": "staff_pos",
+            "total_amount": str(order.total_amount),
         },
         outlet_id=ctx.outlet_id,
     )
@@ -124,19 +148,20 @@ async def update_order_status(
     }.get(status_val)
 
     if event_type:
-        await publish_event(
-            ctx.tenant_id,
-            {
-                "type": event_type,
-                "order_id": str(order.order_id),
-                "status": status_val,
-                "target_user_id": str(order.user_id),
-            },
-            outlet_id=ctx.outlet_id,
-        )
+        event: dict = {
+            "type": event_type,
+            "order_id": str(order.order_id),
+            "status": status_val,
+        }
+        if order.user_id is not None:
+            event["target_user_id"] = str(order.user_id)
+        elif order.guest_token is not None:
+            event["target_guest_token"] = str(order.guest_token)
 
-    if status_val == "confirmed":
-        # Load user email for QR attachment
+        await publish_event(ctx.tenant_id, event, outlet_id=ctx.outlet_id)
+
+    if status_val == "confirmed" and order.user_id is not None:
+        # Load user email for QR attachment (skipped for guest orders — no account/email)
         user_result = await db.execute(
             select(User).where(User.user_id == order.user_id)
         )
@@ -178,6 +203,17 @@ async def _qr_generate_and_email(
         except Exception:
             import logging
             logging.getLogger(__name__).exception("QR background task failed for order %s", order_id)
+
+
+@router.patch("/{order_id}/mark-paid", response_model=OrderResponse)
+async def mark_order_paid_at_counter(
+    order_id: str,
+    ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(*WORK_ROLES)),
+):
+    """WAL-4: staff marks a guest (pay-at-counter) order as paid. No wallet/gateway involved."""
+    return await order_service.mark_paid_at_counter(db, order_id, ctx.tenant_id)
 
 
 @router.patch("/{order_id}/complete", status_code=202)

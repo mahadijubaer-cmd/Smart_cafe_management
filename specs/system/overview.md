@@ -43,6 +43,13 @@ Enforcement rules:
 - `food_court_vendor.parent_tenant_id` MUST point to an existing `food_court` tenant
 - All other types: `parent_tenant_id = NULL`
 
+### Segments
+
+✅ [Phase 22 — Implemented 2026-07-05] (RFC-007). Every tenant also has a **derived** segment —
+`cafeteria` (`corporate`, `academic`) or `restaurant` (everything else) — computed from
+`tenant_type` by one function. No `segment` column exists or will be added. See
+`system/segments.md` for the full capability matrix and business rules.
+
 ---
 
 ## Actors (User Roles)
@@ -145,3 +152,4 @@ These are frequently confused. Verify against this list before generating any co
 | UI component library | Custom Tailwind CSS (shadcn/ui NOT installed) |
 | Payment methods in `PaymentCreate` | `wallet` \| `simulation` only (gateway not wired yet) |
 | `inventory_strict_mode` default | `False` |
+| Segment is stored in a DB column | **No** — always derived via `SEGMENT_MAP[tenant_type]` (`system/segments.md`) |

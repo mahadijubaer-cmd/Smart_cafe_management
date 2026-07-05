@@ -28,7 +28,7 @@ const NAV: NavItem[] = [
   },
   {
     label: 'Unified Menu',
-    path: 'menu',
+    path: 'unified-menu',
     icon: <UtensilsCrossed className="h-4 w-4" />,
     roles: ['food_court_admin', 'server', 'customer'],
   },

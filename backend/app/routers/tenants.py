@@ -11,6 +11,8 @@ Platform-admin endpoints:
   PATCH  /tenants/{tenant_id}           update metadata
   POST   /tenants/{tenant_id}/activate  re-activate a suspended tenant
   POST   /tenants/{tenant_id}/suspend   suspend a tenant
+
+Platform-admin OR the brand's own admin (BR-FRAN-1, RFC-008):
   GET    /tenants/{tenant_id}/outlets   list child outlets (franchise)
   POST   /tenants/{tenant_id}/outlets   create a franchise outlet under a brand
 """
@@ -25,7 +27,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import ADMIN_ROLES, get_tenant_context, require_role, TenantContext
+from app.core.dependencies import (
+    ADMIN_ROLES,
+    get_current_user,
+    get_tenant_context,
+    require_role,
+    TenantContext,
+)
 from app.core.redis import get_redis
 from app.models.tenant import SubscriptionTier, Tenant, TenantType
 from app.models.user import User, UserRole
@@ -241,6 +249,20 @@ async def update_my_tenant_settings(
     db: AsyncSession = Depends(get_db),
 ):
     """Self-service settings update for tenant admins."""
+    # RFC-007 Phase D: cafeteria-segment tenants may now enable public_menu_enabled too, but only
+    # for read-only browsing — guest ORDERING (POST /public/*/orders) stays restaurant-segment only
+    # (see is_restaurant_segment() gate in routers/public.py::create_public_order).
+
+    if data.public_slug is not None:
+        existing = await db.execute(
+            select(Tenant).where(
+                Tenant.public_slug == data.public_slug,
+                Tenant.tenant_id != ctx.tenant_id,
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="public_slug is already taken")
+
     result = await db.execute(select(Tenant).where(Tenant.tenant_id == ctx.tenant_id))
     tenant = result.scalar_one_or_none()
     if not tenant:
@@ -379,7 +401,36 @@ async def suspend_tenant(tenant_id: UUID, db: AsyncSession = Depends(get_db)):
     return tenant
 
 
-@router.get("/{tenant_id}/outlets", response_model=TenantListResponse, dependencies=[_admin_only])
+_BRAND_ADMIN_ROLES = (UserRole.super_admin, UserRole.tenant_admin)
+
+
+async def _require_own_brand_or_platform(
+    tenant_id: UUID,
+    ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """BR-FRAN-1 (RFC-008): platform_admin may manage any brand's outlets; a franchise brand's
+    own super_admin/tenant_admin ("Franchise Admin" in the product spec) may manage only their
+    own brand's outlets."""
+    if current_user.role == UserRole.platform_admin:
+        return
+    if (
+        current_user.role in _BRAND_ADMIN_ROLES
+        and ctx.tenant_id == tenant_id
+        and ctx.tenant_type == TenantType.franchise_brand
+    ):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Insufficient permissions to manage this brand's outlets",
+    )
+
+
+@router.get(
+    "/{tenant_id}/outlets",
+    response_model=TenantListResponse,
+    dependencies=[Depends(_require_own_brand_or_platform)],
+)
 async def list_outlets(tenant_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Tenant).where(Tenant.parent_tenant_id == tenant_id)
@@ -388,7 +439,12 @@ async def list_outlets(tenant_id: UUID, db: AsyncSession = Depends(get_db)):
     return TenantListResponse(items=list(outlets), total=len(outlets))
 
 
-@router.post("/{tenant_id}/outlets", response_model=TenantResponse, status_code=201, dependencies=[_admin_only])
+@router.post(
+    "/{tenant_id}/outlets",
+    response_model=TenantResponse,
+    status_code=201,
+    dependencies=[Depends(_require_own_brand_or_platform)],
+)
 async def create_outlet(
     tenant_id: UUID,
     data: OutletCreate,

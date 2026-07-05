@@ -67,9 +67,36 @@ def generate_order_qr_bytes(
     return buf.getvalue()
 
 
-def generate_table_qr_bytes(table_number: int) -> bytes:
-    """Return PNG bytes for a table QR code (encodes the order URL)."""
-    url = f"{settings.FRONTEND_URL}/order?table={table_number}"
+def generate_url_qr_bytes(url: str) -> bytes:
+    """Return PNG bytes for a QR code encoding an arbitrary URL.
+
+    Used by the guest order tracking link (RFC-007, Phase 22) so a guest can
+    save/share their tracking page without typing the URL.
+    """
+    img = _make_qr(url, box_size=8)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def generate_table_qr_bytes(
+    table_id: int,
+    table_number_label: str | None = None,
+    public_slug: str | None = None,
+) -> bytes:
+    """Return PNG bytes for a table QR code.
+
+    RFC-007 (Phase 22): when the tenant has a `public_slug` (restaurant segment,
+    public menu enabled), the QR encodes the guest-ordering URL
+    `{FRONTEND_URL}/m/{public_slug}?t={table_number}` — each outlet is already
+    its own tenant with its own `public_slug`, so no separate outlet param is
+    needed. Falls back to the legacy authenticated-order URL otherwise.
+    """
+    if public_slug:
+        table_label = table_number_label or str(table_id)
+        url = f"{settings.FRONTEND_URL}/m/{public_slug}?t={table_label}"
+    else:
+        url = f"{settings.FRONTEND_URL}/order?table={table_id}"
     img = _make_qr(url, box_size=8)
     buf = io.BytesIO()
     img.save(buf, format="PNG")

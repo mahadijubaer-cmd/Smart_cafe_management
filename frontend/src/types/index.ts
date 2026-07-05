@@ -25,7 +25,15 @@ export type UserRole =
   | 'admin'     // legacy alias — maps to tenant_admin
 
 export type TableStatus = 'available' | 'reserved' | 'occupied' | 'cleaning'
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled'
+export type OrderStatus =
+  | 'pending_confirmation' // RFC-007: guest orders awaiting staff confirmation
+  | 'pending'
+  | 'confirmed'
+  | 'preparing'
+  | 'ready'
+  | 'delivered'
+  | 'cancelled'
+export type OrderSource = 'customer_app' | 'staff_pos' | 'guest_qr' | 'kiosk'
 export type PaymentStatus = 'pending' | 'paid' | 'refunded'
 export type PaymentMethod = 'wallet' | 'simulation' | 'bkash' | 'nagad' | 'card'
 export type NotificationStatus = 'success' | 'failed' | 'info' | 'warning'
@@ -53,6 +61,9 @@ export interface Tenant {
   contact_email?: string | null
   homemade_enabled: boolean
   inventory_strict_mode: boolean
+  public_menu_enabled: boolean
+  public_slug?: string | null
+  guest_checkout_mode: 'counter' | 'online'
   created_at: string
   updated_at: string
 }
@@ -98,6 +109,27 @@ export interface TenantPublicDetailResponse extends TenantPublicResponse {
 export interface TenantPublicListResponse {
   items: TenantPublicResponse[]
   total: number
+}
+
+export interface TenantListResponse {
+  items: Tenant[]
+  total: number
+}
+
+// RFC-008: franchise brand self-service outlet provisioning
+export interface OutletCreate {
+  name: string
+  slug: string
+  subscription_tier?: SubscriptionTier
+  logo_url?: string | null
+  brand_color?: string
+  allowed_email_domain?: string | null
+  address?: string | null
+  city?: string | null
+  phone?: string | null
+  contact_email?: string | null
+  homemade_enabled?: boolean
+  inventory_strict_mode?: boolean
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -183,12 +215,15 @@ export interface Order {
   order_id: string
   tenant_id?: string
   outlet_id?: string | null
-  user_id: string
+  user_id?: string | null
   table_id?: number
   table?: TableMap
   table_number?: string | null
   time_slot: string
   status: OrderStatus
+  order_source?: OrderSource
+  guest_name?: string | null
+  guest_phone?: string | null
   total_amount: number
   discount_amount: number
   payment_status: PaymentStatus
@@ -206,6 +241,76 @@ export interface OrderCreate {
   time_slot: string
   special_notes?: string
   redeem_points?: boolean
+}
+
+// ─── Public / Guest Ordering (RFC-007, Phase 22) ─────────────────────────────
+
+export interface PublicFoodCourtVendor {
+  vendor_id: string
+  vendor_name: string
+}
+
+// A food-court unified menu item carries vendor_id/vendor_name; null for
+// single-vendor restaurants.
+export interface PublicMenuItem extends MenuItem {
+  vendor_id?: string | null
+  vendor_name?: string | null
+}
+
+export interface PublicMenuResponse {
+  categories: Category[]
+  items: PublicMenuItem[]
+  vendors?: PublicFoodCourtVendor[] | null
+}
+
+export interface PublicTenantInfoResponse {
+  name: string
+  slug: string
+  public_slug: string
+  tenant_type: TenantType
+  logo_url: string | null
+  brand_color: string
+  address: string | null
+  city: string | null
+  phone: string | null
+  guest_checkout_mode: 'counter' | 'online'
+}
+
+export interface GuestOrderCreate {
+  items: { item_id: string; quantity: number }[]
+  table_number: string
+  guest_name: string
+  guest_phone: string
+  special_notes?: string
+  is_kiosk?: boolean
+}
+
+export interface GuestOrder {
+  order_id: string
+  guest_token: string
+  status: OrderStatus
+  order_source: OrderSource
+  table_id?: number | null
+  total_amount: number
+  payment_status: PaymentStatus
+  payment_method?: PaymentMethod | null
+  guest_name?: string | null
+  guest_phone?: string | null
+  special_notes?: string | null
+  created_at: string
+  updated_at: string
+  items: OrderItem[]
+  // Set only for food-court sibling orders — null for single-vendor restaurants.
+  vendor_id?: string | null
+  vendor_name?: string | null
+}
+
+// A "guest session": one order per vendor for a food-court cart, or a single
+// order for a single-vendor restaurant — always this shape from the API.
+export interface GuestOrderGroup {
+  guest_token: string
+  total_amount: number
+  orders: GuestOrder[]
 }
 
 // ─── Payments ─────────────────────────────────────────────────────────────────

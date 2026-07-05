@@ -146,6 +146,34 @@ There is no credit or overdraft facility.
 The authoritative audit trail is `wallet_transactions`.  
 If `wallet_balance` and the sum of `wallet_transactions` disagree, `wallet_transactions` is the source of truth.
 
+### WAL-4: Wallet/Reward Triggers No-Op for Guest Orders
+✅ [Phase 22 — Implemented 2026-07-05] (RFC-007). When `order.user_id IS NULL` (`order_source IN
+('guest_qr','kiosk')`, see `modules/orders.md` OR-11 and `system/data-model.md`):
+- No wallet deduction happens at order placement — guest orders skip `POST /payments/pay` entirely.
+- No `reward_points` are earned or reversed (RWD-1/RWD-4 do not apply — there is no user to credit).
+- Default payment for a guest order is **pay-at-counter**: staff call
+  `PATCH /orders/{order_id}/mark-paid` (`order_service.mark_paid_at_counter`), which sets
+  `payment_status='paid'` and creates no `wallet_transaction`. Rejects `order_source='customer_app'`
+  orders with `400` (those go through the wallet).
+- **WAL-5** covers the online alternative.
+
+### WAL-5: Simulated Online Guest Payment
+✅ [Phase 22 Phase 2 — Implemented 2026-07-05] (RFC-007). When the owning tenant has
+`guest_checkout_mode='online'` (resolved via `order_service.resolve_public_owner_tenant()` — the
+food-court parent for a food-court guest session, the tenant itself otherwise), a guest may instead
+call `POST /public/orders/{guest_token}/pay` (`order_service.pay_guest_order_online`) at any point
+before all sibling orders in the session are cancelled. Sets `payment_status='paid'`,
+`payment_method='simulation'` on **every non-cancelled order in the guest session** — one guest
+action pays the whole cart, even if it was split across multiple food-court vendors (WAL-4 covers
+the alternative, per-order, staff-initiated pay-at-counter path for exactly this reason: each
+vendor's own counter still marks its own ticket paid independently). This is a **simulated
+gateway**, mirroring the existing authenticated `PaymentMethod.simulation` behaviour (always
+succeeds, no real card/SSLCOMMERZ call). Rejects with `400` if the owning tenant is still
+`guest_checkout_mode='counter'`, if every order is already paid, or if every order was cancelled.
+Publishes `ORDER_PAID` per paid order, each on the guest's WS channel (`target_guest_token`) — see
+`modules/websocket.md`. Real payment-gateway integration (SSLCOMMERZ or similar) remains
+unimplemented; `simulation` is a placeholder value, not a claim that a real transaction occurred.
+
 ---
 
 ## Payment Method Values

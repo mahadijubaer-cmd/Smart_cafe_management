@@ -40,21 +40,33 @@ class ConnectionManager:
         """Forward event to all local WebSocket connections for tenant_id.
 
         If the event contains "target_user_id", only that user receives it
-        (used for personal events like ORDER_CONFIRMED / ORDER_READY).
+        (personal events like ORDER_CONFIRMED / ORDER_READY).
+
+        If the event contains "target_guest_token", the matching guest connection
+        ("guest:{guest_token}") receives it REGARDLESS of tenant_id — a food-court
+        guest session can contain sibling orders across several vendor tenants
+        (RFC-007 Phase D), each publishing to its own channel, but the guest has
+        exactly one WebSocket connection that isn't tenant-scoped the way staff
+        connections are.
         """
-        target = event.get("target_user_id")
+        target_user = event.get("target_user_id")
+        target_guest = event.get("target_guest_token")
         disconnected: list[str] = []
 
-        for user_id, conn in list(self.active_connections.items()):
-            if conn["tenant_id"] != tenant_id:
-                continue
-            if target and user_id != str(target):
-                continue
+        for conn_id, conn in list(self.active_connections.items()):
+            if target_guest:
+                if conn_id != f"guest:{target_guest}":
+                    continue
+            else:
+                if conn["tenant_id"] != tenant_id:
+                    continue
+                if target_user and conn_id != str(target_user):
+                    continue
             try:
                 await conn["websocket"].send_json(event)
             except Exception as exc:
-                logger.error("Error forwarding event to %s: %s", user_id, exc)
-                disconnected.append(user_id)
+                logger.error("Error forwarding event to %s: %s", conn_id, exc)
+                disconnected.append(conn_id)
 
         for uid in disconnected:
             self.disconnect(uid)

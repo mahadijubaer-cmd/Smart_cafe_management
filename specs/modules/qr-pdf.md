@@ -58,6 +58,34 @@ Content-Type: image/png
 Content-Disposition: inline; filename="table_{table_number}.png"
 ```
 
+> **✅ [Phase 22 — Implemented 2026-07-05] (RFC-007):** For restaurant-segment tenants
+> (`system/segments.md`) this endpoint's encoded QR payload changes from a bare table identifier to
+> an outlet-scoped URL:
+> ```
+> https://<domain>/m/{public_slug}?o={outlet_slug}&t={table_number}
+> ```
+> `outlet_slug` is omitted for non-franchise tenants. `table_number` here is the human-readable
+> `tables_map.table_number` string (e.g. `"T-04"`), not the integer `table_id` — validated against
+> the outlet's own tables at order time (`modules/public-surface.md` PUB-5), not at generation time.
+> Cafeteria-segment tenants are unaffected by this change.
+
+---
+
+### `GET /api/v1/qr/table-sheet/pdf`
+
+**Status:** ✅ [Phase 22 — Implemented 2026-07-05] (RFC-007)
+
+**Auth:** Required | **Roles:** Admin roles (tenant-scoped)
+
+Generates a single PDF (reportlab, reusing the existing PDF pipeline) containing one page per table
+in the caller's tenant (or a selected outlet), each with its outlet-scoped QR code (see above),
+`table_number`, and `zone` printed underneath. Intended for the planned admin "Public Link" page
+(`[tenant_slug]/(admin)/public-link/page.tsx`) "download table-QR PDF sheet" action.
+
+**Query params:** `?outlet_id=` (optional, franchise tenants only)
+
+**Response:** `application/pdf` binary stream.
+
 ---
 
 ## Receipt PDF Endpoint

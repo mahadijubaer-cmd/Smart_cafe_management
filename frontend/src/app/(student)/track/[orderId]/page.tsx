@@ -35,6 +35,7 @@ const timelineSteps: Array<{
 ]
 
 const statusRank: Record<Order['status'], number> = {
+  pending_confirmation: 0,
   pending: 0,
   confirmed: 1,
   preparing: 2,
@@ -44,6 +45,7 @@ const statusRank: Record<Order['status'], number> = {
 }
 
 const statusCardStyles: Record<Order['status'], string> = {
+  pending_confirmation: 'bg-yellow-50 border-yellow-300 text-yellow-950',
   pending: 'bg-yellow-50 border-yellow-300 text-yellow-950',
   confirmed: 'bg-blue-50 border-blue-300 text-blue-950',
   preparing: 'bg-orange-50 border-orange-300 text-orange-950',
@@ -53,6 +55,7 @@ const statusCardStyles: Record<Order['status'], string> = {
 }
 
 const statusMessages: Record<Order['status'], string> = {
+  pending_confirmation: '🧾 Waiting for staff confirmation',
   pending: '🧾 Your order has been placed',
   confirmed: '✅ Your order is confirmed',
   preparing: '🍳 Your food is being prepared',

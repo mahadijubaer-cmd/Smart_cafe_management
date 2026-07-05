@@ -8,7 +8,15 @@
 
 ## Overview
 
-Platform-level management of tenant organisations. Only `platform_admin` can access these endpoints. Creates, updates, activates, and suspends tenants. Also manages franchise outlet creation under a brand.
+Platform-level management of tenant organisations. Creates, updates, activates, and suspends
+tenants. Also manages franchise outlet creation under a brand.
+
+Most endpoints (`GET/POST /tenants`, `PATCH/activate/suspend /tenants/{id}`) are `platform_admin`
+only. The two outlet endpoints (`GET/POST /tenants/{tenant_id}/outlets`) additionally accept the
+brand's own `super_admin`/`tenant_admin`, scoped to their own tenant — see BR-FRAN-1 (RFC-008).
+
+> Every tenant belongs to exactly one **segment** (`cafeteria` or `restaurant`), derived from
+> `tenant_type` — see `system/segments.md`. There is no `segment` column; do not add one.
 
 ---
 
@@ -227,13 +235,20 @@ Sets `tenant.is_active = False`.
 
 Lists all child tenants (franchise outlets) under a brand.
 
+**Auth:** Required | **Roles:** `platform_admin` (any brand), or `super_admin`/`tenant_admin`
+**only for their own tenant** — see **BR-FRAN-1** below.
+
 **Response `200`:** `TenantListResponse`
 
 ---
 
 ### `POST /api/v1/tenants/{tenant_id}/outlets`
 
-Creates a franchise outlet under the given brand tenant.
+Creates a franchise outlet under the given brand tenant. Used both by platform admins (support/ops)
+and by a franchise brand's own admin to self-provision a new branch (RFC-008).
+
+**Auth:** Required | **Roles:** `platform_admin` (any brand), or `super_admin`/`tenant_admin`
+**only for their own tenant** — see **BR-FRAN-1** below.
 
 **Request body:** `OutletCreate`
 
@@ -255,6 +270,27 @@ Creates a franchise outlet under the given brand tenant.
 > `tenant_type = franchise_outlet` and `parent_tenant_id = {tenant_id}` are set server-side. Not in request body.
 
 **Response `201`:** `TenantResponse`
+
+**Errors:** `400` if the target tenant is not a `franchise_brand` (defends the `platform_admin`
+path) · `400` slug taken · `403` if a non-platform-admin caller's own tenant isn't `tenant_id` (or
+isn't a `franchise_brand`).
+
+---
+
+## Business Rules — Franchise Outlet Access (RFC-008)
+
+**BR-FRAN-1:** A caller may `GET`/`POST` `/tenants/{tenant_id}/outlets` if either:
+- their role is `platform_admin` (any brand), **or**
+- their role is `super_admin` or `tenant_admin`, their own JWT `tenant_id` equals the path
+  `tenant_id`, **and** their own JWT `tenant_type` is `franchise_brand`.
+
+Anyone else receives `403`. This lets a franchise brand's own admin self-provision new outlets
+without a platform-admin intermediary, while still preventing one brand's admin from managing a
+different brand's outlets.
+
+> **Role terminology note:** the product spec calls this role "Franchise Admin." In code it is
+> `UserRole.super_admin` (also accepted: `tenant_admin`) — see `system/architecture.md` for the full
+> spec-term ↔ `UserRole` mapping.
 
 ---
 
@@ -286,6 +322,9 @@ Returns the full tenant record for the calling user's own tenant. Used by the ad
 | `allowed_email_domain` | str \| null | Must start with `@` if set |
 | `homemade_enabled` | bool \| null | — |
 | `inventory_strict_mode` | bool \| null | — |
+| `public_menu_enabled` | bool \| null | ✅ [Phase 22 — Implemented 2026-07-05] (RFC-007). Gates `modules/public-surface.md`. Any segment may enable it — restaurant segment gets guest ordering, cafeteria segment gets read-only browsing only (BR-SEG-3, Phase D) |
+| `public_slug` | str \| null | ✅ [Phase 22]. Short guest-facing identifier, distinct from `slug`; globally unique |
+| `guest_checkout_mode` | str \| null | ✅ [Phase 22]. `counter` \| `online`; `online` enables `POST /public/orders/{guest_token}/pay` (simulated gateway, see `modules/payments.md` WAL-5) |
 
 > **Not updatable:** `slug`, `tenant_type`, `subscription_tier`, `is_active`, `parent_tenant_id`
 

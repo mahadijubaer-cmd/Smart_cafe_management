@@ -30,6 +30,7 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 | [system/architecture.md](system/architecture.md) | Tech stack; request lifecycle; 3-layer tenant isolation; Redis key map; WebSocket pub/sub |
 | [system/data-model.md](system/data-model.md) | Every database table — columns, types, constraints, indexes, relationships |
 | [system/security.md](system/security.md) | JWT structure; password hashing; token blacklist; CORS; rate limiting; RBAC role groups; secrets |
+| [system/segments.md](system/segments.md) | ✅ [Phase 22 — Implemented 2026-07-05] Cafeteria vs restaurant segment derivation; capability matrix (RFC-007) |
 
 ### Modules (one file per domain — the authoritative source for each feature)
 
@@ -44,10 +45,11 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 | [modules/payments.md](modules/payments.md) | `/payments/*` endpoints · wallet · topup · payment methods · wallet rules WAL-1→WAL-3 |
 | [modules/analytics.md](modules/analytics.md) | `/analytics/*` endpoints · exact response shapes · query params |
 | [modules/qr-pdf.md](modules/qr-pdf.md) | `/qr/*` · `/receipts/*` · `/memo/*` endpoints · PDF generation · receipt numbering |
-| [modules/websocket.md](modules/websocket.md) | WS connection URL · pub/sub architecture · all 11 event types · exact message formats · PING/PONG |
+| [modules/websocket.md](modules/websocket.md) | WS connection URL · pub/sub architecture · all 12 event types · exact message formats · PING/PONG |
 | [modules/food-court.md](modules/food-court.md) | `/food-court/*` endpoints · isolation rules FC-1→FC-7 · multi-vendor architecture |
 | [modules/tenants.md](modules/tenants.md) | `/tenants/*` endpoints · tenant types · hierarchy · subscription tiers · domain rules |
 | [modules/users.md](modules/users.md) | `/users/*` endpoints · user roles · activation · Phase 21 invite flow |
+| [modules/public-surface.md](modules/public-surface.md) | ✅ [Phase 22 — Implemented 2026-07-05] `/public/*` endpoints · guest QR ordering · kiosk/signage · rate limiting (RFC-007) |
 
 ### Frontend
 
@@ -100,6 +102,8 @@ When you change a file in the codebase, you MUST update the corresponding spec f
 | `backend/app/routers/websocket.py` | `specs/modules/websocket.md` |
 | `backend/app/routers/food_court.py` | `specs/modules/food-court.md` |
 | `backend/app/routers/tenants.py` | `specs/modules/tenants.md` |
+| `backend/app/routers/public.py` | `specs/modules/public-surface.md` |
+| `backend/app/core/segments.py` | `specs/system/segments.md` |
 | `backend/app/schemas/*.py` | The module spec file matching the schema's domain |
 | `backend/app/services/*.py` | The module spec file matching the service's domain |
 | `frontend/src/app/**` | `specs/frontend/overview.md` |
