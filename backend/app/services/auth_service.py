@@ -28,8 +28,13 @@ class AuthService:
         user: User,
         tenant: Tenant,
         expires_delta: Optional[timedelta] = None,
+        extra_claims: Optional[dict] = None,
     ) -> str:
-        """Build a JWT with full tenant context claims."""
+        """Build a JWT with full tenant context claims.
+
+        extra_claims (RFC-009) lets a caller stamp additional payload fields — currently only
+        used by impersonation tokens (`impersonation: true`).
+        """
         data = {
             "sub": str(user.user_id),
             "role": user.role.value,
@@ -38,6 +43,8 @@ class AuthService:
             "tenant_slug": tenant.slug,
             "outlet_id": str(user.outlet_id) if user.outlet_id else None,
         }
+        if extra_claims:
+            data.update(extra_claims)
         return security.create_access_token(data, expires_delta)
 
     def decode_token(self, token: str) -> TokenData:

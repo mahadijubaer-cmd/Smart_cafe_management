@@ -3,14 +3,17 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Store } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useStore } from '@/store/useStore'
 import type { OutletCreate, Tenant, TenantListResponse } from '@/types'
 
@@ -20,23 +23,19 @@ function OutletCard({ outlet }: { outlet: Tenant }) {
   return (
     <Link
       href={`/${outlet.slug}/dashboard`}
-      className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+      className="block rounded-2xl border bg-card p-4 text-card-foreground shadow-sm transition hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold text-slate-900 truncate">{outlet.name}</p>
-          <p className="mt-1 text-xs font-mono text-slate-500">/{outlet.slug}</p>
+          <p className="truncate font-semibold text-card-foreground">{outlet.name}</p>
+          <p className="mt-1 font-mono text-xs text-muted-foreground">/{outlet.slug}</p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-            outlet.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-          }`}
-        >
+        <Badge variant={outlet.is_active ? 'default' : 'destructive'} className="shrink-0">
           {outlet.is_active ? 'Active' : 'Suspended'}
-        </span>
+        </Badge>
       </div>
       {outlet.city ? (
-        <p className="mt-2 text-xs text-slate-500">{outlet.city}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{outlet.city}</p>
       ) : null}
     </Link>
   )
@@ -95,54 +94,50 @@ export default function OutletsPage() {
   if (tenantType && tenantType !== 'franchise_brand') {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-slate-500">Outlets are only available to franchise brands.</p>
+        <p className="text-muted-foreground">Outlets are only available to franchise brands.</p>
       </div>
     )
   }
 
   return (
     <ProtectedRoute allowedRoles={['super_admin', 'tenant_admin', 'platform_admin']}>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
               Franchise Brand
             </p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Outlets</h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <h1 className="text-3xl font-black tracking-tight text-foreground">Outlets</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
               Provision new branches for your brand. Each outlet is its own workspace with its own
               menu, tables, and QR link.
             </p>
           </div>
-          <Button
-            type="button"
-            className="gap-2 bg-[#1A4D2E] text-white hover:bg-[#163f25]"
-            onClick={() => setShowForm((v) => !v)}
-          >
-            <Plus className="h-4 w-4" />
+          <Button type="button" onClick={() => setShowForm((v) => !v)}>
+            <Plus data-icon="inline-start" />
             {showForm ? 'Hide Form' : 'Add Outlet'}
           </Button>
         </div>
 
         {showForm ? (
-          <Card className="border-slate-200">
+          <Card>
             <CardHeader>
               <CardTitle>New Outlet</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="o-name">Name *</Label>
+              <form onSubmit={handleCreate} className="flex flex-col gap-4">
+                <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="o-name">Name *</FieldLabel>
                     <Input
                       id="o-name"
                       value={form.name}
                       onChange={(e) => setField('name', e.target.value)}
                       placeholder="Downtown Branch"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="o-slug">Slug * (URL-safe)</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="o-slug">Slug * (URL-safe)</FieldLabel>
                     <Input
                       id="o-slug"
                       value={form.slug}
@@ -151,32 +146,28 @@ export default function OutletsPage() {
                       }
                       placeholder="downtown-branch"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="o-city">City</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="o-city">City</FieldLabel>
                     <Input
                       id="o-city"
                       value={form.city ?? ''}
                       onChange={(e) => setField('city', e.target.value || null)}
                       placeholder="Dhaka"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="o-email">Contact Email</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="o-email">Contact Email</FieldLabel>
                     <Input
                       id="o-email"
                       value={form.contact_email ?? ''}
                       onChange={(e) => setField('contact_email', e.target.value || null)}
                       placeholder="outlet@example.com"
                     />
-                  </div>
-                </div>
+                  </Field>
+                </FieldGroup>
                 <div className="flex gap-3 pt-2">
-                  <Button
-                    type="submit"
-                    className="bg-[#1A4D2E] text-white hover:bg-[#163f25]"
-                    disabled={submitting}
-                  >
+                  <Button type="submit" disabled={submitting}>
                     {submitting ? 'Creating...' : 'Create Outlet'}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
@@ -188,24 +179,30 @@ export default function OutletsPage() {
           </Card>
         ) : null}
 
-        <Card className="border-slate-200">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Store className="h-5 w-5 text-[#1A4D2E]" />
+              <Store className="size-5 text-primary" />
               Outlets ({outlets.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="animate-pulse space-y-3">
+              <div className="flex flex-col gap-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-20 rounded-2xl bg-slate-100" />
+                  <Skeleton key={i} className="h-20 rounded-2xl" />
                 ))}
               </div>
             ) : outlets.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-10 text-center">
-                <p className="text-sm text-slate-500">No outlets yet. Add your first branch above.</p>
-              </div>
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Store />
+                  </EmptyMedia>
+                  <EmptyTitle>No outlets yet</EmptyTitle>
+                  <EmptyDescription>Add your first branch above.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {outlets.map((outlet) => (

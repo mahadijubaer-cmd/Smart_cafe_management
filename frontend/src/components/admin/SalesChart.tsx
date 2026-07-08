@@ -72,9 +72,9 @@ export default function SalesChart({ data }: SalesChartProps) {
             const orderPoint = payload.find((entry) => entry.dataKey === 'orders')
 
             return (
-              <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-lg">
-                <p className="text-sm font-semibold text-slate-900">{label}</p>
-                <div className="mt-2 space-y-1 text-sm text-slate-600">
+              <div className="rounded-2xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg">
+                <p className="text-sm font-semibold">{label}</p>
+                <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
                   <p>Revenue: BDT {revenueFormatter.format(Number(revenuePoint?.value ?? 0))}</p>
                   <p>Orders: {Number(orderPoint?.value ?? 0)}</p>
                 </div>

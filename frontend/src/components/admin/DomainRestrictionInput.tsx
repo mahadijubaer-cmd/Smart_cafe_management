@@ -2,6 +2,10 @@
 
 import { useState } from 'react'
 
+import { Field, FieldDescription } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+
 interface DomainRestrictionInputProps {
   value: string | null
   onChange: (domain: string | null) => void
@@ -36,47 +40,34 @@ export default function DomainRestrictionInput({ value, onChange }: DomainRestri
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl border border-black/10 bg-white px-4 py-3">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3">
         <div>
-          <p className="font-medium text-slate-800">Require domain-specific email</p>
-          <p className="text-sm text-slate-500">
+          <p className="font-medium text-card-foreground">Require domain-specific email</p>
+          <p className="text-sm text-muted-foreground">
             Only email addresses matching this domain can register.
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          onClick={() => handleToggle(!enabled)}
-          className={[
-            'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none',
-            enabled ? 'bg-primary' : 'bg-slate-300',
-          ].join(' ')}
-        >
-          <span
-            className={[
-              'inline-block h-5 w-5 rounded-full bg-white shadow transition-transform',
-              enabled ? 'translate-x-5' : 'translate-x-0',
-            ].join(' ')}
-          />
-        </button>
+        <Switch checked={enabled} onCheckedChange={handleToggle} />
       </div>
 
       {enabled && (
-        <div className="space-y-1">
-          <input
+        <Field data-invalid={!!error}>
+          <Input
             type="text"
             value={inputVal}
             onChange={(e) => handleInput(e.target.value)}
             placeholder="@g.bracu.ac.bd"
-            className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            aria-invalid={!!error}
           />
-          {error && <p className="text-xs text-red-600">{error}</p>}
-          <p className="text-xs text-slate-500">
-            Existing users are not affected. Only new registrations will be checked.
-          </p>
-        </div>
+          {error ? (
+            <FieldDescription className="text-destructive">{error}</FieldDescription>
+          ) : (
+            <FieldDescription>
+              Existing users are not affected. Only new registrations will be checked.
+            </FieldDescription>
+          )}
+        </Field>
       )}
     </div>
   )

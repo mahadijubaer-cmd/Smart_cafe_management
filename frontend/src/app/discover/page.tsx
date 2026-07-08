@@ -6,6 +6,9 @@ import { Search } from 'lucide-react'
 import apiClient from '@/lib/api'
 import TenantCard from '@/components/auth/TenantCard'
 import { getSegment, type Segment } from '@/lib/segments'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import type { TenantPublicListResponse, TenantPublicResponse } from '@/types'
 
 export default function DiscoverPage() {
@@ -40,7 +43,7 @@ export default function DiscoverPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-[#1A4D2E] px-6 py-16 text-center text-white">
+      <div className="bg-primary px-6 py-16 text-center text-white">
         <h1 className="text-4xl font-black tracking-tight">
           {segmentFilter === 'cafeteria' && 'Find your cafeteria'}
           {segmentFilter === 'restaurant' && 'Find your restaurant'}
@@ -50,12 +53,12 @@ export default function DiscoverPage() {
 
         <div className="mx-auto mt-8 flex max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
           <Search className="h-5 w-5 text-slate-400 shrink-0" />
-          <input
+          <Input
             type="text"
             placeholder="Search by name or city…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+            className="h-auto flex-1 border-0 bg-transparent p-0 text-slate-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
       </div>
@@ -63,19 +66,29 @@ export default function DiscoverPage() {
       {/* Results */}
       <div className="mx-auto max-w-5xl px-6 py-10">
         {loading && (
-          <p className="text-center text-sm text-slate-500">Loading…</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-40 rounded-2xl" />
+            ))}
+          </div>
         )}
 
         {error && (
-          <p className="text-center text-sm text-red-500">
+          <p className="text-center text-sm text-destructive">
             Could not load organisations. Please try again.
           </p>
         )}
 
         {!loading && !error && visibleTenants.length === 0 && (
-          <p className="text-center text-sm text-slate-500">
-            {query ? `No results for "${query}".` : 'No organisations available yet.'}
-          </p>
+          <Empty>
+            <EmptyMedia variant="icon">
+              <Search />
+            </EmptyMedia>
+            <EmptyTitle>No organisations found</EmptyTitle>
+            <EmptyDescription>
+              {query ? `No results for "${query}".` : 'No organisations available yet.'}
+            </EmptyDescription>
+          </Empty>
         )}
 
         {!loading && !error && visibleTenants.length > 0 && (

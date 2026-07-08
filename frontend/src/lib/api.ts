@@ -32,7 +32,7 @@ apiClient.interceptors.response.use(
     // Avoid showing toast for 401 (handled by login redirect) or if caller suppressed it
     if (status !== 401 && !error.config?._suppressToast) {
       if (typeof window !== 'undefined') {
-        import('react-hot-toast').then(({ default: toast }) => {
+        import('sonner').then(({ toast }) => {
           toast.error(message)
         }).catch(() => undefined)
       }

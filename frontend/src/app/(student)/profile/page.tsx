@@ -3,9 +3,22 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Eye, EyeOff, ShieldCheck, Wallet, X } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Field, FieldGroup, FieldLabel, FieldDescription } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 import type { User } from '@/types'
@@ -24,7 +37,7 @@ function getInitials(name: string | null) {
 
 // ─── Change Password Modal ────────────────────────────────────────────────────
 
-function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
@@ -54,79 +67,70 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-bold text-slate-900">Change Password</h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Current password</label>
-            <input
-              required
-              type="password"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-              value={currentPw}
-              onChange={(e) => setCurrentPw(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">New password</label>
-            <div className="relative">
-              <input
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+          <DialogDescription>Update your account password.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="current-pw">Current password</FieldLabel>
+              <Input
+                id="current-pw"
                 required
-                type={showNew ? 'text' : 'password'}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
+                type="password"
+                value={currentPw}
+                onChange={(e) => setCurrentPw(e.target.value)}
               />
-              <button
-                type="button"
-                onClick={() => setShowNew((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              >
-                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="mt-0.5 text-[11px] text-slate-400">
-              Min 8 chars, 1 uppercase, 1 digit, 1 special character
-            </p>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Confirm new password</label>
-            <input
-              required
-              type="password"
-              className={[
-                'w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40',
-                confirmPw && confirmPw !== newPw ? 'border-red-300' : 'border-slate-200',
-              ].join(' ')}
-              value={confirmPw}
-              onChange={(e) => setConfirmPw(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={submitting || !currentPw || !newPw || newPw !== confirmPw}
-              className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {submitting ? 'Saving…' : 'Change Password'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50"
-            >
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-pw">New password</FieldLabel>
+              <div className="relative">
+                <Input
+                  id="new-pw"
+                  required
+                  type={showNew ? 'text' : 'password'}
+                  className="pr-9"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowNew((v) => !v)}
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-400"
+                >
+                  {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <FieldDescription>Min 8 chars, 1 uppercase, 1 digit, 1 special character</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="confirm-pw">Confirm new password</FieldLabel>
+              <Input
+                id="confirm-pw"
+                required
+                type="password"
+                className={confirmPw && confirmPw !== newPw ? 'border-destructive' : undefined}
+                value={confirmPw}
+                onChange={(e) => setConfirmPw(e.target.value)}
+              />
+            </Field>
+          </FieldGroup>
+          <DialogFooter className="mt-5">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-          </div>
+            </Button>
+            <Button type="submit" disabled={submitting || !currentPw || !newPw || newPw !== confirmPw}>
+              {submitting ? 'Saving…' : 'Change Password'}
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

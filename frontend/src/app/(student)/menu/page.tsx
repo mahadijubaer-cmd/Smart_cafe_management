@@ -1,14 +1,25 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Search, ShoppingCart, X } from 'lucide-react'
+import { Search, ShoppingCart, X } from 'lucide-react'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import CategoryTabs from '@/components/menu/CategoryTabs'
 import MenuItemCard from '@/components/menu/MenuItemCard'
 import CartSidebar from '@/components/menu/CartSidebar'
+import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 import type { Category, MenuItem } from '@/types'
 
@@ -30,17 +41,17 @@ function MenuSkeleton() {
     <div className="grid gap-4 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:px-8">
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="h-40 animate-pulse bg-gray-200" />
+          <Skeleton className="h-40 rounded-none" />
           <div className="space-y-3 p-4 sm:p-5">
             <div className="flex items-center justify-between">
-              <div className="h-5 w-3/5 animate-pulse rounded bg-gray-200" />
-              <div className="h-5 w-16 animate-pulse rounded-full bg-gray-200" />
+              <Skeleton className="h-5 w-3/5" />
+              <Skeleton className="h-5 w-16 rounded-full" />
             </div>
-            <div className="h-4 w-full animate-pulse rounded bg-gray-200" />
-            <div className="h-4 w-2/3 animate-pulse rounded bg-gray-200" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
             <div className="flex items-center justify-between pt-2">
-              <div className="h-6 w-20 animate-pulse rounded bg-gray-200" />
-              <div className="h-10 w-20 animate-pulse rounded-full bg-gray-200" />
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-10 w-20 rounded-full" />
             </div>
           </div>
         </div>
@@ -51,37 +62,30 @@ function MenuSkeleton() {
 
 function EmptyState({ search, onClear }: { search: string; onClear: () => void }) {
   return (
-    <div className="mx-4 rounded-3xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center shadow-sm lg:mx-8">
-      <div className="text-5xl">🍽</div>
-      <h3 className="mt-4 text-2xl font-black text-slate-900">No items found for '{search}'</h3>
-      <p className="mt-2 text-sm text-gray-500">Try a different keyword, switch category, or clear the search.</p>
-      <button
-        type="button"
-        onClick={onClear}
-        className="mt-6 inline-flex items-center justify-center rounded-full border border-[#1A4D2E] px-4 py-2 text-sm font-semibold text-[#1A4D2E] transition hover:bg-[#1A4D2E]/5"
-      >
+    <Empty className="mx-4 border border-dashed border-gray-300 bg-white shadow-sm lg:mx-8">
+      <EmptyMedia variant="icon" className="text-5xl">🍽</EmptyMedia>
+      <EmptyTitle>No items found for &apos;{search}&apos;</EmptyTitle>
+      <EmptyDescription>Try a different keyword, switch category, or clear the search.</EmptyDescription>
+      <Button type="button" variant="outline" className="mt-2 rounded-full" onClick={onClear}>
         Clear search
-      </button>
-    </div>
+      </Button>
+    </Empty>
   )
 }
 
 function SortSelect({ value, onChange }: { value: SortOption; onChange: (value: SortOption) => void }) {
   return (
-    <label className="relative block">
-      <span className="sr-only">Sort menu</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as SortOption)}
-        className="w-full appearance-none rounded-2xl border border-black/10 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
-      >
-        <option value="default">Default</option>
-        <option value="price-asc">Price: Low to High</option>
-        <option value="price-desc">Price: High to Low</option>
-        <option value="prep-asc">Prep Time</option>
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-    </label>
+    <Select value={value} onValueChange={(next) => onChange(next as SortOption)}>
+      <SelectTrigger className="rounded-2xl" aria-label="Sort menu">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="default">Default</SelectItem>
+        <SelectItem value="price-asc">Price: Low to High</SelectItem>
+        <SelectItem value="price-desc">Price: High to Low</SelectItem>
+        <SelectItem value="prep-asc">Prep Time</SelectItem>
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -256,17 +260,19 @@ export default function StudentMenuPage() {
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   placeholder="Search items... (e.g. Biryani, Cha)"
-                  className="w-full rounded-2xl border border-black/10 bg-white py-3 pl-11 pr-10 text-sm outline-none transition focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/20"
+                  className="w-full rounded-2xl border border-black/10 bg-white py-3 pl-11 pr-10 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
                 {searchInput ? (
-                  <button
+                  <Button
                     type="button"
+                    size="icon"
+                    variant="ghost"
                     onClick={handleClearSearch}
-                    className="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                    className="absolute right-3 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
                     aria-label="Clear search"
                   >
                     <X className="h-4 w-4" />
-                  </button>
+                  </Button>
                 ) : null}
               </label>
 
@@ -317,24 +323,25 @@ export default function StudentMenuPage() {
           </div>
         </div>
 
-        <button
+        <Button
           type="button"
+          size="icon"
           onClick={openCart}
-          className="fixed bottom-5 right-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#1A4D2E] text-white shadow-2xl transition hover:bg-[#163f25] lg:hidden"
+          className="fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full shadow-2xl lg:hidden"
           aria-label="Open cart"
         >
           <ShoppingCart className="h-6 w-6" />
           {itemCount > 0 ? (
             <span
-              className={[
-                'absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white',
+              className={cn(
+                'absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground',
                 cartBounce ? 'cart-fab-bounce' : '',
-              ].join(' ')}
+              )}
             >
               {itemCount}
             </span>
           ) : null}
-        </button>
+        </Button>
 
         <style>{`
           @keyframes food-strip-float {

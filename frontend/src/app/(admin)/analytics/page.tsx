@@ -11,11 +11,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import HourlyHeatmap from '@/components/admin/HourlyHeatmap'
 import OutletComparisonTable from '@/components/admin/OutletComparisonTable'
 import TopItemsChart from '@/components/admin/TopItemsChart'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 
@@ -91,29 +95,27 @@ function SummaryCard({
   value: string
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <Card>
+      <CardContent className="flex items-start justify-between gap-3 p-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{label}</p>
           <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{value}</p>
         </div>
         <div className="rounded-xl bg-primary/10 p-2.5 text-primary">{icon}</div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-700">{title}</h2>
-      {children}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-700">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   )
-}
-
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-slate-100 ${className}`} />
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -187,23 +189,15 @@ export default function AnalyticsPage() {
             Performance overview · {PERIOD_LABELS[period]}
           </p>
         </div>
-        <div className="flex rounded-xl border border-slate-200 bg-white p-1 gap-1">
-          {(['today', 'week', 'month'] as Period[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={[
-                'rounded-lg px-4 py-1.5 text-sm font-medium transition',
-                period === p
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900',
-              ].join(' ')}
-            >
-              {PERIOD_LABELS[p]}
-            </button>
-          ))}
-        </div>
+        <Tabs value={period} onValueChange={(value) => setPeriod(value as Period)}>
+          <TabsList>
+            {(['today', 'week', 'month'] as Period[]).map((p) => (
+              <TabsTrigger key={p} value={p}>
+                {PERIOD_LABELS[p]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Row 1: Summary cards */}
@@ -344,26 +338,26 @@ export default function AnalyticsPage() {
           </div>
           {inventoryValue.outlets && inventoryValue.outlets.length > 0 && (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    <th className="py-2">Outlet</th>
-                    <th className="py-2 text-right">Value</th>
-                    <th className="py-2 text-right">Items</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Outlet</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
+                    <TableHead className="text-right">Items</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {inventoryValue.outlets.map((o) => (
-                    <tr key={o.outlet_tenant_id} className="hover:bg-slate-50">
-                      <td className="py-2 font-medium text-slate-800">{o.outlet_name}</td>
-                      <td className="py-2 text-right tabular-nums">
+                    <TableRow key={o.outlet_tenant_id}>
+                      <TableCell className="font-medium text-slate-800">{o.outlet_name}</TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(o.total_inventory_value)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-slate-500">{o.item_count}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-slate-500">{o.item_count}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </SectionCard>

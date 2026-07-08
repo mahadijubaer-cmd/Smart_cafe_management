@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import {
@@ -12,6 +12,18 @@ import {
 
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 
 interface NotifItem {
   notif_id: string
@@ -22,10 +34,10 @@ interface NotifItem {
 }
 
 function typeIcon(type: string) {
-  if (type.startsWith('ORDER')) return <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
-  if (type === 'LOW_STOCK') return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-  if (type === 'TABLE_UPDATE') return <Wrench className="h-3.5 w-3.5 shrink-0" />
-  return <Bell className="h-3.5 w-3.5 shrink-0" />
+  if (type.startsWith('ORDER')) return <ShoppingCart className="size-3.5 shrink-0" />
+  if (type === 'LOW_STOCK') return <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
+  if (type === 'TABLE_UPDATE') return <Wrench className="size-3.5 shrink-0" />
+  return <Bell className="size-3.5 shrink-0" />
 }
 
 function timeAgo(iso: string): string {
@@ -44,7 +56,6 @@ export default function NotificationBell() {
   const [items, setItems] = useState<NotifItem[]>([])
   const [unread, setUnread] = useState(0)
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     try {
@@ -67,15 +78,6 @@ export default function NotificationBell() {
       setUnread((c) => c + 1)
     }
   }, [notifications])
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   const handleMarkAllRead = async () => {
     try {
@@ -103,87 +105,78 @@ export default function NotificationBell() {
   }
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => {
-          setOpen((v) => !v)
-          if (!open) load()
-        }}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-700 transition hover:bg-gray-50"
-        aria-label="Notifications"
-      >
-        <Bell className="h-5 w-5" />
-        {unread > 0 && (
-          <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-            {unread > 99 ? '99+' : unread}
-          </span>
-        )}
-      </button>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) load()
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="icon" className="relative rounded-full" aria-label="Notifications">
+          <Bell className="size-5" />
+          {unread > 0 && (
+            <Badge variant="destructive" className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+              {unread > 99 ? '99+' : unread}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
 
-      {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-            <span className="text-sm font-bold text-gray-900">Notifications</span>
-            {unread > 0 && (
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          {/* Items */}
-          <div className="max-h-72 divide-y divide-gray-50 overflow-y-auto">
-            {items.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-gray-400">No notifications yet.</p>
-            ) : (
-              items.map((n) => (
-                <button
-                  key={n.notif_id}
-                  type="button"
-                  onClick={() => handleItemClick(n)}
-                  className={[
-                    'flex w-full gap-3 px-4 py-3 text-left transition hover:bg-gray-50',
-                    n.is_read ? 'opacity-60' : '',
-                  ].join(' ')}
-                >
-                  <span className="mt-0.5 shrink-0 text-gray-500">{typeIcon(n.type)}</span>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={[
-                        'truncate text-xs text-gray-800',
-                        n.is_read ? 'font-normal' : 'font-semibold',
-                      ].join(' ')}
-                    >
-                      {n.message}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-gray-400">{timeAgo(n.created_at)}</p>
-                  </div>
-                  {!n.is_read && (
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-100 px-4 py-2 text-center">
-            <Link
-              href={`/${slug}/notifications`}
-              onClick={() => setOpen(false)}
+      <DropdownMenuContent align="end" className="w-80 p-0">
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm font-bold">Notifications</span>
+          {unread > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
               className="text-xs font-medium text-primary hover:underline"
             >
-              View all →
-            </Link>
-          </div>
+              Mark all read
+            </button>
+          )}
         </div>
-      )}
-    </div>
+        <DropdownMenuSeparator className="m-0" />
+
+        <ScrollArea className="max-h-72">
+          <DropdownMenuGroup>
+            {items.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-muted-foreground">No notifications yet.</p>
+            ) : (
+              items.map((n) => (
+                <DropdownMenuItem
+                  key={n.notif_id}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    handleItemClick(n)
+                  }}
+                  className={cn('flex items-start gap-3 whitespace-normal px-4 py-3', n.is_read && 'opacity-60')}
+                >
+                  <span className="mt-0.5 shrink-0 text-muted-foreground">{typeIcon(n.type)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className={cn('truncate text-xs', n.is_read ? 'font-normal' : 'font-semibold')}>
+                      {n.message}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{timeAgo(n.created_at)}</p>
+                  </div>
+                  {!n.is_read && <Badge className="mt-1.5 size-2 shrink-0 rounded-full p-0" />}
+                </DropdownMenuItem>
+              ))
+            )}
+          </DropdownMenuGroup>
+        </ScrollArea>
+
+        <DropdownMenuSeparator className="m-0" />
+        <div className="px-4 py-2 text-center">
+          <Link
+            href={`/${slug}/notifications`}
+            onClick={() => setOpen(false)}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View all →
+          </Link>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

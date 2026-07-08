@@ -12,10 +12,26 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import type { TableMap } from '@/types'
 import { useTableLayout } from '@/hooks/useTableLayout'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 const GRID_COLS = 12
 const GRID_ROWS = 8
@@ -56,17 +72,17 @@ function DraggableTableCard({
         e.stopPropagation()
         onClick()
       }}
-      className={[
+      className={cn(
         'flex h-full w-full cursor-grab flex-col items-center justify-center rounded-xl border-2 p-2 text-xs font-semibold transition active:cursor-grabbing',
         isDragging ? 'opacity-30' : 'opacity-100',
         isSelected
           ? 'border-primary bg-primary/10 text-primary'
-          : 'border-slate-300 bg-white text-slate-700 hover:border-primary/50',
-      ].join(' ')}
+          : 'border-border bg-background text-foreground hover:border-primary/50'
+      )}
     >
       <span className="font-bold">{tableNumber}</span>
-      <span className="mt-0.5 text-[10px] text-slate-500">{zone}</span>
-      <span className="text-[10px] text-slate-400">{capacity}p</span>
+      <span className="mt-0.5 text-[10px] text-muted-foreground">{zone}</span>
+      <span className="text-[10px] text-muted-foreground">{capacity}p</span>
     </div>
   )
 }
@@ -85,11 +101,11 @@ function DroppableCell({
   return (
     <div
       ref={setNodeRef}
-      className={[
+      className={cn(
         'rounded-xl border transition',
-        isOccupied ? 'border-transparent' : 'border-dashed border-slate-200',
-        isOver && !isOccupied ? 'border-primary/50 bg-primary/5' : '',
-      ].join(' ')}
+        isOccupied ? 'border-transparent' : 'border-dashed border-border',
+        isOver && !isOccupied ? 'border-primary/50 bg-primary/5' : ''
+      )}
       style={{ minHeight: '5.5rem' }}
     />
   )
@@ -121,7 +137,6 @@ function TableEditPopover({
   const [cap, setCap] = useState(capacity)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const handleSave = async () => {
     setSaving(true)
@@ -134,10 +149,6 @@ function TableEditPopover({
   }
 
   const handleDelete = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      return
-    }
     setDeleting(true)
     try {
       await onDelete()
@@ -147,77 +158,90 @@ function TableEditPopover({
     }
   }
 
+  const zoneOptions = zones.includes(selectedZone) ? zones : [...zones, selectedZone]
+
   return (
-    <div className="absolute z-50 left-full top-0 ml-2 w-56 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
-      <p className="mb-3 text-sm font-bold text-slate-800">Edit Table</p>
-      <div className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Table Number</label>
-          <input
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+    <div className="absolute left-full top-0 z-10 ml-2 w-56 rounded-2xl border bg-popover p-4 text-popover-foreground shadow-xl">
+      <p className="mb-3 text-sm font-bold">Edit Table</p>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`table-number-${tableId}`} className="text-xs text-muted-foreground">
+            Table Number
+          </Label>
+          <Input
+            id={`table-number-${tableId}`}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className="h-8 text-sm"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Zone</label>
-          <select
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            value={selectedZone}
-            onChange={(e) => setSelectedZone(e.target.value)}
-          >
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-            {!zones.includes(selectedZone) && (
-              <option value={selectedZone}>{selectedZone}</option>
-            )}
-          </select>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`table-zone-${tableId}`} className="text-xs text-muted-foreground">
+            Zone
+          </Label>
+          <Select value={selectedZone} onValueChange={setSelectedZone}>
+            <SelectTrigger id={`table-zone-${tableId}`} className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {zoneOptions.map((z) => (
+                <SelectItem key={z} value={z}>
+                  {z}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Capacity</label>
-          <input
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`table-capacity-${tableId}`} className="text-xs text-muted-foreground">
+            Capacity
+          </Label>
+          <Input
+            id={`table-capacity-${tableId}`}
             type="number"
             min={1}
             max={50}
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             value={cap}
             onChange={(e) => setCap(Number(e.target.value))}
+            className="h-8 text-sm"
           />
         </div>
       </div>
       <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-        >
+        <Button type="button" size="sm" className="flex-1" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600"
-        >
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       </div>
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={deleting}
-        className={[
-          'mt-2 w-full rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-          confirmDelete
-            ? 'bg-red-600 text-white'
-            : 'border border-red-200 text-red-600 hover:bg-red-50',
-        ].join(' ')}
-      >
-        {deleting ? 'Deleting...' : confirmDelete ? 'Confirm Delete' : 'Delete Table'}
-      </button>
+      <AlertDialog>
+        <AlertDialogTrigger>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete Table'}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete table {tableNumber}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the table from the floor plan. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -349,42 +373,26 @@ export default function FloorPlanEditor({
     toast.success('Table deleted')
   }
 
-  const selectedPos = selectedTableId ? positions.get(selectedTableId) : null
-
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={handleAddTable}
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-        >
+        <Button type="button" onClick={handleAddTable}>
           + Add Table
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!isDirty || saving}
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-        >
+        </Button>
+        <Button type="button" onClick={handleSave} disabled={!isDirty || saving}>
           {saving ? 'Saving...' : 'Save Layout'}
-        </button>
-        <button
-          type="button"
-          onClick={reset}
-          disabled={!isDirty}
-          className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-        >
+        </Button>
+        <Button type="button" variant="outline" onClick={reset} disabled={!isDirty}>
           Cancel
-        </button>
+        </Button>
         {isDirty && (
-          <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+          <span className="text-xs font-medium text-amber-600">Unsaved changes</span>
         )}
       </div>
 
       {/* Grid */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="overflow-x-auto rounded-2xl border bg-muted/40 p-4">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div
             className="grid gap-2"
@@ -444,7 +452,7 @@ export default function FloorPlanEditor({
 
           <DragOverlay>
             {activeId !== null && positions.get(activeId) ? (
-              <div className="flex h-20 w-20 flex-col items-center justify-center rounded-xl border-2 border-primary bg-primary/10 text-xs font-bold text-primary shadow-lg">
+              <div className="flex size-20 flex-col items-center justify-center rounded-xl border-2 border-primary bg-primary/10 text-xs font-bold text-primary shadow-lg">
                 {positions.get(activeId)?.tableNumber}
               </div>
             ) : null}
@@ -452,7 +460,7 @@ export default function FloorPlanEditor({
         </DndContext>
       </div>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted-foreground">
         Drag tables to reposition. Click a table to edit its details.
       </p>
     </div>

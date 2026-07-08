@@ -3,7 +3,7 @@
 **Router:** `backend/app/routers/inventory.py`  
 **Schemas:** `backend/app/schemas/inventory.py`  
 **Service:** `backend/app/services/inventory_service.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-08
 
 ---
 
@@ -410,6 +410,14 @@ Error if already received: `400 "Purchase order already received"`
 
 ### INV-7: Manual Adjust Cannot Result in Negative Quantity
 `quantity_on_hand + quantity_delta < 0` → `400 "Adjustment would result in negative stock"`
+
+### INV-8: inv_category_id Must Belong to the Caller's Own Tenant
+✅ [2026-07-08 — cafeteria-admin sweep]. `POST /inventory/items` and `PUT /inventory/items/{item_id}`
+validate that a submitted `inv_category_id` exists and belongs to the caller's own tenant —
+`400 "inv_category_id does not exist for this tenant"` if not. Same class of gap as `BR-MENU-1`
+(`modules/menu.md`): the FK alone doesn't reject a category_id that belongs to a *different* tenant,
+only one that doesn't exist at all — silently creating a cross-tenant category link. Enforced in
+`app/routers/inventory.py::_validate_inv_category_id()`.
 
 ---
 

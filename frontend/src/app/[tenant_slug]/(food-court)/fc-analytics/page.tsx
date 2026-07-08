@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import apiClient from '@/lib/api'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 interface TableOccupancy {
   available?: number
@@ -68,12 +79,12 @@ export default function FoodCourtAnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-black text-slate-900">Analytics</h1>
+      <h1 className="text-2xl font-black text-foreground">Analytics</h1>
 
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
       ) : (
@@ -81,121 +92,122 @@ export default function FoodCourtAnalyticsPage() {
           {/* Row 1: Occupancy donut */}
           {pieData.length > 0 && (
             <section>
-              <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Table Occupancy
               </h2>
-              <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry) => (
-                        <Cell
-                          key={entry.name}
-                          fill={OCCUPANCY_COLORS[entry.name] ?? '#cbd5e1'}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(v, name) => [`${v} tables`, String(name)]}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry) => (
+                          <Cell
+                            key={entry.name}
+                            fill={OCCUPANCY_COLORS[entry.name] ?? '#cbd5e1'}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v, name) => [`${v} tables`, String(name)]}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </section>
           )}
 
           {/* Row 2: Vendor throughput */}
           {throughput.length > 0 && (
             <section>
-              <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Vendor Order Counts (All Time)
               </h2>
-              <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-3">
-                {throughput.map((v) => {
-                  const pct = Math.round((v.total_orders / maxOrders) * 100)
-                  return (
-                    <div key={v.vendor_id} className="flex items-center gap-3">
-                      <span className="w-36 shrink-0 truncate text-sm text-slate-700 font-medium">
-                        {v.vendor_name}
-                      </span>
-                      <div className="flex-1 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className="h-5 rounded-full bg-primary"
-                          style={{ width: `${pct}%` }}
-                        />
+              <Card>
+                <CardContent className="space-y-3 pt-6">
+                  {throughput.map((v) => {
+                    const pct = Math.round((v.total_orders / maxOrders) * 100)
+                    return (
+                      <div key={v.vendor_id} className="flex items-center gap-3">
+                        <span className="w-36 shrink-0 truncate text-sm font-medium text-card-foreground">
+                          {v.vendor_name}
+                        </span>
+                        <div className="flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-5 rounded-full bg-primary"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-10 shrink-0 text-right text-sm font-bold text-card-foreground">
+                          {v.total_orders}
+                        </span>
                       </div>
-                      <span className="w-10 shrink-0 text-right text-sm font-bold text-slate-800">
-                        {v.total_orders}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
             </section>
           )}
 
           {/* Row 3: Settlements table */}
           <section>
-            <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               Settlements (Delivered Orders)
             </h2>
             {settlements.length === 0 ? (
-              <p className="text-sm text-slate-400">No settled orders yet.</p>
+              <p className="text-sm text-muted-foreground">No settled orders yet.</p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      <th className="px-5 py-3">Vendor</th>
-                      <th className="px-5 py-3 text-right">Orders</th>
-                      <th className="px-5 py-3 text-right">Revenue (৳)</th>
-                      <th className="px-5 py-3 text-right">Avg Order (৳)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {settlements.map((s, i) => (
-                      <tr
-                        key={s.vendor_id}
-                        className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}
-                      >
-                        <td className="px-5 py-3 font-medium text-slate-900">{s.vendor_name}</td>
-                        <td className="px-5 py-3 text-right text-slate-700">
-                          {s.delivered_order_count}
-                        </td>
-                        <td className="px-5 py-3 text-right font-semibold text-slate-900">
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                      <TableHead className="text-right">Revenue (৳)</TableHead>
+                      <TableHead className="text-right">Avg Order (৳)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {settlements.map((s) => (
+                      <TableRow key={s.vendor_id}>
+                        <TableCell className="font-medium text-card-foreground">
+                          {s.vendor_name}
+                        </TableCell>
+                        <TableCell className="text-right">{s.delivered_order_count}</TableCell>
+                        <TableCell className="text-right font-semibold text-card-foreground">
                           {Number(s.total_revenue).toFixed(0)}
-                        </td>
-                        <td className="px-5 py-3 text-right text-slate-600">
+                        </TableCell>
+                        <TableCell className="text-right">
                           {s.delivered_order_count > 0
                             ? (Number(s.total_revenue) / s.delivered_order_count).toFixed(0)
                             : '—'}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold">
-                      <td className="px-5 py-3 text-slate-900">Total</td>
-                      <td className="px-5 py-3 text-right text-slate-700">
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell className="font-bold text-card-foreground">Total</TableCell>
+                      <TableCell className="text-right font-bold">
                         {settlements.reduce((s, v) => s + v.delivered_order_count, 0)}
-                      </td>
-                      <td className="px-5 py-3 text-right text-slate-900">
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-card-foreground">
                         {totalRevenue.toFixed(0)}
-                      </td>
-                      <td className="px-5 py-3" />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </Card>
             )}
           </section>
         </>

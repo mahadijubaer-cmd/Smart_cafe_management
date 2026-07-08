@@ -36,19 +36,19 @@ export default function OrgCategorySelector({ selected, onSelect }: OrgCategoryS
             className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
               isSelected
                 ? 'border-primary bg-primary/5 shadow-sm'
-                : 'border-black/10 bg-white hover:border-primary/40 hover:shadow-sm'
+                : 'bg-card hover:border-primary/40 hover:shadow-sm'
             }`}
           >
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-slate-800">{meta.label}</p>
-              <p className="mt-1 text-xs leading-snug text-slate-500">{meta.description}</p>
+              <p className="font-semibold">{meta.label}</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">{meta.description}</p>
             </div>
             <span
-              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
-                isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 text-transparent'
+              className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border transition ${
+                isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30 text-transparent'
               }`}
             >
-              <Check className="h-4 w-4" />
+              <Check className="size-4" />
             </span>
           </button>
         )

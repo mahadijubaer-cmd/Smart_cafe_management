@@ -2,12 +2,18 @@
 
 import { useState } from 'react'
 import { FileText, Loader2, Plus, Trash2 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldContent,
+} from '@/components/ui/field'
 
 interface MemoForm {
   ref_no: string
@@ -84,93 +90,94 @@ export default function MemoPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
       <div className="mb-8 flex items-center gap-3">
-        <FileText className="h-6 w-6 text-primary" />
+        <FileText className="text-primary" data-icon="inline-start" />
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Memo Generator</h1>
-          <p className="text-sm text-slate-500">Generate an institutional A4 PDF memorandum.</p>
+          <h1 className="text-2xl font-black">Memo Generator</h1>
+          <p className="text-sm text-muted-foreground">Generate an institutional A4 PDF memorandum.</p>
         </div>
       </div>
 
-      <div className="space-y-5">
+      <FieldGroup>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Reference No. <span className="text-red-500">*</span></Label>
+          <Field>
+            <FieldLabel>Reference No. <span className="text-destructive">*</span></FieldLabel>
             <Input placeholder="SCMS/2026/001" value={form.ref_no} onChange={(e) => set('ref_no', e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Date <span className="text-red-500">*</span></Label>
+          </Field>
+          <Field>
+            <FieldLabel>Date <span className="text-destructive">*</span></FieldLabel>
             <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
-          </div>
+          </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>To <span className="text-red-500">*</span></Label>
+          <Field>
+            <FieldLabel>To <span className="text-destructive">*</span></FieldLabel>
             <Input placeholder="Head of Department" value={form.to} onChange={(e) => set('to', e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>From <span className="text-red-500">*</span></Label>
+          </Field>
+          <Field>
+            <FieldLabel>From <span className="text-destructive">*</span></FieldLabel>
             <Input placeholder="Cafe Manager" value={form.from_name} onChange={(e) => set('from_name', e.target.value)} />
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-2">
-          <Label>Subject <span className="text-red-500">*</span></Label>
+        <Field>
+          <FieldLabel>Subject <span className="text-destructive">*</span></FieldLabel>
           <Input placeholder="Monthly operations report" value={form.subject} onChange={(e) => set('subject', e.target.value)} />
-        </div>
+        </Field>
 
-        <div className="space-y-3">
-          <Label>Body</Label>
-          {form.body_paragraphs.map((p, i) => (
-            <div key={i} className="flex gap-2">
-              <textarea
-                value={p}
-                onChange={(e) => setParagraph(i, e.target.value)}
-                rows={3}
-                placeholder={`Paragraph ${i + 1}…`}
-                className="flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
-              />
-              {form.body_paragraphs.length > 1 && (
-                <button type="button" onClick={() => removeParagraph(i)} className="text-slate-400 hover:text-red-500">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={addParagraph}
-            className="flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            <Plus className="h-4 w-4" /> Add paragraph
-          </button>
-        </div>
+        <Field>
+          <FieldLabel>Body</FieldLabel>
+          <FieldContent className="gap-3">
+            {form.body_paragraphs.map((p, i) => (
+              <div key={i} className="flex gap-2">
+                <Textarea
+                  value={p}
+                  onChange={(e) => setParagraph(i, e.target.value)}
+                  rows={3}
+                  placeholder={`Paragraph ${i + 1}…`}
+                  className="flex-1 resize-none"
+                />
+                {form.body_paragraphs.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => removeParagraph(i)}
+                    aria-label="Remove paragraph"
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button type="button" variant="link" className="h-auto justify-start p-0" onClick={addParagraph}>
+              <Plus data-icon="inline-start" /> Add paragraph
+            </Button>
+          </FieldContent>
+        </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Signatory name <span className="text-red-500">*</span></Label>
+          <Field>
+            <FieldLabel>Signatory name <span className="text-destructive">*</span></FieldLabel>
             <Input placeholder="Jane Doe" value={form.signatory_name} onChange={(e) => set('signatory_name', e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Signatory title <span className="text-red-500">*</span></Label>
+          </Field>
+          <Field>
+            <FieldLabel>Signatory title <span className="text-destructive">*</span></FieldLabel>
             <Input placeholder="Operations Manager" value={form.signatory_title} onChange={(e) => set('signatory_title', e.target.value)} />
-          </div>
+          </Field>
         </div>
 
-        <Button
-          className="w-full bg-primary text-white hover:opacity-90"
-          onClick={handleGenerate}
-          disabled={generating}
-        >
+        <Button className="w-full" onClick={handleGenerate} disabled={generating}>
           {generating ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Generating…
-            </span>
+            <>
+              <Loader2 data-icon="inline-start" className="animate-spin" /> Generating…
+            </>
           ) : (
             'Download PDF memo'
           )}
         </Button>
-      </div>
+      </FieldGroup>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
 import type { InventoryItem } from '@/types'
 
 type Props = {
@@ -13,15 +14,8 @@ export default function LowStockBadge({ item }: Props) {
   if (!isLow) return null
 
   return (
-    <span
-      className={[
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
-        isCritical
-          ? 'bg-red-100 text-red-700'
-          : 'bg-amber-100 text-amber-700',
-      ].join(' ')}
-    >
+    <Badge variant={isCritical ? 'destructive' : 'secondary'}>
       {isCritical ? 'Critical' : 'Low stock'}
-    </span>
+    </Badge>
   )
 }

@@ -3,6 +3,18 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+
 interface OutletRow {
   outlet_tenant_id: string
   outlet_name: string
@@ -41,18 +53,19 @@ export default function OutletComparisonTable({ data }: OutletComparisonTablePro
 
   if (data.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-        No outlet data available.
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyTitle>No outlet data</EmptyTitle>
+        <EmptyDescription>No outlet data available.</EmptyDescription>
+      </Empty>
     )
   }
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (col !== sortKey) return <ChevronDown className="h-3 w-3 text-slate-300" />
+    if (col !== sortKey) return <ChevronDown className="size-3 text-muted-foreground/40" data-icon="inline-end" />
     return sortAsc ? (
-      <ChevronUp className="h-3 w-3 text-primary" />
+      <ChevronUp className="size-3 text-primary" data-icon="inline-end" />
     ) : (
-      <ChevronDown className="h-3 w-3 text-primary" />
+      <ChevronDown className="size-3 text-primary" data-icon="inline-end" />
     )
   }
 
@@ -66,60 +79,66 @@ export default function OutletComparisonTable({ data }: OutletComparisonTablePro
     align?: 'right' | 'left'
   }) {
     return (
-      <th
-        className={`cursor-pointer whitespace-nowrap py-3 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800`}
+      <TableHead
+        className={cn(
+          'cursor-pointer whitespace-nowrap text-xs font-semibold uppercase tracking-wider hover:text-foreground',
+          align === 'right' ? 'text-right' : 'text-left'
+        )}
         onClick={() => handleSort(col)}
       >
-        <span className="inline-flex items-center gap-1">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1',
+            align === 'right' && 'justify-end'
+          )}
+        >
           {label}
           <SortIcon col={col} />
         </span>
-      </th>
+      </TableHead>
     )
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-100">
-            <th className="py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Outlet
-            </th>
-            <Th label="Orders" col="order_count" />
-            <Th label="Revenue" col="revenue" />
-            <Th label="Customers" col="unique_customers" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {sorted.map((row) => (
-            <tr key={row.outlet_tenant_id} className="hover:bg-slate-50">
-              <td className="py-3 font-medium text-slate-800">{row.outlet_name}</td>
-              <td className="py-3 text-right tabular-nums text-slate-600">
-                {row.order_count.toLocaleString()}
-              </td>
-              <td className="py-3 text-right tabular-nums font-semibold text-slate-800">
-                {formatCurrency(row.revenue)}
-              </td>
-              <td className="py-3 text-right tabular-nums text-slate-600">
-                {row.unique_customers.toLocaleString()}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-slate-200 font-semibold">
-            <td className="py-3 text-slate-700">Total</td>
-            <td className="py-3 text-right tabular-nums text-slate-700">
-              {data.reduce((s, r) => s + r.order_count, 0).toLocaleString()}
-            </td>
-            <td className="py-3 text-right tabular-nums text-slate-900">
-              {formatCurrency(data.reduce((s, r) => s + r.revenue, 0))}
-            </td>
-            <td className="py-3 text-right tabular-nums text-slate-700">—</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="text-xs font-semibold uppercase tracking-wider">
+            Outlet
+          </TableHead>
+          <Th label="Orders" col="order_count" />
+          <Th label="Revenue" col="revenue" />
+          <Th label="Customers" col="unique_customers" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sorted.map((row) => (
+          <TableRow key={row.outlet_tenant_id}>
+            <TableCell className="font-medium">{row.outlet_name}</TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">
+              {row.order_count.toLocaleString()}
+            </TableCell>
+            <TableCell className="text-right tabular-nums font-semibold">
+              {formatCurrency(row.revenue)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-muted-foreground">
+              {row.unique_customers.toLocaleString()}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+      <TableFooter>
+        <TableRow>
+          <TableCell>Total</TableCell>
+          <TableCell className="text-right tabular-nums">
+            {data.reduce((s, r) => s + r.order_count, 0).toLocaleString()}
+          </TableCell>
+          <TableCell className="text-right tabular-nums">
+            {formatCurrency(data.reduce((s, r) => s + r.revenue, 0))}
+          </TableCell>
+          <TableCell className="text-right tabular-nums">—</TableCell>
+        </TableRow>
+      </TableFooter>
+    </Table>
   )
 }

@@ -5,11 +5,23 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ShieldCheck, ShieldOff, Search, UserPlus } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import apiClient from '@/lib/api'
 import type { User, UserRole } from '@/types'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 const PAGE_SIZE = 20
 
@@ -43,7 +55,11 @@ const ROLE_STYLES: Record<UserRole, string> = {
 
 function RoleBadge({ role }: { role: AdminUser['role'] }) {
   const style = ROLE_STYLES[role] ?? 'bg-slate-100 text-slate-600'
-  return <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] ${style}`}>{role}</span>
+  return (
+    <Badge variant="outline" className={`border-transparent uppercase tracking-[0.15em] ${style}`}>
+      {role}
+    </Badge>
+  )
 }
 
 export default function AdminUsersPage() {
@@ -124,7 +140,7 @@ export default function AdminUsersPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
               User Management
             </p>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Manage users</h1>
@@ -133,13 +149,12 @@ export default function AdminUsersPage() {
             </p>
           </div>
           {params.tenant_slug && (
-            <Link
-              href={`/${params.tenant_slug}/users/invite`}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-            >
-              <UserPlus className="h-4 w-4" />
-              Invite Staff
-            </Link>
+            <Button asChild>
+              <Link href={`/${params.tenant_slug}/users/invite`}>
+                <UserPlus data-icon="inline-start" />
+                Invite Staff
+              </Link>
+            </Button>
           )}
         </div>
 
@@ -156,84 +171,90 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <select
+              <Select
                 value={roleFilter}
-                onChange={(event) => setRoleFilter(event.target.value as 'all' | AdminUser['role'])}
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                onValueChange={(value) => setRoleFilter(value as 'all' | AdminUser['role'])}
               >
-                <option value="all">All roles</option>
-                <option value="customer">Customer</option>
-                <option value="staff">Staff</option>
-                <option value="server">Server</option>
-                <option value="cleaner">Cleaner</option>
-                <option value="outlet_admin">Outlet Admin</option>
-                <option value="tenant_admin">Tenant Admin</option>
-                <option value="food_court_admin">Food Court Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="server">Server</SelectItem>
+                  <SelectItem value="cleaner">Cleaner</SelectItem>
+                  <SelectItem value="outlet_admin">Outlet Admin</SelectItem>
+                  <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                  <SelectItem value="food_court_admin">Food Court Admin</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-black/10">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-black/10 text-sm">
-                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.15em] text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">Name</th>
-                      <th className="px-4 py-3">Email</th>
-                      <th className="px-4 py-3">Role</th>
-                      <th className="px-4 py-3">Wallet Balance</th>
-                      <th className="px-4 py-3">Reward Points</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Joined Date</th>
-                      <th className="px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-black/10 bg-white">
-                    {loading ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-500" colSpan={8}>
-                          Loading users...
-                        </td>
-                      </tr>
-                    ) : visibleUsers.length === 0 ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-slate-500" colSpan={8}>
-                          No users found.
-                        </td>
-                      </tr>
-                    ) : (
-                      visibleUsers.map((user) => (
-                        <tr key={user.user_id} className="hover:bg-slate-50/60">
-                          <td className="px-4 py-3 font-semibold text-slate-900">{user.full_name}</td>
-                          <td className="px-4 py-3 text-slate-600">{user.email}</td>
-                          <td className="px-4 py-3"><RoleBadge role={user.role} /></td>
-                          <td className="px-4 py-3 text-slate-700">{formatCurrency(Number(user.wallet_balance))}</td>
-                          <td className="px-4 py-3 text-slate-700">{user.reward_points.toLocaleString('en-BD')}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] ${user.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}
-                            >
-                              {user.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{formatDate(user.created_at)}</td>
-                          <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleUser(user.user_id)}
-                              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${user.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
-                            >
-                              {user.is_active ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                              {user.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            {loading ? (
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-xl" />
+                ))}
               </div>
-            </div>
+            ) : visibleUsers.length === 0 ? (
+              <Empty className="border border-dashed border-black/10">
+                <EmptyMedia variant="icon">
+                  <Search />
+                </EmptyMedia>
+                <EmptyTitle>No users found</EmptyTitle>
+                <EmptyDescription>Try a different search term or role filter.</EmptyDescription>
+              </Empty>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-black/10">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Wallet Balance</TableHead>
+                        <TableHead>Reward Points</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Joined Date</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {visibleUsers.map((user) => (
+                        <TableRow key={user.user_id}>
+                          <TableCell className="font-semibold text-slate-900">{user.full_name}</TableCell>
+                          <TableCell className="text-slate-600">{user.email}</TableCell>
+                          <TableCell><RoleBadge role={user.role} /></TableCell>
+                          <TableCell className="text-slate-700">{formatCurrency(Number(user.wallet_balance))}</TableCell>
+                          <TableCell className="text-slate-700">{user.reward_points.toLocaleString('en-BD')}</TableCell>
+                          <TableCell>
+                            <Badge variant={user.is_active ? 'default' : 'destructive'}>
+                              {user.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-slate-600">{formatDate(user.created_at)}</TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className={user.is_active ? 'text-destructive hover:bg-destructive/10' : 'text-emerald-700 hover:bg-emerald-50'}
+                              onClick={() => handleToggleUser(user.user_id)}
+                            >
+                              {user.is_active ? <ShieldOff data-icon="inline-start" /> : <ShieldCheck data-icon="inline-start" />}
+                              {user.is_active ? 'Deactivate' : 'Activate'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm text-slate-500">
@@ -241,22 +262,24 @@ export default function AdminUsersPage() {
               </p>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   type="button"
-                  className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                   disabled={currentPage === 1}
                 >
                   Previous
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
                   disabled={currentPage >= totalPages}
                 >
                   Next
-                </button>
+                </Button>
               </div>
             </div>
           </CardContent>

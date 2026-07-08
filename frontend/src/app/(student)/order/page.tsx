@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Clock3, CreditCard, Loader2, MapPin, ShoppingBag, Wallet } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
 import TableGrid from '@/components/order/TableGrid'
@@ -39,9 +39,9 @@ function StepIndicator({ step, activeStep }: { step: OrderStep; activeStep: Orde
     <button
       type="button"
       disabled={step > activeStep + 1}
-      className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${isActive ? 'border-[#1A4D2E] bg-[#1A4D2E]/10 shadow-sm' : 'border-black/10 bg-white'} ${step > activeStep + 1 ? 'cursor-not-allowed opacity-60' : ''}`}
+      className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${isActive ? 'border-primary bg-primary/10 shadow-sm' : 'border-black/10 bg-white'} ${step > activeStep + 1 ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${isCompleted || isActive ? 'bg-[#1A4D2E] text-white' : 'bg-slate-200 text-slate-600'}`}>
+      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${isCompleted || isActive ? 'bg-primary text-primary-foreground' : 'bg-slate-200 text-slate-600'}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div>
@@ -57,7 +57,7 @@ function CartReview({ cart, onUpdateQuantity, onRemoveItem }: { cart: CartItem[]
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <ShoppingBag className="h-5 w-5 text-[#1A4D2E]" />
+          <ShoppingBag className="h-5 w-5 text-primary" />
           Review your cart
         </CardTitle>
       </CardHeader>
@@ -75,7 +75,7 @@ function CartReview({ cart, onUpdateQuantity, onRemoveItem }: { cart: CartItem[]
                   <p className="font-semibold text-slate-900">{item.item.name}</p>
                   <p className="text-sm text-slate-500">{formatBdt(item.item.price)} each</p>
                 </div>
-                <p className="font-semibold text-[#1A4D2E]">{formatBdt(item.item.price * item.quantity)}</p>
+                <p className="font-semibold text-primary">{formatBdt(item.item.price * item.quantity)}</p>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -134,7 +134,7 @@ function SummaryCard({
     <Card className="lg:sticky lg:top-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <Check className="h-5 w-5 text-[#1A4D2E]" />
+          <Check className="h-5 w-5 text-primary" />
           Checkout snapshot
         </CardTitle>
       </CardHeader>
@@ -334,7 +334,7 @@ export default function StudentOrderPage() {
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+              <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
                 Checkout
               </p>
               <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Place your order</h1>
@@ -346,7 +346,7 @@ export default function StudentOrderPage() {
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#1A4D2E]/30 hover:text-[#1A4D2E]"
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/30 hover:text-primary"
             >
               <ArrowLeft className="h-4 w-4" />
               {activeStep === 1 ? 'Leave checkout' : 'Back'}
@@ -369,7 +369,7 @@ export default function StudentOrderPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl">
-                      <Clock3 className="h-5 w-5 text-[#1A4D2E]" />
+                      <Clock3 className="h-5 w-5 text-primary" />
                       Select a time slot
                     </CardTitle>
                   </CardHeader>
@@ -383,7 +383,7 @@ export default function StudentOrderPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl">
-                      <MapPin className="h-5 w-5 text-[#1A4D2E]" />
+                      <MapPin className="h-5 w-5 text-primary" />
                       Choose your table
                     </CardTitle>
                   </CardHeader>
@@ -400,7 +400,7 @@ export default function StudentOrderPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl">
-                      <CreditCard className="h-5 w-5 text-[#1A4D2E]" />
+                      <CreditCard className="h-5 w-5 text-primary" />
                       Confirm and pay
                     </CardTitle>
                   </CardHeader>
@@ -420,7 +420,7 @@ export default function StudentOrderPage() {
                               checked={paymentMethod === 'wallet'}
                               onChange={() => setPaymentMethod('wallet')}
                               disabled={!canUseWallet}
-                              className="h-5 w-5 accent-[#1A4D2E]"
+                              className="h-5 w-5 accent-primary"
                             />
                           </label>
 
@@ -434,7 +434,7 @@ export default function StudentOrderPage() {
                               name="payment-method"
                               checked={paymentMethod === 'simulation'}
                               onChange={() => setPaymentMethod('simulation')}
-                              className="h-5 w-5 accent-[#1A4D2E]"
+                              className="h-5 w-5 accent-primary"
                             />
                           </label>
                         </div>
@@ -462,7 +462,7 @@ export default function StudentOrderPage() {
                         onChange={(event) => setSpecialNotes(event.target.value)}
                         rows={4}
                         placeholder="Allergies, extra spice, packaging requests..."
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/10"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/10"
                       />
                     </div>
 
@@ -475,7 +475,7 @@ export default function StudentOrderPage() {
                       </div>
                     </div>
 
-                    <Button className="w-full gap-2 bg-[#1A4D2E] text-white hover:bg-[#163f25]" type="button" onClick={handleConfirm} disabled={submitting || cart.length === 0 || !selectedSlot || !selectedTableId || (paymentMethod === 'wallet' && !canUseWallet)}>
+                    <Button className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90" type="button" onClick={handleConfirm} disabled={submitting || cart.length === 0 || !selectedSlot || !selectedTableId || (paymentMethod === 'wallet' && !canUseWallet)}>
                       {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                       Confirm and pay
                     </Button>
@@ -489,7 +489,7 @@ export default function StudentOrderPage() {
                 </Button>
 
                 {activeStep < 4 ? (
-                  <Button className="bg-[#1A4D2E] text-white hover:bg-[#163f25]" type="button" onClick={handleNext} disabled={!canGoNext}>
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90" type="button" onClick={handleNext} disabled={!canGoNext}>
                     Next
                   </Button>
                 ) : null}
@@ -524,7 +524,7 @@ export default function StudentOrderPage() {
                 onClick={() => {
                   router.push(`/${slug}/menu`)
                 }}
-                className="bg-[#1A4D2E] text-white hover:bg-[#163f25]"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Leave checkout
               </AlertDialogAction>

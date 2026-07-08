@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Building2, Check, Loader2, ShieldCheck, Store } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { getClaimsFromToken, getRoleFromToken } from '@/lib/auth'
@@ -177,7 +177,7 @@ export default function RegisterOrganizationPage() {
 
             {/* STEP 1 — Category */}
             {step === 'category' && (
-              <div className="space-y-5">
+              <div className="flex flex-col gap-5">
                 <div>
                   <CardTitle className="text-xl">Register your organisation</CardTitle>
                   <CardDescription className="mt-1">
@@ -208,7 +208,7 @@ export default function RegisterOrganizationPage() {
 
             {/* STEP 2 — Organisation details */}
             {step === 'organisation' && (
-              <div className="space-y-5">
+              <div className="flex flex-col gap-5">
                 <div>
                   <CardTitle className="text-xl">Organisation details</CardTitle>
                   <CardDescription className="mt-1">
@@ -216,8 +216,8 @@ export default function RegisterOrganizationPage() {
                   </CardDescription>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="org-name">Organisation name</Label>
                     <Input
                       id="org-name"
@@ -227,7 +227,7 @@ export default function RegisterOrganizationPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="org-slug">Web address (URL name)</Label>
                     <div className="flex items-center gap-1 rounded-2xl border border-black/10 bg-slate-50 px-3">
                       <span className="text-sm text-slate-400">/</span>
@@ -249,11 +249,11 @@ export default function RegisterOrganizationPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="org-city">City (optional)</Label>
                       <Input id="org-city" placeholder="Dhaka" value={city} onChange={(e) => setCity(e.target.value)} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="org-color">Brand colour</Label>
                       <div className="flex items-center gap-2">
                         <input
@@ -268,7 +268,7 @@ export default function RegisterOrganizationPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="org-contact">Contact email (optional)</Label>
                     <Input
                       id="org-contact"
@@ -280,7 +280,7 @@ export default function RegisterOrganizationPage() {
                   </div>
 
                   {showDomainField && (
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label htmlFor="org-domain">Allowed email domain (optional)</Label>
                       <Input
                         id="org-domain"
@@ -312,7 +312,7 @@ export default function RegisterOrganizationPage() {
 
             {/* STEP 3 — Admin account */}
             {step === 'admin' && (
-              <div className="space-y-5">
+              <div className="flex flex-col gap-5">
                 <div>
                   <CardTitle className="text-xl">Create your admin account</CardTitle>
                   <CardDescription className="mt-1">
@@ -320,8 +320,8 @@ export default function RegisterOrganizationPage() {
                   </CardDescription>
                 </div>
 
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                  <div className="space-y-2">
+                <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="admin-name">Your full name</Label>
                     <Input
                       id="admin-name"
@@ -332,7 +332,7 @@ export default function RegisterOrganizationPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="admin-email">Email</Label>
                     <Input
                       id="admin-email"
@@ -344,7 +344,7 @@ export default function RegisterOrganizationPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="admin-password">Password</Label>
                     <Input
                       id="admin-password"

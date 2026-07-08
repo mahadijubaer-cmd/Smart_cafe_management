@@ -197,8 +197,13 @@ class OrderService:
         user_id: UUID,
         tenant_id: UUID,
     ) -> Order:
+        try:
+            order_uuid = uuid.UUID(str(order_id))
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Order not found")
+
         result = await db.execute(
-            select(Order).where(Order.order_id == order_id, Order.tenant_id == tenant_id)
+            select(Order).where(Order.order_id == order_uuid, Order.tenant_id == tenant_id)
         )
         order = result.scalar_one_or_none()
         if not order:
@@ -211,7 +216,7 @@ class OrderService:
             raise HTTPException(status_code=400, detail="Order must be delivered before completion")
 
         if order.table_id:
-            await CleanerService().assign_cleaner(db, order.table_id, order_id, tenant_id)
+            await CleanerService().assign_cleaner(db, order.table_id, order.order_id, tenant_id)
 
         points = int(Decimal(str(order.total_amount)) // Decimal("10"))
         result = await db.execute(
@@ -224,7 +229,7 @@ class OrderService:
         db.add(RewardLog(
             tenant_id=tenant_id,
             user_id=user_id,
-            order_id=order_id,
+            order_id=order.order_id,
             points_earned=points,
             points_redeemed=0,
             description=f"Reward points for completing order #{str(order.order_id)[:8]}",

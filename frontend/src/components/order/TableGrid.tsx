@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Tooltip } from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { TableMap } from '@/types'
 
 type TableGridProps = {
@@ -54,9 +55,9 @@ export default function TableGrid({ tables, selectedTableId, onSelect, readOnly 
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+      <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
         {zoneLabels.map((zone) => (
-          <div key={zone.name} className={`rounded-full bg-slate-50 px-3 py-2 ${zone.accent}`}>
+          <div key={zone.name} className={`rounded-full bg-muted px-3 py-2 ${zone.accent}`}>
             {zone.name}
           </div>
         ))}
@@ -81,7 +82,7 @@ export default function TableGrid({ tables, selectedTableId, onSelect, readOnly 
                 onClick={() => isClickable && onSelect(table.table_id)}
                 disabled={!isClickable}
                 className={`relative flex h-full w-full flex-col items-center justify-center rounded-[1.75rem] border px-4 py-4 text-sm font-semibold transition duration-300 ${statusStyles[table.status]} ${
-                  isSelected ? 'ring-2 ring-[#1A4D2E] ring-offset-2 ring-offset-white' : ''
+                  isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
                 } ${isClickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg' : 'cursor-not-allowed opacity-80'} ${
                   isFlashing ? 'animate-pulse' : ''
                 }`}
@@ -95,38 +96,35 @@ export default function TableGrid({ tables, selectedTableId, onSelect, readOnly 
                   <span aria-hidden="true">👥</span>
                   <span>{table.capacity}</span>
                 </div>
-                <span className="mt-3 inline-flex rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-700">
+                <Badge variant="outline" className="mt-3 bg-white/70 text-[10px] font-bold uppercase tracking-[0.22em]">
                   {table.status}
-                </span>
+                </Badge>
               </button>
             )
 
             return (
-              <Tooltip
-                key={table.table_id}
-                side="top"
-                content={
+              <Tooltip key={table.table_id}>
+                <TooltipTrigger asChild>{card}</TooltipTrigger>
+                <TooltipContent side="top">
                   <div className="space-y-1 text-center">
                     <div className="font-semibold">Table {table.table_number}</div>
                     <div className="text-white/75">{table.zone}</div>
                     <div className="text-white/75">Capacity {table.capacity}</div>
                     <div className="text-white/75 capitalize">Status: {table.status}</div>
                   </div>
-                }
-              >
-                {card}
+                </TooltipContent>
               </Tooltip>
             )
           })}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 rounded-3xl border border-black/10 bg-white/80 p-4 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
+      <div className="flex flex-wrap gap-3 rounded-3xl border bg-background/80 p-4 text-xs font-medium text-foreground shadow-sm backdrop-blur">
         <LegendSwatch className="bg-emerald-500" label="Available" />
         <LegendSwatch className="bg-amber-500" label="Reserved" />
         <LegendSwatch className="bg-rose-500" label="Occupied" />
         <LegendSwatch className="bg-sky-500" label="Cleaning" />
-        <div className="ml-auto text-slate-500">Tap an available table to select it for checkout.</div>
+        <div className="ml-auto text-muted-foreground">Tap an available table to select it for checkout.</div>
       </div>
     </div>
   )

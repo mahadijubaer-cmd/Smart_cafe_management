@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 
 import apiClient from '@/lib/api'
 import type { TableMap } from '@/types'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const statusStyles: Record<TableMap['status'], string> = {
   available: 'bg-green-500 text-white',
@@ -14,10 +19,10 @@ const statusStyles: Record<TableMap['status'], string> = {
 
 function LegendSwatch({ color, label }: { color: string; label: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className={`h-3 w-3 rounded ${color}`} />
+    <Badge variant="outline" className="gap-1.5 font-normal">
+      <span className={cn('size-3 rounded', color)} />
       <span>{label}</span>
-    </div>
+    </Badge>
   )
 }
 
@@ -63,15 +68,18 @@ export default function ActiveTableMap() {
   }, [tables])
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {loading ? (
-        <div className="rounded-3xl border border-dashed border-black/10 p-10 text-center text-sm text-slate-500">
-          Loading live table map...
+        <div className="grid min-w-[42rem] grid-cols-5 gap-4">
+          {Array.from({ length: 10 }, (_, i) => (
+            <Skeleton key={i} className="h-[5.5rem] rounded-3xl" />
+          ))}
         </div>
       ) : tables.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-black/10 p-10 text-center text-sm text-slate-500">
-          No table data available.
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyTitle>No table data</EmptyTitle>
+          <EmptyDescription>No table data available.</EmptyDescription>
+        </Empty>
       ) : (
         <div className="overflow-x-auto">
           <div
@@ -84,7 +92,10 @@ export default function ActiveTableMap() {
             {tables.map((table) => (
               <div
                 key={table.table_id}
-                className={`relative flex flex-col items-center justify-center rounded-3xl p-4 text-sm font-semibold ${statusStyles[table.status]} opacity-95`}
+                className={cn(
+                  'relative flex flex-col items-center justify-center rounded-3xl p-4 text-sm font-semibold opacity-95',
+                  statusStyles[table.status]
+                )}
                 style={{
                   gridColumn: table.position_x + 1,
                   gridRow: table.position_y + 1,
@@ -101,31 +112,35 @@ export default function ActiveTableMap() {
         </div>
       )}
 
-      <div className="space-y-3 rounded-2xl bg-white/70 p-4">
-        <div className="flex flex-wrap gap-3 text-xs font-medium text-slate-700">
-          <LegendSwatch color="bg-green-500" label="Available" />
-          <LegendSwatch color="bg-amber-500" label="Reserved" />
-          <LegendSwatch color="bg-red-500" label="Occupied" />
-          <LegendSwatch color="bg-blue-500" label="Cleaning" />
-        </div>
+      <Card className="bg-card/70">
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <LegendSwatch color="bg-green-500" label="Available" />
+            <LegendSwatch color="bg-amber-500" label="Reserved" />
+            <LegendSwatch color="bg-red-500" label="Occupied" />
+            <LegendSwatch color="bg-blue-500" label="Cleaning" />
+          </div>
 
-        <div className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2 xl:grid-cols-5">
-          <SummaryPill label="Total" value={counts.total} />
-          <SummaryPill label="Available" value={counts.available} />
-          <SummaryPill label="Reserved" value={counts.reserved} />
-          <SummaryPill label="Occupied" value={counts.occupied} />
-          <SummaryPill label="Cleaning" value={counts.cleaning} />
-        </div>
-      </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <SummaryPill label="Total" value={counts.total} />
+            <SummaryPill label="Available" value={counts.available} />
+            <SummaryPill label="Reserved" value={counts.reserved} />
+            <SummaryPill label="Occupied" value={counts.occupied} />
+            <SummaryPill label="Cleaning" value={counts.cleaning} />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 function SummaryPill({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-slate-900">{value}</p>
-    </div>
+    <Card>
+      <CardContent className="px-4 py-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+        <p className="mt-1 text-lg font-bold">{value}</p>
+      </CardContent>
+    </Card>
   )
 }

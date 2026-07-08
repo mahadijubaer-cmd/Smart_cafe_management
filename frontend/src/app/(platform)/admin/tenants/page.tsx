@@ -1,15 +1,40 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Building2 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
+import { Plus, Building2, LogIn, Download, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
+import { getClaimsFromToken } from '@/lib/auth'
+import { IMPERSONATION_BACKUP_KEY } from '@/components/platform/ImpersonationBanner'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import type { Tenant, TenantCreate, TenantType } from '@/types'
 
 const TENANT_TYPES: TenantType[] = [
@@ -32,7 +57,17 @@ const typeLabels: Record<TenantType, string> = {
   food_court_vendor: 'Food Court Vendor',
 }
 
-function TenantCard({ tenant }: { tenant: Tenant }) {
+function TenantCard({
+  tenant,
+  onImpersonate,
+  onExport,
+  onDelete,
+}: {
+  tenant: Tenant
+  onImpersonate: (tenant: Tenant) => void
+  onExport: (tenant: Tenant) => void
+  onDelete: (tenant: Tenant) => void
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">
       <div className="flex items-start justify-between gap-3">
@@ -46,24 +81,65 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
           </div>
           <p className="mt-1 text-xs text-slate-500 font-mono">/{tenant.slug}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${tenant.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+        <Badge variant={tenant.is_active ? 'default' : 'destructive'} className="shrink-0">
           {tenant.is_active ? 'Active' : 'Suspended'}
-        </span>
+        </Badge>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+        <Badge variant="secondary">
           {typeLabels[tenant.tenant_type] ?? tenant.tenant_type}
-        </span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 capitalize">
+        </Badge>
+        <Badge variant="secondary" className="capitalize">
           {tenant.subscription_tier}
-        </span>
-        {tenant.city ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{tenant.city}</span> : null}
+        </Badge>
+        {tenant.city ? <Badge variant="secondary">{tenant.city}</Badge> : null}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+        <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => onImpersonate(tenant)}>
+          <LogIn data-icon="inline-start" /> Impersonate
+        </Button>
+        <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => onExport(tenant)}>
+          <Download data-icon="inline-start" /> Export
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs text-destructive hover:bg-destructive/10"
+              disabled={tenant.is_active}
+              title={tenant.is_active ? 'Suspend the tenant before deleting it' : undefined}
+            >
+              <Trash2 data-icon="inline-start" /> Delete
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete &quot;{tenant.name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently deletes the tenant and cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => onDelete(tenant)}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )
 }
 
 export default function TenantsPage() {
+  const router = useRouter()
+  const setToken = useStore((state) => state.setToken)
+  const setTenantContext = useStore((state) => state.setTenantContext)
+  const currentToken = useStore((state) => state.token)
+
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -80,7 +156,7 @@ export default function TenantsPage() {
   const loadTenants = async () => {
     try {
       const res = await apiClient.get('/tenants')
-      setTenants(res.data as Tenant[])
+      setTenants((res.data.items ?? res.data) as Tenant[])
     } catch {
       toast.error('Failed to load tenants')
     } finally {
@@ -107,13 +183,62 @@ export default function TenantsPage() {
     }
   }
 
+  const handleImpersonate = async (tenant: Tenant) => {
+    try {
+      const res = await apiClient.post(`/platform/tenants/${tenant.tenant_id}/impersonate`)
+      const { access_token: impersonationToken, tenant_slug: targetSlug } = res.data
+      if (currentToken) sessionStorage.setItem(IMPERSONATION_BACKUP_KEY, currentToken)
+      setToken(impersonationToken)
+      const claims = getClaimsFromToken(impersonationToken)
+      if (claims) {
+        setTenantContext({
+          tenant_id: claims.tenant_id,
+          tenant_type: claims.tenant_type,
+          tenant_slug: claims.tenant_slug,
+          outlet_id: claims.outlet_id,
+          brand_color: claims.brand_color,
+        })
+      }
+      toast.success(`Viewing as ${targetSlug}`)
+      router.push(`/${targetSlug}/dashboard`)
+    } catch {
+      toast.error('Failed to start impersonation session')
+    }
+  }
+
+  const handleExport = async (tenant: Tenant) => {
+    try {
+      const res = await apiClient.get(`/tenants/${tenant.tenant_id}/export`)
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${tenant.slug}-export.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Failed to export tenant data')
+    }
+  }
+
+  const handleDelete = async (tenant: Tenant) => {
+    try {
+      await apiClient.delete(`/tenants/${tenant.tenant_id}`)
+      toast.success('Tenant deleted')
+      void loadTenants()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(msg ?? 'Failed to delete tenant')
+    }
+  }
+
   return (
     <ProtectedRoute allowedRoles={['platform_admin']}>
       <div className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col mx-auto max-w-7xl gap-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+              <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
                 Platform Admin
               </p>
               <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Tenant Management</h1>
@@ -121,7 +246,7 @@ export default function TenantsPage() {
             </div>
             <Button
               type="button"
-              className="gap-2 bg-[#1A4D2E] text-white hover:bg-[#163f25]"
+              className="gap-2"
               onClick={() => setShowForm((v) => !v)}
             >
               <Plus className="h-4 w-4" />
@@ -135,44 +260,47 @@ export default function TenantsPage() {
                 <CardTitle>Create Tenant</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleCreate} className="space-y-4">
+                <form onSubmit={handleCreate} className="flex flex-col gap-4">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-name">Name *</Label>
                       <Input id="t-name" value={form.name} onChange={(e) => setField('name', e.target.value)} placeholder="BRAC University Cafe" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-slug">Slug * (URL-safe)</Label>
                       <Input id="t-slug" value={form.slug} onChange={(e) => setField('slug', e.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="bracu" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-type">Tenant Type *</Label>
-                      <select
-                        id="t-type"
-                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary"
+                      <Select
                         value={form.tenant_type}
-                        onChange={(e) => setField('tenant_type', e.target.value as TenantType)}
+                        onValueChange={(value) => setField('tenant_type', value as TenantType)}
                       >
-                        {TENANT_TYPES.map((t) => (
-                          <option key={t} value={t}>{typeLabels[t]}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger id="t-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TENANT_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>{typeLabels[t]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-email">Allowed Email Domain</Label>
                       <Input id="t-email" value={form.allowed_email_domain ?? ''} onChange={(e) => setField('allowed_email_domain', e.target.value || null)} placeholder="@bracuniversity.ac.bd" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-city">City</Label>
                       <Input id="t-city" value={form.city ?? ''} onChange={(e) => setField('city', e.target.value || null)} placeholder="Dhaka" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-phone">Phone</Label>
                       <Input id="t-phone" value={form.phone ?? ''} onChange={(e) => setField('phone', e.target.value || null)} />
                     </div>
                   </div>
                   <div className="flex gap-3 pt-2">
-                    <Button type="submit" className="bg-[#1A4D2E] text-white hover:bg-[#163f25]" disabled={submitting}>
+                    <Button type="submit" disabled={submitting}>
                       {submitting ? 'Creating...' : 'Create Tenant'}
                     </Button>
                     <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -185,22 +313,34 @@ export default function TenantsPage() {
           <Card className="border-slate-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-[#1A4D2E]" />
+                <Building2 className="text-primary" />
                 All Tenants ({tenants.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="animate-pulse space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-slate-100" />)}
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
                 </div>
               ) : tenants.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-10 text-center">
-                  <p className="text-sm text-slate-500">No tenants yet.</p>
-                </div>
+                <Empty className="border border-dashed border-slate-300 bg-slate-50">
+                  <EmptyMedia variant="icon">
+                    <Building2 />
+                  </EmptyMedia>
+                  <EmptyTitle>No tenants yet</EmptyTitle>
+                  <EmptyDescription>Add a tenant to get started.</EmptyDescription>
+                </Empty>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {tenants.map((tenant) => <TenantCard key={tenant.tenant_id} tenant={tenant} />)}
+                  {tenants.map((tenant) => (
+                    <TenantCard
+                      key={tenant.tenant_id}
+                      tenant={tenant}
+                      onImpersonate={handleImpersonate}
+                      onExport={handleExport}
+                      onDelete={handleDelete}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>

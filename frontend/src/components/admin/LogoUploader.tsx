@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { ImagePlus, Loader2 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import axios from 'axios'
 
 interface LogoUploaderProps {
@@ -61,25 +61,25 @@ export default function LogoUploader({ currentLogoUrl, onUploaded }: LogoUploade
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div
         onClick={() => !uploading && inputRef.current?.click()}
-        className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-black/15 bg-slate-50 px-6 py-8 transition hover:border-primary hover:bg-primary/5"
+        className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-input bg-muted/40 px-6 py-8 transition hover:border-primary hover:bg-primary/5"
       >
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Logo preview" className="h-20 w-20 rounded-xl object-cover" />
+          <img src={preview} alt="Logo preview" className="size-20 rounded-xl object-cover" />
         ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-slate-200 text-slate-400">
-            <ImagePlus className="h-8 w-8" />
+          <div className="flex size-20 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <ImagePlus className="size-8" />
           </div>
         )}
         {uploading ? (
-          <span className="flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" data-icon="inline-start" /> Uploading…
           </span>
         ) : (
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             Click to upload · PNG, JPEG or WebP · Max {MAX_MB} MB
           </span>
         )}

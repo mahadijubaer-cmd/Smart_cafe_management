@@ -159,3 +159,28 @@ class TenantResponse(BaseModel):
 class TenantListResponse(BaseModel):
     items: list[TenantResponse]
     total: int
+
+
+class TenantExportUser(BaseModel):
+    """Never includes password_hash — see RFC-009 tenants.md GET /{id}/export."""
+    user_id: UUID
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TenantExportOrderSummary(BaseModel):
+    total_orders: int
+    total_revenue: str
+
+
+class TenantExportResponse(BaseModel):
+    tenant: TenantResponse
+    users: list[TenantExportUser]
+    menu_item_count: int
+    table_count: int
+    order_summary: TenantExportOrderSummary
+    exported_at: datetime

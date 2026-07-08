@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { CheckCheck } from 'lucide-react'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import useWebSocket from '@/hooks/useWebSocket'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { useStore } from '@/store/useStore'
 import type { CleanerLog } from '@/types'
 
@@ -48,11 +50,11 @@ function CleanCard({
     <article className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">Table {assignment.table?.table_number ?? assignment.table_id}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">Table {assignment.table?.table_number ?? assignment.table_id}</p>
           <h3 className="mt-1 text-lg font-bold text-slate-900">{assignment.table?.zone ?? 'Unknown zone'}</h3>
           <p className="text-sm text-slate-500">Capacity {assignment.table?.capacity ?? 'N/A'}</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{assignment.status}</span>
+        <Badge variant="secondary">{assignment.status}</Badge>
       </div>
 
       <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
@@ -64,7 +66,7 @@ function CleanCard({
         <Button type="button" onClick={() => onStart(assignment.log_id)} variant="outline">
           Start Cleaning
         </Button>
-        <Button type="button" className="bg-[#1A4D2E] text-white hover:bg-[#163f25]" onClick={() => onDone(assignment.log_id)}>
+        <Button type="button" onClick={() => onDone(assignment.log_id)}>
           Mark Done
         </Button>
       </div>
@@ -160,7 +162,7 @@ export default function CleanerTablesPage() {
       <main className="min-h-screen bg-[linear-gradient(180deg,#F5F0E8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
           <div>
-            <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
               Cleaner assignments
             </p>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Table cleaning queue</h1>
@@ -183,9 +185,13 @@ export default function CleanerTablesPage() {
                 />
               ))
             ) : (
-              <Card>
-                <CardContent className="p-8 text-center text-sm text-slate-500">No active assignments right now.</CardContent>
-              </Card>
+              <Empty className="border border-dashed border-slate-200 bg-white">
+                <EmptyMedia variant="icon">
+                  <CheckCheck />
+                </EmptyMedia>
+                <EmptyTitle>No active assignments</EmptyTitle>
+                <EmptyDescription>New table cleaning tasks will appear here.</EmptyDescription>
+              </Empty>
             )}
           </section>
 
@@ -204,7 +210,7 @@ export default function CleanerTablesPage() {
                             <p className="font-semibold text-emerald-900">Table {assignment.table?.table_number ?? assignment.table_id}</p>
                             <p className="text-sm text-emerald-700">{assignment.table?.zone ?? 'Unknown zone'} · Capacity {assignment.table?.capacity ?? 'N/A'}</p>
                           </div>
-                          <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">done</span>
+                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">done</Badge>
                         </div>
                         <p className="mt-3 text-sm text-emerald-800">Completed at {formatDateTime(assignment.cleaned_at)}</p>
                       </div>

@@ -128,15 +128,15 @@ export default function OtpInput({
             onPaste={handlePaste}
             onFocus={(e) => e.target.select()}
             aria-label={`OTP digit ${i + 1}`}
-            className="h-12 w-10 rounded-xl border border-black/15 bg-white text-center text-xl font-bold text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:opacity-50 sm:h-14 sm:w-12"
+            className="h-12 w-10 rounded-xl border border-input bg-background text-center text-xl font-bold text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:opacity-50 sm:h-14 sm:w-12"
           />
         ))}
       </div>
 
       <div className="flex items-center gap-2 text-sm">
         {cooldown > 0 ? (
-          <span className="text-slate-500">
-            Resend in <span className="tabular-nums font-semibold text-slate-700">{cooldown}s</span>
+          <span className="text-muted-foreground">
+            Resend in <span className="tabular-nums font-semibold text-foreground">{cooldown}s</span>
           </span>
         ) : (
           <Button type="button" variant="ghost" size="sm" onClick={handleResend} disabled={disabled} className="h-auto py-1 text-primary hover:text-primary/80">

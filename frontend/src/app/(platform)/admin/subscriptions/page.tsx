@@ -1,8 +1,26 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 type Tier = 'free' | 'starter' | 'professional' | 'enterprise'
 type TenantStatus = { active: boolean }
@@ -61,9 +79,9 @@ export default function SubscriptionsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-6">
-        <div className="h-6 w-40 animate-pulse rounded-lg bg-slate-100" />
-        <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+      <div className="flex flex-col p-6 gap-4">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-64 rounded-2xl" />
       </div>
     )
   }
@@ -73,63 +91,58 @@ export default function SubscriptionsPage() {
       <h1 className="mb-6 text-2xl font-black text-slate-900">Subscriptions</h1>
 
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-              <th className="px-5 py-3">Tenant</th>
-              <th className="px-5 py-3">Type</th>
-              <th className="px-5 py-3">Status</th>
-              <th className="px-5 py-3">Current Tier</th>
-              <th className="px-5 py-3">Change Tier</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tenant</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Current Tier</TableHead>
+              <TableHead>Change Tier</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {tenants.map((t) => (
-              <tr key={t.tenant_id} className="border-b border-slate-50 last:border-0">
-                <td className="px-5 py-3">
+              <TableRow key={t.tenant_id}>
+                <TableCell>
                   <p className="font-semibold text-slate-900">{t.name}</p>
                   <p className="text-xs text-slate-400">{t.slug}</p>
-                </td>
-                <td className="px-5 py-3 capitalize text-slate-600">
+                </TableCell>
+                <TableCell className="capitalize text-slate-600">
                   {t.tenant_type.replace(/_/g, ' ')}
-                </td>
-                <td className="px-5 py-3">
-                  <span
-                    className={[
-                      'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                      t.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600',
-                    ].join(' ')}
-                  >
+                </TableCell>
+                <TableCell>
+                  <Badge variant={t.is_active ? 'default' : 'destructive'}>
                     {t.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${TIER_COLORS[t.subscription_tier] ?? 'bg-slate-100 text-slate-600'}`}
-                  >
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={cn('capitalize border-transparent', TIER_COLORS[t.subscription_tier] ?? 'bg-slate-100 text-slate-600')}>
                     {t.subscription_tier}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <select
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Select
                     value={t.subscription_tier}
                     disabled={updating === t.tenant_id}
-                    onChange={(e) =>
-                      handleTierChange(t.tenant_id, e.target.value as Tier)
-                    }
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                    onValueChange={(value) => handleTierChange(t.tenant_id, value as Tier)}
                   >
-                    {TIERS.map((tier) => (
-                      <option key={tier} value={tier}>
-                        {tier}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
+                    <SelectTrigger className="h-9 w-40 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIERS.map((tier) => (
+                        <SelectItem key={tier} value={tier} className="capitalize">
+                          {tier}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   )

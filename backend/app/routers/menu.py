@@ -22,6 +22,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.tier_limits import check_tier_limit
 from app.core.dependencies import (
     ADMIN_ROLES,
     CUSTOMER_ROLES,
@@ -89,6 +90,26 @@ async def _get_homemade_category_id(db: AsyncSession, tenant_id: UUID) -> int:
     if cat is None:
         raise HTTPException(status_code=400, detail="Homemade category not found for this tenant")
     return cat.category_id
+
+
+async def _validate_category_id(db: AsyncSession, tenant_id: UUID, category_id: int) -> None:
+    """Ensure category_id belongs to (and is active for) the effective tenant.
+
+    Without this, the DB's FK constraint is the only thing standing between a caller and
+    either a raw 500 (nonexistent category_id) or a silent cross-tenant category link
+    (a category_id that exists, just for a *different* tenant) — see BR-MENU-1.
+    """
+    exists = await db.scalar(
+        select(Category.category_id).where(
+            Category.category_id == category_id,
+            Category.tenant_id == tenant_id,
+            Category.is_active.is_(True),
+        )
+    )
+    if exists is None:
+        raise HTTPException(
+            status_code=400, detail="category_id does not exist for this tenant"
+        )
 
 
 # ─────────────────────────────────────────────
@@ -242,6 +263,12 @@ async def create_menu_item(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(*CUSTOMER_ROLES, *ADMIN_ROLES)),
 ):
+    tenant = await db.get(Tenant, ctx.tenant_id)
+    item_count = await db.scalar(
+        select(func.count(MenuItem.item_id)).where(MenuItem.tenant_id == ctx.tenant_id)
+    )
+    check_tier_limit(tenant.subscription_tier, "max_menu_items", item_count)
+
     payload = item_data.model_dump()
     payload["tenant_id"] = ctx.tenant_id
 
@@ -255,6 +282,7 @@ async def create_menu_item(
     elif current_user.role == UserRole.super_admin:
         # Franchise brand admin creates brand-level items
         payload["outlet_id"] = None
+        await _validate_category_id(db, ctx.tenant_id, payload["category_id"])
 
     elif current_user.role == UserRole.outlet_admin:
         # Franchise outlet admin creates outlet-specific overrides
@@ -264,6 +292,8 @@ async def create_menu_item(
                 detail="outlet_admin must have an outlet_id to create outlet items",
             )
         payload["outlet_id"] = ctx.outlet_id
+        # Categories live on the brand tenant for franchise outlets (see get_categories)
+        await _validate_category_id(db, await _brand_tenant_id(ctx, db), payload["category_id"])
 
     else:
         # tenant_admin / food_court_admin / platform_admin — no outlet scoping
@@ -273,6 +303,8 @@ async def create_menu_item(
                 raise HTTPException(
                     status_code=400, detail="Homemade items must use the Homemade category"
                 )
+        else:
+            await _validate_category_id(db, ctx.tenant_id, payload["category_id"])
 
     new_item = MenuItem(**payload)
     db.add(new_item)
@@ -310,6 +342,9 @@ async def update_menu_item(
                 status_code=403,
                 detail="super_admin can only update brand-level items (outlet_id = NULL)",
             )
+
+    # Categories live on the brand tenant for franchise outlets (see get_categories)
+    await _validate_category_id(db, await _brand_tenant_id(ctx, db), item_data.category_id)
 
     for key, value in item_data.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
@@ -403,6 +438,10 @@ async def patch_menu_item(
     elif current_user.role == UserRole.super_admin:
         if item.outlet_id is not None:
             raise HTTPException(status_code=403, detail="super_admin can only update brand-level items")
+
+    if item_data.category_id is not None:
+        # Categories live on the brand tenant for franchise outlets (see get_categories)
+        await _validate_category_id(db, await _brand_tenant_id(ctx, db), item_data.category_id)
 
     for key, value in item_data.model_dump(exclude_unset=True).items():
         setattr(item, key, value)

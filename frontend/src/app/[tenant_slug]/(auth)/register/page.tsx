@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Building2, Check, MailCheck, UserRound } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import OtpInput from '@/components/auth/OtpInput'
@@ -16,7 +16,7 @@ import ProfileTypeSelector from '@/components/auth/ProfileTypeSelector'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { useTenantInfo } from '@/hooks/useTenantInfo'
 import { isRestaurantSegment } from '@/lib/segments'
 import type { TenantPublicResponse, UserRole } from '@/types'
@@ -57,21 +57,21 @@ function StepBar({ current, invite }: { current: Step; invite: boolean }) {
             <div className="flex items-center gap-2">
               <span
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
-                  isDone || isActive ? 'bg-primary text-white' : 'bg-slate-200 text-slate-500'
+                  isDone || isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 }`}
               >
-                {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                {isDone ? <Check className="size-4" /> : <Icon className="size-4" />}
               </span>
               <span
                 className={`hidden text-xs font-semibold sm:block ${
-                  isActive ? 'text-primary' : 'text-slate-500'
+                  isActive ? 'text-primary' : 'text-muted-foreground'
                 }`}
               >
                 {step.label}
               </span>
             </div>
             {index < steps.length - 1 && (
-              <span className={`h-0.5 flex-1 rounded-full ${isDone ? 'bg-primary' : 'bg-slate-200'}`} />
+              <span className={`h-0.5 flex-1 rounded-full ${isDone ? 'bg-primary' : 'bg-muted'}`} />
             )}
           </div>
         )
@@ -230,7 +230,7 @@ export default function TenantRegisterPage() {
                   <TenantSelector selectedSlug={selectedSlug} onSelect={handleTenantSelect} />
 
                   <Button
-                    className="w-full bg-primary text-white hover:bg-primary/90"
+                    className="w-full"
                     type="button"
                     onClick={handleTenantContinue}
                     disabled={!selectedSlug || tenantLoading}
@@ -238,14 +238,14 @@ export default function TenantRegisterPage() {
                     Continue
                   </Button>
 
-                  <p className="text-center text-sm text-slate-600">
+                  <p className="text-center text-sm text-muted-foreground">
                     Already registered?{' '}
                     <a className="font-semibold text-primary hover:underline" href={`/${selectedSlug}/login`}>
                       Sign in
                     </a>
                   </p>
 
-                  <p className="rounded-2xl bg-slate-50 px-4 py-3 text-center text-xs text-slate-600">
+                  <p className="rounded-2xl bg-muted px-4 py-3 text-center text-xs text-muted-foreground">
                     Run a cafe, restaurant, or food court?{' '}
                     <a className="font-semibold text-primary hover:underline" href="/register-organization">
                       Register your organisation
@@ -267,7 +267,7 @@ export default function TenantRegisterPage() {
                   </div>
 
                   {tenantLoading ? (
-                    <p className="text-sm text-slate-500">Loading organisation…</p>
+                    <p className="text-sm text-muted-foreground">Loading organisation…</p>
                   ) : (
                     <ProfileTypeSelector
                       tenantType={tenant?.tenant_type ?? 'independent_restaurant'}
@@ -304,65 +304,68 @@ export default function TenantRegisterPage() {
                     </CardDescription>
                   </div>
 
-                  <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-                    <div className="space-y-2">
-                      <Label htmlFor="full_name">Full name</Label>
-                      <Input id="full_name" placeholder="Your full name" {...register('full_name')} />
-                      {errors.full_name && (
-                        <p className="text-sm text-red-600">{errors.full_name.message}</p>
+                  <form onSubmit={handleSubmit(onSubmit)}>
+                    <FieldGroup>
+                      <Field data-invalid={!!errors.full_name}>
+                        <FieldLabel htmlFor="full_name">Full name</FieldLabel>
+                        <Input id="full_name" placeholder="Your full name" aria-invalid={!!errors.full_name} {...register('full_name')} />
+                        {errors.full_name && (
+                          <FieldDescription className="text-destructive">{errors.full_name.message}</FieldDescription>
+                        )}
+                      </Field>
+
+                      <Field data-invalid={!!errors.email}>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input id="email" type="email" placeholder="you@example.com" aria-invalid={!!errors.email} {...register('email')} />
+                        {tenant?.allowed_email_domain && (
+                          <FieldDescription>
+                            Must be a {tenant.allowed_email_domain} address
+                          </FieldDescription>
+                        )}
+                        {errors.email && <FieldDescription className="text-destructive">{errors.email.message}</FieldDescription>}
+                      </Field>
+
+                      <Field data-invalid={!!errors.password}>
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="At least 8 characters"
+                          aria-invalid={!!errors.password}
+                          {...register('password')}
+                        />
+                        {errors.password && (
+                          <FieldDescription className="text-destructive">{errors.password.message}</FieldDescription>
+                        )}
+                      </Field>
+
+                      {selectedRole === 'student' && (
+                        <Field>
+                          <FieldLabel htmlFor="student_id">Student ID</FieldLabel>
+                          <Input id="student_id" placeholder="e.g. 22301162" {...register('student_id')} />
+                        </Field>
                       )}
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" placeholder="you@example.com" {...register('email')} />
-                      {tenant?.allowed_email_domain && (
-                        <p className="text-xs text-slate-500">
-                          Must be a {tenant.allowed_email_domain} address
-                        </p>
-                      )}
-                      {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="At least 8 characters"
-                        {...register('password')}
-                      />
-                      {errors.password && (
-                        <p className="text-sm text-red-600">{errors.password.message}</p>
-                      )}
-                    </div>
-
-                    {selectedRole === 'student' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="student_id">Student ID</Label>
-                        <Input id="student_id" placeholder="e.g. 22301162" {...register('student_id')} />
-                      </div>
-                    )}
-
-                    <div className="flex gap-3">
-                      {!inviteToken && (
+                      <div className="flex gap-3">
+                        {!inviteToken && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setStep('profile_type')}
+                          >
+                            Back
+                          </Button>
+                        )}
                         <Button
-                          type="button"
-                          variant="outline"
                           className="flex-1"
-                          onClick={() => setStep('profile_type')}
+                          type="submit"
+                          disabled={isSubmitting}
                         >
-                          Back
+                          {isSubmitting ? 'Creating account…' : 'Continue'}
                         </Button>
-                      )}
-                      <Button
-                        className="flex-1 bg-primary text-white hover:bg-primary/90"
-                        type="submit"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? 'Creating account…' : 'Continue'}
-                      </Button>
-                    </div>
+                      </div>
+                    </FieldGroup>
                   </form>
                 </div>
               )}
@@ -377,13 +380,13 @@ export default function TenantRegisterPage() {
                     </CardTitle>
                     <CardDescription className="mt-1">
                       Enter the 6-digit code sent to{' '}
-                      <span className="font-semibold text-slate-700">{pendingEmail}</span>.
+                      <span className="font-semibold text-foreground">{pendingEmail}</span>.
                     </CardDescription>
                   </div>
 
                   <OtpInput onComplete={handleOtpComplete} onResend={handleResend} disabled={otpVerifying} />
 
-                  <p className="text-center text-sm text-slate-500">
+                  <p className="text-center text-sm text-muted-foreground">
                     Wrong email?{' '}
                     <button
                       type="button"

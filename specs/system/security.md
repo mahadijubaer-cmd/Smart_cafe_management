@@ -43,6 +43,25 @@ to_encode = {
 token = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
 ```
 
+### Impersonation Claim (RFC-009, Platform Admin Control Plane)
+
+`AuthService.create_access_token()` accepts an optional `extra_claims: dict | None` param, merged
+into `to_encode` before signing. The only current use is
+`POST /platform/tenants/{tenant_id}/impersonate` (`platform_admin`-only), which mints a token with:
+
+- `sub` = the **real, calling platform admin's** `user_id` — not a synthetic user
+- `tenant_id`/`tenant_type`/`tenant_slug` = the **target** tenant's, not the platform admin's own
+- `role` = the platform admin's real role (`platform_admin`, unchanged)
+- `impersonation: true` (new claim, extra_claims)
+- `expires_delta=timedelta(minutes=15)` — much shorter than the default 60-minute expiry
+
+No new verification logic is needed anywhere: `require_role()` checks the DB-loaded user's real role
+(still `platform_admin`, a member of `ADMIN_ROLES`), and `TenantContextMiddleware` scopes the request
+purely from the `tenant_id`/`tenant_type`/`tenant_slug` claims — both already correct by construction.
+The frontend reads the `impersonation` claim (`src/lib/auth.ts`) purely for UI purposes (the
+persistent "Viewing as..." banner) — it carries no server-side authorization meaning. See
+`specs/modules/platform.md` (PA-4) and `RFC-009` §2.7 for the full design rationale.
+
 ---
 
 ## 2. Password Hashing

@@ -50,6 +50,7 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 | [modules/tenants.md](modules/tenants.md) | `/tenants/*` endpoints · tenant types · hierarchy · subscription tiers · domain rules |
 | [modules/users.md](modules/users.md) | `/users/*` endpoints · user roles · activation · Phase 21 invite flow |
 | [modules/public-surface.md](modules/public-surface.md) | ✅ [Phase 22 — Implemented 2026-07-05] `/public/*` endpoints · guest QR ordering · kiosk/signage · rate limiting (RFC-007) |
+| [modules/platform.md](modules/platform.md) | 🚧 [Phase 24] `/platform/*` endpoints · audit log · platform-wide analytics · impersonation · subscription tier limits (RFC-009) |
 
 ### Frontend
 
@@ -102,6 +103,9 @@ When you change a file in the codebase, you MUST update the corresponding spec f
 | `backend/app/routers/websocket.py` | `specs/modules/websocket.md` |
 | `backend/app/routers/food_court.py` | `specs/modules/food-court.md` |
 | `backend/app/routers/tenants.py` | `specs/modules/tenants.md` |
+| `backend/app/routers/platform.py` | `specs/modules/platform.md` |
+| `backend/app/core/tier_limits.py` | `specs/modules/platform.md` |
+| `backend/app/services/audit_service.py` | `specs/modules/platform.md` |
 | `backend/app/routers/public.py` | `specs/modules/public-surface.md` |
 | `backend/app/core/segments.py` | `specs/system/segments.md` |
 | `backend/app/schemas/*.py` | The module spec file matching the schema's domain |

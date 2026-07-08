@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/store/useStore'
 import apiClient from '@/lib/api'
 import VendorTile, { type VendorSummary } from '@/components/food-court/VendorTile'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface TableOccupancy {
   available?: number
@@ -22,6 +24,13 @@ interface ActiveOrder {
   vendor_tenant_id: string
   status: string
 }
+
+const OCCUPANCY_CARDS: Array<{ key: keyof TableOccupancy; label: string; className: string }> = [
+  { key: 'available', label: 'Available', className: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' },
+  { key: 'occupied', label: 'Occupied', className: 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400' },
+  { key: 'reserved', label: 'Reserved', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  { key: 'cleaning', label: 'Cleaning', className: 'bg-muted text-muted-foreground' },
+]
 
 export default function FoodCourtDashboard() {
   const notifications = useStore((s) => s.notifications)
@@ -83,10 +92,10 @@ export default function FoodCourtDashboard() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-6 w-48 animate-pulse rounded-lg bg-slate-100" />
+        <Skeleton className="h-6 w-48 rounded-lg" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -95,25 +104,22 @@ export default function FoodCourtDashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-black text-slate-900">Food Court Dashboard</h1>
+      <h1 className="text-2xl font-black text-foreground">Food Court Dashboard</h1>
 
       {/* Table occupancy summary */}
       {totalTables > 0 && (
         <section>
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Floor Occupancy
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: 'Available', value: occupancy.available ?? 0, color: 'bg-green-50 text-green-700' },
-              { label: 'Occupied', value: occupancy.occupied ?? 0, color: 'bg-rose-50 text-rose-700' },
-              { label: 'Reserved', value: occupancy.reserved ?? 0, color: 'bg-amber-50 text-amber-700' },
-              { label: 'Cleaning', value: occupancy.cleaning ?? 0, color: 'bg-slate-50 text-slate-500' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className={`rounded-2xl p-4 ${color}`}>
-                <p className="text-xs font-semibold">{label}</p>
-                <p className="mt-1 text-3xl font-black">{value}</p>
-              </div>
+            {OCCUPANCY_CARDS.map(({ key, label, className }) => (
+              <Card key={key} className={className}>
+                <CardContent className="p-4">
+                  <p className="text-xs font-semibold">{label}</p>
+                  <p className="mt-1 text-3xl font-black">{occupancy[key] ?? 0}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </section>
@@ -121,11 +127,11 @@ export default function FoodCourtDashboard() {
 
       {/* Vendor tiles */}
       <section>
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Vendors ({vendors.length})
         </h2>
         {vendors.length === 0 ? (
-          <p className="text-sm text-slate-400">No vendors configured yet.</p>
+          <p className="text-sm text-muted-foreground">No vendors configured yet.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {vendors.map((v) => (
@@ -142,7 +148,7 @@ export default function FoodCourtDashboard() {
       {/* Active orders per vendor bar */}
       {throughput.length > 0 && (
         <section>
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             All-Time Order Throughput
           </h2>
           <div className="space-y-2">
@@ -151,14 +157,14 @@ export default function FoodCourtDashboard() {
               const pct = Math.round((v.total_orders / maxOrders) * 100)
               return (
                 <div key={v.vendor_id} className="flex items-center gap-3">
-                  <span className="w-32 shrink-0 truncate text-sm text-slate-600">{v.vendor_name}</span>
-                  <div className="flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <span className="w-32 shrink-0 truncate text-sm text-muted-foreground">{v.vendor_name}</span>
+                  <div className="flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-5 rounded-full bg-primary transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="w-10 shrink-0 text-right text-sm font-semibold text-slate-700">
+                  <span className="w-10 shrink-0 text-right text-sm font-semibold text-foreground">
                     {v.total_orders}
                   </span>
                 </div>

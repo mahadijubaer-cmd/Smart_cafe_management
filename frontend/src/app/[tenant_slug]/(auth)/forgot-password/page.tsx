@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import OtpInput from '@/components/auth/OtpInput'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 
 type Step = 'email' | 'otp' | 'newPassword'
 
@@ -20,21 +24,21 @@ function StrengthBar({ password }: { password: string }) {
     /[!@#$%^&*()\-_=+[\]{}|;':",./<>?]/.test(password),
   ].filter(Boolean).length
 
-  const colors = ['bg-slate-200', 'bg-red-400', 'bg-amber-400', 'bg-blue-400', 'bg-green-500']
+  const colors = ['bg-muted', 'bg-destructive', 'bg-amber-400', 'bg-blue-400', 'bg-emerald-500']
   const labels = ['', 'Weak', 'Fair', 'Good', 'Strong']
 
   return (
-    <div className="mt-1.5 space-y-1">
+    <div className="mt-1.5 flex flex-col gap-1">
       <div className="flex gap-1">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full transition-colors ${i <= score ? colors[score] : 'bg-slate-200'}`}
+            className={`h-1 flex-1 rounded-full transition-colors ${i <= score ? colors[score] : 'bg-muted'}`}
           />
         ))}
       </div>
       {password.length > 0 && (
-        <p className="text-xs text-slate-500">{labels[score]}</p>
+        <p className="text-xs text-muted-foreground">{labels[score]}</p>
       )}
     </div>
   )
@@ -114,158 +118,154 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  const passwordsMismatch = Boolean(confirmPassword && confirmPassword !== newPassword)
+
   return (
     <main className="flex min-h-[calc(100vh-3rem)] items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        {/* Step indicators */}
-        <div className="mb-8 flex items-center gap-2">
-          {(['email', 'otp', 'newPassword'] as Step[]).map((s, i) => (
-            <div key={s} className="flex flex-1 items-center gap-2">
-              <div
-                className={[
-                  'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition',
-                  s === step
-                    ? 'bg-primary text-white'
-                    : ['email', 'otp', 'newPassword'].indexOf(s) <
-                      ['email', 'otp', 'newPassword'].indexOf(step)
-                    ? 'bg-green-500 text-white'
-                    : 'bg-slate-100 text-slate-400',
-                ].join(' ')}
-              >
-                {i + 1}
-              </div>
-              {i < 2 && <div className="h-px flex-1 bg-slate-200" />}
-            </div>
-          ))}
-        </div>
-
-        {step === 'email' && (
-          <>
-            <h1 className="text-xl font-black text-slate-900">Forgot your password?</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Enter your email and we'll send you a reset code.
-            </p>
-            <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  Email address
-                </label>
-                <input
-                  required
-                  type="email"
-                  autoFocus
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting || !email.trim()}
-                className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {submitting ? 'Sending…' : 'Send reset code'}
-              </button>
-            </form>
-            <p className="mt-5 text-center text-sm text-slate-500">
-              Remember your password?{' '}
-              <a href={`/${slug}/login`} className="font-semibold text-primary hover:underline">
-                Sign in
-              </a>
-            </p>
-          </>
-        )}
-
-        {step === 'otp' && (
-          <>
-            <h1 className="text-xl font-black text-slate-900">Enter the code</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              We sent a 6-digit code to <span className="font-semibold text-slate-700">{email}</span>.
-            </p>
-            <div className="mt-6">
-              <OtpInput
-                onComplete={handleOtpComplete}
-                onResend={handleResend}
-              />
-            </div>
-            <p className="mt-5 text-center text-sm text-slate-500">
-              <button
-                type="button"
-                onClick={() => setStep('email')}
-                className="font-semibold text-primary hover:underline"
-              >
-                ← Change email
-              </button>
-            </p>
-          </>
-        )}
-
-        {step === 'newPassword' && (
-          <>
-            <h1 className="text-xl font-black text-slate-900">Set new password</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Choose a strong password for your account.
-            </p>
-            <form onSubmit={handleReset} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  New password
-                </label>
-                <div className="relative">
-                  <input
-                    required
-                    type={showPw ? 'text' : 'password'}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                <StrengthBar password={newPassword} />
-                <p className="mt-1 text-[11px] text-slate-400">{PASSWORD_HINT}</p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  Confirm password
-                </label>
-                <input
-                  required
-                  type="password"
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">
+          {/* Step indicators */}
+          <div className="mb-8 flex items-center gap-2">
+            {(['email', 'otp', 'newPassword'] as Step[]).map((s, i) => (
+              <div key={s} className="flex flex-1 items-center gap-2">
+                <div
                   className={[
-                    'w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40',
-                    confirmPassword && confirmPassword !== newPassword
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-slate-200',
+                    'flex size-7 items-center justify-center rounded-full text-xs font-bold transition',
+                    s === step
+                      ? 'bg-primary text-primary-foreground'
+                      : ['email', 'otp', 'newPassword'].indexOf(s) <
+                        ['email', 'otp', 'newPassword'].indexOf(step)
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-muted text-muted-foreground',
                   ].join(' ')}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-                {confirmPassword && confirmPassword !== newPassword && (
-                  <p className="mt-1 text-xs text-red-500">Passwords do not match</p>
-                )}
+                >
+                  {i + 1}
+                </div>
+                {i < 2 && <div className="h-px flex-1 bg-border" />}
               </div>
+            ))}
+          </div>
 
-              <button
-                type="submit"
-                disabled={submitting || !newPassword || newPassword !== confirmPassword}
-                className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {submitting ? 'Updating…' : 'Update password'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
+          {step === 'email' && (
+            <>
+              <CardHeader className="px-0 pt-0">
+                <CardTitle>Forgot your password?</CardTitle>
+                <CardDescription>Enter your email and we&apos;ll send you a reset code.</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSendOtp} className="mt-6">
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="email">Email address</FieldLabel>
+                    <Input
+                      id="email"
+                      required
+                      type="email"
+                      autoFocus
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                    />
+                  </Field>
+                  <Button type="submit" disabled={submitting || !email.trim()} className="w-full">
+                    {submitting ? 'Sending…' : 'Send reset code'}
+                  </Button>
+                </FieldGroup>
+              </form>
+              <p className="mt-5 text-center text-sm text-muted-foreground">
+                Remember your password?{' '}
+                <a href={`/${slug}/login`} className="font-semibold text-primary hover:underline">
+                  Sign in
+                </a>
+              </p>
+            </>
+          )}
+
+          {step === 'otp' && (
+            <>
+              <CardHeader className="px-0 pt-0">
+                <CardTitle>Enter the code</CardTitle>
+                <CardDescription>
+                  We sent a 6-digit code to <span className="font-semibold text-foreground">{email}</span>.
+                </CardDescription>
+              </CardHeader>
+              <div className="mt-6">
+                <OtpInput onComplete={handleOtpComplete} onResend={handleResend} />
+              </div>
+              <p className="mt-5 text-center text-sm text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => setStep('email')}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  ← Change email
+                </button>
+              </p>
+            </>
+          )}
+
+          {step === 'newPassword' && (
+            <>
+              <CardHeader className="px-0 pt-0">
+                <CardTitle>Set new password</CardTitle>
+                <CardDescription>Choose a strong password for your account.</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleReset} className="mt-6">
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="new_password">New password</FieldLabel>
+                    <div className="relative">
+                      <Input
+                        id="new_password"
+                        required
+                        type={showPw ? 'text' : 'password'}
+                        className="pr-10"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowPw((v) => !v)}
+                        className="absolute right-1 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </Button>
+                    </div>
+                    <StrengthBar password={newPassword} />
+                    <FieldDescription className="text-[11px]">{PASSWORD_HINT}</FieldDescription>
+                  </Field>
+
+                  <Field data-invalid={passwordsMismatch}>
+                    <FieldLabel htmlFor="confirm_password">Confirm password</FieldLabel>
+                    <Input
+                      id="confirm_password"
+                      required
+                      type="password"
+                      aria-invalid={passwordsMismatch}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    {passwordsMismatch && (
+                      <FieldDescription className="text-destructive">Passwords do not match</FieldDescription>
+                    )}
+                  </Field>
+
+                  <Button
+                    type="submit"
+                    disabled={submitting || !newPassword || newPassword !== confirmPassword}
+                    className="w-full"
+                  >
+                    {submitting ? 'Updating…' : 'Update password'}
+                  </Button>
+                </FieldGroup>
+              </form>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </main>
   )
 }

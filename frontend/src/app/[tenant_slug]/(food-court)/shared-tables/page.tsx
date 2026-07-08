@@ -1,9 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
+import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { LayoutGrid } from 'lucide-react'
 
 type TableStatus = 'available' | 'occupied' | 'reserved' | 'cleaning'
 
@@ -17,14 +25,16 @@ interface FcTable {
   position_y: number
 }
 
-const STATUS_COLORS: Record<TableStatus, string> = {
-  available: 'border-green-300 bg-green-50 text-green-800',
-  occupied: 'border-rose-300 bg-rose-50 text-rose-800',
-  reserved: 'border-amber-300 bg-amber-50 text-amber-800',
-  cleaning: 'border-slate-300 bg-slate-100 text-slate-600',
+const STATUS_BORDER_CLASSES: Record<TableStatus, string> = {
+  available: 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400',
+  occupied: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-400',
+  reserved: 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400',
+  cleaning: 'border-border bg-muted text-muted-foreground',
 }
 
 const STATUS_OPTIONS: TableStatus[] = ['available', 'occupied', 'reserved', 'cleaning']
+
+const ALL_ZONES = '__all__'
 
 export default function FoodCourtTablesPage() {
   const notifications = useStore((s) => s.notifications)
@@ -74,89 +84,87 @@ export default function FoodCourtTablesPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-black text-slate-900">Shared Tables</h1>
+      <h1 className="text-2xl font-black text-foreground">Shared Tables</h1>
 
       {/* Zone filter */}
       {zones.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={() => setSelectedZone(null)}
-            className={[
-              'shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition',
-              selectedZone === null
-                ? 'bg-primary text-white'
-                : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-            ].join(' ')}
-          >
-            All
-          </button>
-          {zones.map((z) => (
-            <button
-              key={z}
-              type="button"
-              onClick={() => setSelectedZone(z)}
-              className={[
-                'shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition',
-                selectedZone === z
-                  ? 'bg-primary text-white'
-                  : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-              ].join(' ')}
+        <Tabs
+          value={selectedZone ?? ALL_ZONES}
+          onValueChange={(v) => setSelectedZone(v === ALL_ZONES ? null : v)}
+        >
+          <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
+            <TabsTrigger
+              value={ALL_ZONES}
+              className="rounded-full border border-input data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              {z}
-            </button>
-          ))}
-        </div>
+              All
+            </TabsTrigger>
+            {zones.map((z) => (
+              <TabsTrigger
+                key={z}
+                value={z}
+                className="rounded-full border border-input capitalize data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                {z}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         {STATUS_OPTIONS.map((s) => (
-          <span
-            key={s}
-            className={`rounded-full border px-3 py-0.5 text-xs font-semibold capitalize ${STATUS_COLORS[s]}`}
-          >
+          <Badge key={s} variant="outline" className={cn('capitalize', STATUS_BORDER_CLASSES[s])}>
             {s}
-          </span>
+          </Badge>
         ))}
       </div>
 
       {loading ? (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {[...Array(12)].map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
       ) : visibleTables.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 py-16 text-center">
-          <p className="text-sm text-slate-400">No tables found.</p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LayoutGrid />
+            </EmptyMedia>
+            <EmptyTitle>No tables found</EmptyTitle>
+            <EmptyDescription>There are no tables in this zone yet.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {visibleTables.map((table) => (
-            <div
+            <Card
               key={table.table_id}
-              className={`rounded-2xl border-2 p-3 text-center transition ${STATUS_COLORS[table.status]}`}
+              className={cn('border-2 p-3 text-center', STATUS_BORDER_CLASSES[table.status])}
             >
               <p className="text-xs font-bold">{table.table_number}</p>
               <p className="mt-0.5 text-[10px] opacity-70">{table.capacity} seats</p>
 
               {/* Status selector */}
-              <select
-                className="mt-2 w-full rounded-lg border-0 bg-white/70 px-1 py-0.5 text-[10px] font-semibold focus:outline-none focus:ring-1 focus:ring-primary/40"
+              <Select
                 value={table.status}
                 disabled={updating === table.table_id || (!isAdmin && table.status !== 'available' && table.status !== 'occupied')}
-                onChange={(e) =>
-                  handleStatusChange(table.table_id, e.target.value as TableStatus)
-                }
+                onValueChange={(value) => handleStatusChange(table.table_id, value as TableStatus)}
               >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <SelectTrigger className="mt-2 h-6 w-full border-0 bg-background/70 px-1.5 py-0 text-[10px] font-semibold capitalize">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs capitalize">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Card>
           ))}
         </div>
       )}

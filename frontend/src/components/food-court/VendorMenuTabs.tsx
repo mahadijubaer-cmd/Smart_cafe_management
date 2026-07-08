@@ -1,5 +1,6 @@
 'use client'
 
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { VendorSummary } from './VendorTile'
 
 interface VendorMenuTabsProps {
@@ -8,36 +9,31 @@ interface VendorMenuTabsProps {
   onChange: (id: string | null) => void
 }
 
+const ALL_VALUE = '__all__'
+
 export default function VendorMenuTabs({ vendors, selected, onChange }: VendorMenuTabsProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
-      <button
-        type="button"
-        onClick={() => onChange(null)}
-        className={[
-          'shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition',
-          selected === null
-            ? 'bg-primary text-white'
-            : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-        ].join(' ')}
-      >
-        All Vendors
-      </button>
-      {vendors.map((v) => (
-        <button
-          key={v.tenant_id}
-          type="button"
-          onClick={() => onChange(v.tenant_id)}
-          className={[
-            'shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition',
-            selected === v.tenant_id
-              ? 'bg-primary text-white'
-              : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-          ].join(' ')}
+    <Tabs
+      value={selected ?? ALL_VALUE}
+      onValueChange={(value) => onChange(value === ALL_VALUE ? null : value)}
+    >
+      <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
+        <TabsTrigger
+          value={ALL_VALUE}
+          className="rounded-full border border-input data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
-          {v.name}
-        </button>
-      ))}
-    </div>
+          All Vendors
+        </TabsTrigger>
+        {vendors.map((v) => (
+          <TabsTrigger
+            key={v.tenant_id}
+            value={v.tenant_id}
+            className="rounded-full border border-input data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            {v.name}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 }

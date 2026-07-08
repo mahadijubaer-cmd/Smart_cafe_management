@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,16 @@ from app.services.ws_pubsub import publish_event
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 order_service = OrderService()
+
+
+def _parse_order_id(order_id: str) -> UUID:
+    """order_id path params are typed str (FastAPI does no UUID coercion here), so callers
+    querying Order.order_id — a native UUID column — must parse first. Mirrors the same
+    try/except-ValueError-to-404 pattern already used in OrderService.update_status."""
+    try:
+        return UUID(str(order_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Order not found")
 
 
 @router.post("/", response_model=OrderResponse, status_code=201)
@@ -118,7 +130,7 @@ async def get_order(
     result = await db.execute(
         select(Order)
         .options(selectinload(Order.items))
-        .where(Order.order_id == order_id, Order.tenant_id == ctx.tenant_id)
+        .where(Order.order_id == _parse_order_id(order_id), Order.tenant_id == ctx.tenant_id)
     )
     order = result.scalar_one_or_none()
     if not order:
@@ -225,7 +237,7 @@ async def complete_meal(
     current_user: User = Depends(require_role(*CUSTOMER_ROLES)),
 ):
     result = await db.execute(
-        select(Order).where(Order.order_id == order_id, Order.tenant_id == ctx.tenant_id)
+        select(Order).where(Order.order_id == _parse_order_id(order_id), Order.tenant_id == ctx.tenant_id)
     )
     order = result.scalar_one_or_none()
     if not order:
@@ -247,7 +259,7 @@ async def cancel_order(
     current_user: User = Depends(require_role(*CUSTOMER_ROLES)),
 ):
     result = await db.execute(
-        select(Order).where(Order.order_id == order_id, Order.tenant_id == ctx.tenant_id)
+        select(Order).where(Order.order_id == _parse_order_id(order_id), Order.tenant_id == ctx.tenant_id)
     )
     order = result.scalar_one_or_none()
     if not order:

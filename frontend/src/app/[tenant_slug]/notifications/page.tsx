@@ -9,8 +9,14 @@ import {
   ShoppingCart,
   Wrench,
 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 interface NotifItem {
   notif_id: string
@@ -39,10 +45,10 @@ function typeMatchesTab(type: string, tab: FilterTab): boolean {
 }
 
 function typeIcon(type: string) {
-  if (type.startsWith('ORDER')) return <ShoppingCart className="h-4 w-4 text-primary" />
-  if (type === 'LOW_STOCK') return <AlertTriangle className="h-4 w-4 text-amber-500" />
-  if (type === 'TABLE_UPDATE') return <Wrench className="h-4 w-4 text-slate-400" />
-  return <Bell className="h-4 w-4 text-slate-400" />
+  if (type.startsWith('ORDER')) return <ShoppingCart className="size-4 text-primary" />
+  if (type === 'LOW_STOCK') return <AlertTriangle className="size-4 text-amber-500" />
+  if (type === 'TABLE_UPDATE') return <Wrench className="size-4 text-muted-foreground" />
+  return <Bell className="size-4 text-muted-foreground" />
 }
 
 function timeAgo(iso: string): string {
@@ -117,82 +123,72 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Notifications</h1>
+          <h1 className="text-2xl font-black">Notifications</h1>
           {unreadCount > 0 && (
-            <p className="mt-0.5 text-sm text-slate-500">{unreadCount} unread</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{unreadCount} unread</p>
           )}
         </div>
         {unreadCount > 0 && (
-          <button
-            type="button"
-            onClick={handleMarkAllRead}
-            className="flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <CheckCheck className="h-4 w-4" />
+          <Button type="button" variant="outline" onClick={handleMarkAllRead}>
+            <CheckCheck data-icon="inline-start" />
             Mark all read
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Filter tabs */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={[
-              'shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition',
-              activeTab === tab.id
-                ? 'bg-primary text-white'
-                : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-            ].join(' ')}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)} className="mb-4">
+        <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
+          {TABS.map((tab) => (
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="rounded-full border border-input px-4 py-1.5 data-[state=active]:border-transparent"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* List */}
       {loading ? (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-16 rounded-2xl" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 py-16 text-center">
-          <Bell className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-          <p className="text-sm text-slate-400">No notifications here.</p>
-        </div>
+        <Empty className="rounded-3xl border border-dashed py-16">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Bell />
+            </EmptyMedia>
+            <EmptyTitle>No notifications</EmptyTitle>
+            <EmptyDescription>You don&apos;t have any notifications here yet.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
           {filtered.map((n, i) => (
             <button
               key={n.notif_id}
               type="button"
               onClick={() => handleMarkRead(n)}
-              className={[
-                'flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-slate-50',
-                i !== filtered.length - 1 ? 'border-b border-slate-50' : '',
-                n.is_read ? '' : 'border-l-4 border-l-primary',
-              ].join(' ')}
+              className={cn(
+                'flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-muted/50',
+                i !== filtered.length - 1 && 'border-b',
+                !n.is_read && 'border-l-4 border-l-primary'
+              )}
             >
               <span className="mt-0.5 shrink-0">{typeIcon(n.type)}</span>
               <div className="min-w-0 flex-1">
-                <p
-                  className={[
-                    'text-sm text-slate-800',
-                    n.is_read ? 'font-normal' : 'font-semibold',
-                  ].join(' ')}
-                >
+                <p className={cn('text-sm', n.is_read ? 'font-normal text-foreground' : 'font-semibold text-foreground')}>
                   {n.message}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-400">{timeAgo(n.created_at)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{timeAgo(n.created_at)}</p>
               </div>
-              {!n.is_read && (
-                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />
-              )}
+              {!n.is_read && <Badge className="mt-2 size-2 shrink-0 rounded-full p-0" />}
             </button>
           ))}
         </div>
@@ -200,13 +196,9 @@ export default function NotificationsPage() {
 
       {/* Load more */}
       {hasMore && !loading && (
-        <button
-          type="button"
-          onClick={() => load(false)}
-          className="mt-4 w-full rounded-2xl border border-slate-200 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
+        <Button type="button" variant="outline" className="mt-4 w-full" onClick={() => load(false)}>
           Load more
-        </button>
+        </Button>
       )}
     </div>
   )

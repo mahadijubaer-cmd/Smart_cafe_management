@@ -16,7 +16,7 @@ from app.core.redis import get_redis, close_redis
 from app.middleware.tenant import TenantContextMiddleware
 from app.routers import auth, menu, orders, tables, cleaners, payments, analytics, websocket
 from app.routers import tenants, otp, inventory, qr, memo, receipts, food_court
-from app.routers import notifications, invitations, users, public
+from app.routers import notifications, invitations, users, public, platform
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -93,6 +93,7 @@ app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(invitations.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(public.router, prefix="/api/v1")
+app.include_router(platform.router, prefix="/api/v1")
 app.include_router(websocket.router)
 
 # ── Static file serving ───────────────────────────────────────────────────────

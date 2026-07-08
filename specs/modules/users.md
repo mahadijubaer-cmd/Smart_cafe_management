@@ -95,9 +95,12 @@ Lists invitations sent for the calling admin's tenant, most recently created fir
 ```
 
 **Business logic:**
-1. Generate signed invitation token
-2. Store in `staff_invitations` table with `expires_at = now() + 48h`
-3. Send invitation email
+1. Reject with `402 Payment Required` if the tenant's subscription tier's `max_staff` cap
+   (counting current `staff`/`server`/`cleaner` users) is already reached — see **PA-2/PA-3** in
+   `modules/platform.md` (RFC-009).
+2. Generate signed invitation token
+3. Store in `staff_invitations` table with `expires_at = now() + 48h`
+4. Send invitation email
 
 **Response `201`:** `{ "invite_id": "...", "email": "...", "expires_at": "..." }`
 

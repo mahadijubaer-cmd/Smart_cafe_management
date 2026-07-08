@@ -3,7 +3,7 @@
 **Router:** `backend/app/routers/menu.py`  
 **Schemas:** `backend/app/schemas/menu.py`  
 **Service:** `backend/app/services/menu_service.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-08
 
 ---
 
@@ -100,7 +100,7 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 
 | Field | Type | Required | Default | Constraint |
 |---|---|---|---|---|
-| `category_id` | int | Yes | — | Must exist in tenant (SERIAL integer) |
+| `category_id` | int | Yes | — | Must exist in tenant (SERIAL integer) — see BR-MENU-1 |
 | `name` | str | Yes | — | `min_length=1`, `max_length=100` |
 | `description` | str \| null | No | null | — |
 | `price` | Decimal | Yes | — | `ge=0` |
@@ -108,6 +108,9 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 | `is_available` | bool | No | true | — |
 | `is_homemade` | bool | No | false | — |
 | `prep_time_mins` | int | No | 10 | — |
+
+**Business logic:** rejects with `402 Payment Required` if the tenant's subscription tier's
+`max_menu_items` cap is already reached — see **PA-2/PA-3** in `modules/platform.md` (RFC-009).
 
 **Response `201`:** `MenuItemResponse`
 
@@ -258,7 +261,27 @@ class RecipeLineResponse(BaseModel):
 
 ---
 
-## Redis Caching
+## Business Rules
+
+### BR-MENU-1: category_id Must Belong to the Caller's Own Tenant
+✅ [2026-07-08 — cafeteria-admin sweep]. `POST /menu/items`, `PUT /menu/items/{item_id}`, and
+`PATCH /menu/items/{item_id}` all validate that the submitted `category_id` exists, is active, and
+belongs to the caller's effective tenant (the brand tenant for `franchise_outlet`/`super_admin`
+callers — categories live on the brand, same scoping `GET /menu/categories` already uses; the
+caller's own `tenant_id` for everyone else) — `400 "category_id does not exist for this tenant"` if
+not. Enforced in `app/routers/menu.py::_validate_category_id()`.
+
+Before this fix, the only guard was the DB's `menu_items_category_id_fkey` foreign key, which:
+- Let a nonexistent `category_id` reach Postgres and crash with an unhandled `IntegrityError` → a
+  raw `500 Internal Server Error` instead of a clean `400`.
+- Did **not** stop a `category_id` that exists but belongs to a *different* tenant — Postgres has
+  no way to know that's wrong, so the insert/update silently succeeded, linking one tenant's menu
+  item to another tenant's category. Confirmed exploitable end-to-end: a `bracu` (cafeteria)
+  tenant_admin could `POST /menu/items` with another tenant's `category_id` and get a `201`.
+
+The `CUSTOMER_ROLES` (homemade-listing) branch is unaffected — it always overwrites `category_id`
+server-side with the caller's own tenant's Homemade category via `_get_homemade_category_id()`, so
+it never trusts client input for this field.
 
 - Key: `cache:menu:{tenant_id}`
 - Invalidated on: `POST`, `PUT`, `DELETE`, and `PATCH /availability` for both categories and items

@@ -75,9 +75,9 @@ export default function CategoryTabs({ categories, activeId, onChange }: Categor
                 type="button"
                 onClick={() => onChange(category.category_id)}
                 className={[
-                  'snap-start rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#1A4D2E]/20',
+                  'snap-start rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20',
                   isActive
-                    ? 'bg-[#1A4D2E] text-white shadow'
+                    ? 'bg-primary text-primary-foreground shadow'
                     : `border ${colorClass} hover:brightness-95`,
                 ].join(' ')}
                 aria-pressed={isActive}
@@ -103,11 +103,11 @@ export default function CategoryTabs({ categories, activeId, onChange }: Categor
       </div>
 
       {activeCategory ? (
-        <div className="relative h-11 overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 py-2">
+        <div className="relative h-11 overflow-hidden rounded-2xl border bg-background px-4 py-2">
           {leavingCategoryId ? (
             <div
               className={[
-                'absolute inset-0 flex items-center gap-2 px-4 text-sm font-semibold text-gray-500 transition-all duration-150',
+                'absolute inset-0 flex items-center gap-2 px-4 text-sm font-semibold text-muted-foreground transition-all duration-150',
                 leaving ? 'translate-x-[-20px] opacity-0' : 'translate-x-0 opacity-100',
               ].join(' ')}
             >
@@ -115,7 +115,7 @@ export default function CategoryTabs({ categories, activeId, onChange }: Categor
                 {getCategoryIcon(categories.find((category) => category.category_id === leavingCategoryId) ?? activeCategory)}
               </span>
               <span>{categories.find((category) => category.category_id === leavingCategoryId)?.name ?? activeCategory.name}</span>
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-200 px-1 text-[11px] font-semibold text-gray-700">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1 text-[11px] font-semibold text-muted-foreground">
                 {categories.find((category) => category.category_id === leavingCategoryId)?.item_count ?? activeCategory.item_count ?? 0}
               </span>
             </div>
@@ -123,13 +123,13 @@ export default function CategoryTabs({ categories, activeId, onChange }: Categor
 
           <div
             className={[
-              'absolute inset-0 flex items-center gap-2 px-4 text-sm font-semibold text-[#1A4D2E] transition-all duration-200',
+              'absolute inset-0 flex items-center gap-2 px-4 text-sm font-semibold text-primary transition-all duration-200',
               entering ? 'translate-x-0 opacity-100' : 'translate-x-[20px] opacity-0',
             ].join(' ')}
           >
             <span aria-hidden="true">{getCategoryIcon(activeCategory)}</span>
             <span>{activeCategory.name}</span>
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-200 px-1 text-[11px] font-semibold text-gray-700">
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1 text-[11px] font-semibold text-muted-foreground">
               {activeCategory.item_count ?? 0}
             </span>
           </div>

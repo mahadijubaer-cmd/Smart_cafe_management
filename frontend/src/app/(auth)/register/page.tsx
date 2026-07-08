@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { Button } from '@/components/ui/button'

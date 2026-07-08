@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Filter } from 'lucide-react'
 import Papa from 'papaparse'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import SalesChart from '@/components/admin/SalesChart'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import apiClient from '@/lib/api'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
 
@@ -138,7 +143,7 @@ export default function AdminReportsPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
               Reports
             </p>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Analytics reports</h1>
@@ -148,50 +153,43 @@ export default function AdminReportsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              disabled={exporting}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#1A4D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#163f25] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <Download className="h-4 w-4" />
+            <Button type="button" onClick={handleExportCsv} disabled={exporting}>
+              <Download data-icon="inline-start" />
               {exporting ? 'Exporting...' : 'Export CSV'}
-            </button>
+            </Button>
           </div>
         </div>
 
         <Card className="border-black/10 bg-white/90 shadow-sm">
           <CardContent className="p-5 md:p-6">
-            <div className="grid gap-4 lg:grid-cols-[repeat(2,minmax(0,12rem))_auto]">
-              <label className="space-y-2 text-sm font-semibold text-slate-700">
-                <span className="inline-flex items-center gap-2"><Filter className="h-4 w-4" /> Start date</span>
-                <input
+            <FieldGroup className="grid gap-4 lg:grid-cols-[repeat(2,minmax(0,12rem))_auto]">
+              <Field>
+                <FieldLabel htmlFor="report-start-date" className="inline-flex items-center gap-2">
+                  <Filter className="h-4 w-4" /> Start date
+                </FieldLabel>
+                <Input
+                  id="report-start-date"
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
-              </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-700">
-                <span>End date</span>
-                <input
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="report-end-date">End date</FieldLabel>
+                <Input
+                  id="report-end-date"
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
-              </label>
+              </Field>
 
               <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleApplyRange}
-                  className="w-full rounded-2xl border border-black/10 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
+                <Button type="button" variant="secondary" className="w-full" onClick={handleApplyRange}>
                   Apply Range
-                </button>
+                </Button>
               </div>
-            </div>
+            </FieldGroup>
           </CardContent>
         </Card>
 
@@ -202,9 +200,7 @@ export default function AdminReportsPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex h-[300px] items-center justify-center rounded-3xl border border-dashed border-black/10 text-sm text-slate-500">
-                  Loading revenue chart...
-                </div>
+                <Skeleton className="h-[300px] rounded-3xl" />
               ) : (
                 <SalesChart data={revenueChartData} />
               )}
@@ -217,9 +213,13 @@ export default function AdminReportsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {topItems.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-black/10 p-8 text-center text-sm text-slate-500">
-                  No top items found for the selected range.
-                </div>
+                <Empty className="border border-dashed border-black/10">
+                  <EmptyMedia variant="icon">
+                    <Filter />
+                  </EmptyMedia>
+                  <EmptyTitle>No top items found</EmptyTitle>
+                  <EmptyDescription>Try a different date range.</EmptyDescription>
+                </Empty>
               ) : (
                 topItems.map((item, index) => (
                   <div key={item.item_name} className="space-y-2 rounded-2xl border border-black/10 p-4">

@@ -8,6 +8,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, Users, UtensilsCro
 import ActiveTableMap from '@/components/admin/ActiveTableMap'
 import SalesChart from '@/components/admin/SalesChart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import apiClient from '@/lib/api'
 
 type SummaryResponse = {
@@ -69,7 +70,7 @@ function StatCard({ icon, label, value, trend, suffix }: StatCardProps) {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-[#1A4D2E]/10 p-3 text-[#1A4D2E]">{icon}</div>
+          <div className="rounded-2xl bg-primary/10 p-3 text-primary">{icon}</div>
         </div>
       </CardContent>
     </Card>
@@ -146,7 +147,7 @@ export default function AdminDashboardPage() {
     <main className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+          <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
             Admin Overview
           </p>
           <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Operations dashboard</h1>
@@ -155,12 +156,20 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard icon={<BarChart3 className="h-6 w-6" />} label="Total Orders Today" value={loading ? '—' : String(todayOrders)} trend={yesterdayComparison?.orderTrend} />
-          <StatCard icon={<Warehouse className="h-6 w-6" />} label="Revenue Today" value={loading ? '—' : formatCurrency(todayRevenue)} trend={yesterdayComparison?.revenueTrend} />
-          <StatCard icon={<UtensilsCrossed className="h-6 w-6" />} label="Active Tables" value={loading ? '—' : String(activeTables)} />
-          <StatCard icon={<Users className="h-6 w-6" />} label="Cleaners on Duty" value={loading ? '—' : String(cleanersOnDuty)} />
-        </div>
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-32 rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard icon={<BarChart3 className="h-6 w-6" />} label="Total Orders Today" value={String(todayOrders)} trend={yesterdayComparison?.orderTrend} />
+            <StatCard icon={<Warehouse className="h-6 w-6" />} label="Revenue Today" value={formatCurrency(todayRevenue)} trend={yesterdayComparison?.revenueTrend} />
+            <StatCard icon={<UtensilsCrossed className="h-6 w-6" />} label="Active Tables" value={String(activeTables)} />
+            <StatCard icon={<Users className="h-6 w-6" />} label="Cleaners on Duty" value={String(cleanersOnDuty)} />
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="border-black/10 bg-white/90 shadow-sm">

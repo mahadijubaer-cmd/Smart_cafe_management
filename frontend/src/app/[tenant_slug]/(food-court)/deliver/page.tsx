@@ -1,11 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { toast } from 'sonner'
+import { ChevronDown, ChevronUp, PackageCheck } from 'lucide-react'
 import apiClient from '@/lib/api'
 import DeliveryCard, { type ActiveOrder } from '@/components/food-court/DeliveryCard'
 import { useStore } from '@/store/useStore'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 
 interface EnrichedOrder extends ActiveOrder {
   vendor_name?: string
@@ -78,27 +82,29 @@ export default function FoodCourtDeliverPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-black text-slate-900">Delivery Queue</h1>
-        {ready.length > 0 && (
-          <span className="rounded-full bg-green-500 px-2.5 py-0.5 text-xs font-bold text-white">
-            {ready.length} ready
-          </span>
-        )}
+        <h1 className="text-2xl font-black text-foreground">Delivery Queue</h1>
+        {ready.length > 0 && <Badge>{ready.length} ready</Badge>}
       </div>
 
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-36 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-36 rounded-2xl" />
           ))}
         </div>
       ) : (
         <>
           {/* Ready orders */}
           {ready.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-200 py-16 text-center">
-              <p className="text-sm text-slate-400">No orders ready for delivery right now.</p>
-            </div>
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <PackageCheck />
+                </EmptyMedia>
+                <EmptyTitle>Nothing to deliver</EmptyTitle>
+                <EmptyDescription>No orders ready for delivery right now.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {ready.map((order) => (
@@ -113,21 +119,22 @@ export default function FoodCourtDeliverPage() {
 
           {/* In-progress orders (collapsible) */}
           {inProgress.length > 0 && (
-            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-              <button
+            <div className="rounded-2xl border bg-card shadow-sm">
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setInProgressOpen((v) => !v)}
-                className="flex w-full items-center justify-between px-5 py-3 text-sm font-semibold text-slate-700"
+                className="w-full justify-between rounded-2xl px-5 py-3 text-sm font-semibold text-card-foreground hover:bg-transparent"
               >
                 <span>In Progress ({inProgress.length})</span>
                 {inProgressOpen ? (
-                  <ChevronUp className="h-4 w-4 text-slate-400" />
+                  <ChevronUp className="size-4 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                  <ChevronDown className="size-4 text-muted-foreground" />
                 )}
-              </button>
+              </Button>
               {inProgressOpen && (
-                <div className="grid gap-4 border-t border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
                   {inProgress.map((order) => (
                     <DeliveryCard
                       key={order.order_id}

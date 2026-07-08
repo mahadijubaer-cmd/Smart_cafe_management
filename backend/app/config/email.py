@@ -70,7 +70,12 @@ async def send_otp_email(to_email: str, otp_code: str, purpose: str) -> None:
 
 
 async def send_invite_email(to_email: str, invite_link: str, role: str, org_name: str) -> None:
-    """Send a staff invitation email with the accept link."""
+    """Send a staff invitation email with the accept link.
+
+    The invitation row is already committed by the caller before this runs, so an
+    SMTP failure here must not surface as a 500 on an otherwise-successful request —
+    log and swallow it instead (the invite link can still be resent/shared manually).
+    """
     if not settings.mail_enabled:
         logger.warning("[DEV — no SMTP] Invite for %s (%s): %s", to_email, role, invite_link)
         return
@@ -90,5 +95,8 @@ async def send_invite_email(to_email: str, invite_link: str, role: str, org_name
         subtype=MessageType.plain,
     )
     fm = FastMail(_get_mail_config())
-    await fm.send_message(message)
-    logger.info("Invite email sent to %s (role=%s)", to_email, role)
+    try:
+        await fm.send_message(message)
+        logger.info("Invite email sent to %s (role=%s)", to_email, role)
+    except Exception:
+        logger.exception("Failed to send invite email to %s (role=%s)", to_email, role)

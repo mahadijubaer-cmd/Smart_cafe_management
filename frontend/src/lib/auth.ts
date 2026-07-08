@@ -11,6 +11,7 @@ type JwtPayload = {
   brand_color?: string
   jti?: string
   exp: number
+  impersonation?: boolean
 }
 
 export function getRoleFromToken(token: string | null): UserRole | null {

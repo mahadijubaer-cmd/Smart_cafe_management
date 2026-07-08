@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import BrandColorPicker from '@/components/admin/BrandColorPicker'
@@ -10,8 +10,10 @@ import LogoUploader from '@/components/admin/LogoUploader'
 import DomainRestrictionInput from '@/components/admin/DomainRestrictionInput'
 import OperationsToggle from '@/components/admin/OperationsToggle'
 import { Button } from '@/components/ui/button'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStore } from '@/store/useStore'
 import type { Tenant } from '@/types'
 
@@ -83,65 +85,66 @@ export default function AdminSettingsPage() {
   }
 
   if (loading) {
-    return <div className="p-8 text-sm text-slate-500">Loading…</div>
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-8">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full rounded-2xl" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
+      </div>
+    )
   }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <h1 className="mb-1 text-2xl font-black text-slate-900">Settings</h1>
-      <p className="mb-8 text-sm text-slate-500">{slug}</p>
+      <h1 className="mb-1 text-2xl font-black text-foreground">Settings</h1>
+      <p className="mb-8 text-sm text-muted-foreground">{slug}</p>
 
       {/* Tab bar */}
-      <div className="mb-8 flex gap-1 rounded-2xl border border-black/8 bg-slate-100 p-1">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={[
-              'flex-1 rounded-xl py-2 text-sm font-medium transition',
-              tab === t.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700',
-            ].join(' ')}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="mb-8">
+        <TabsList className="grid w-full grid-cols-4">
+          {TABS.map((t) => (
+            <TabsTrigger key={t.id} value={t.id}>
+              {t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Tab: Organisation Profile */}
       {tab === 'profile' && (
-        <div className="space-y-5">
+        <div className="flex flex-col gap-5">
           <LogoUploader
             currentLogoUrl={tenant?.logo_url ?? null}
             tenantSlug={slug}
             onUploaded={(url) => setTenant((t) => t ? { ...t, logo_url: url } : t)}
           />
 
-          <div className="space-y-2">
-            <Label>Organisation name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>City</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Dhaka" />
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel>Organisation name</FieldLabel>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel>City</FieldLabel>
+                <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Dhaka" />
+              </Field>
+              <Field>
+                <FieldLabel>Phone</FieldLabel>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+880…" />
+              </Field>
             </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+880…" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Address</Label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Contact email</Label>
-            <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-          </div>
+            <Field>
+              <FieldLabel>Address</FieldLabel>
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </Field>
+            <Field>
+              <FieldLabel>Contact email</FieldLabel>
+              <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            </Field>
+          </FieldGroup>
 
           <Button
-            className="bg-primary text-white hover:opacity-90"
             disabled={saving}
             onClick={() => save({ name, address, city, phone, contact_email: contactEmail })}
           >
@@ -152,13 +155,9 @@ export default function AdminSettingsPage() {
 
       {/* Tab: Branding */}
       {tab === 'branding' && (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           <BrandColorPicker value={brandColor} onChange={setBrandColor} />
-          <Button
-            className="bg-primary text-white hover:opacity-90"
-            disabled={saving}
-            onClick={() => save({ brand_color: brandColor })}
-          >
+          <Button disabled={saving} onClick={() => save({ brand_color: brandColor })}>
             {saving ? 'Saving…' : 'Save brand color'}
           </Button>
         </div>
@@ -166,13 +165,9 @@ export default function AdminSettingsPage() {
 
       {/* Tab: Access Control */}
       {tab === 'access' && (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           <DomainRestrictionInput value={allowedDomain} onChange={setAllowedDomain} />
-          <Button
-            className="bg-primary text-white hover:opacity-90"
-            disabled={saving}
-            onClick={() => save({ allowed_email_domain: allowedDomain })}
-          >
+          <Button disabled={saving} onClick={() => save({ allowed_email_domain: allowedDomain })}>
             {saving ? 'Saving…' : 'Save access settings'}
           </Button>
         </div>
@@ -180,7 +175,7 @@ export default function AdminSettingsPage() {
 
       {/* Tab: Operations */}
       {tab === 'operations' && (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {tenantType === 'academic' && (
             <OperationsToggle
               id="homemade"
@@ -200,7 +195,6 @@ export default function AdminSettingsPage() {
             onChange={setStrictMode}
           />
           <Button
-            className="bg-primary text-white hover:opacity-90"
             disabled={saving}
             onClick={() => save({ homemade_enabled: homemadeEnabled, inventory_strict_mode: strictMode })}
           >

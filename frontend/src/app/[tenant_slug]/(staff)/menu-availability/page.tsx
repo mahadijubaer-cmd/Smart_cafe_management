@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 
 interface MenuItem {
   item_id: string
@@ -41,60 +46,72 @@ export default function StaffMenuPage() {
     }
   }
 
-  if (loading) {
-    return <div className="p-8 text-sm text-slate-500">Loading menu…</div>
-  }
-
   const available = items.filter((i) => i.is_available)
   const unavailable = items.filter((i) => !i.is_available)
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <h1 className="mb-1 text-2xl font-black text-slate-900">Menu Availability</h1>
-      <p className="mb-8 text-sm text-slate-500">
+      <h1 className="mb-1 text-2xl font-black">Menu Availability</h1>
+      <p className="mb-8 text-sm text-muted-foreground">
         Toggle items on or off. Customers cannot order unavailable items.
       </p>
 
-      {items.length === 0 && (
-        <p className="text-sm text-slate-500">No menu items found.</p>
-      )}
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[68px] w-full rounded-xl" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <Empty>
+          <EmptyMedia variant="icon">
+            <XCircle />
+          </EmptyMedia>
+          <EmptyTitle>No menu items found</EmptyTitle>
+          <EmptyDescription>Add menu items to manage their availability here.</EmptyDescription>
+        </Empty>
+      ) : (
+        <>
+          {available.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <CheckCircle2 className="size-4 text-emerald-600" />
+                Available
+                <Badge variant="secondary">{available.length}</Badge>
+              </h2>
+              <div className="flex flex-col gap-2">
+                {available.map((item) => (
+                  <MenuItemRow
+                    key={item.item_id}
+                    item={item}
+                    loading={toggling === item.item_id}
+                    onToggle={() => handleToggle(item)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
-      {available.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-700">
-            <CheckCircle2 className="h-4 w-4" />
-            Available ({available.length})
-          </h2>
-          <div className="space-y-2">
-            {available.map((item) => (
-              <MenuItemRow
-                key={item.item_id}
-                item={item}
-                loading={toggling === item.item_id}
-                onToggle={() => handleToggle(item)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {unavailable.length > 0 && (
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <XCircle className="h-4 w-4" />
-            Unavailable ({unavailable.length})
-          </h2>
-          <div className="space-y-2">
-            {unavailable.map((item) => (
-              <MenuItemRow
-                key={item.item_id}
-                item={item}
-                loading={toggling === item.item_id}
-                onToggle={() => handleToggle(item)}
-              />
-            ))}
-          </div>
-        </section>
+          {unavailable.length > 0 && (
+            <section>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <XCircle className="size-4" />
+                Unavailable
+                <Badge variant="secondary">{unavailable.length}</Badge>
+              </h2>
+              <div className="flex flex-col gap-2">
+                {unavailable.map((item) => (
+                  <MenuItemRow
+                    key={item.item_id}
+                    item={item}
+                    loading={toggling === item.item_id}
+                    onToggle={() => handleToggle(item)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
   )
@@ -110,38 +127,25 @@ function MenuItemRow({
   onToggle: () => void
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-black/8 bg-white px-4 py-3">
-      <div className="flex items-center gap-3">
-        {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image_url} alt={item.name} className="h-10 w-10 rounded-lg object-cover" />
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg">
-            🍽
+    <Card>
+      <CardContent className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          {item.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.image_url} alt={item.name} className="size-10 rounded-lg object-cover" />
+          ) : (
+            <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-lg">
+              🍽
+            </div>
+          )}
+          <div>
+            <p className="font-medium">{item.name}</p>
+            <p className="text-xs text-muted-foreground">BDT {Number(item.price).toFixed(0)} · {item.prep_time_mins} min</p>
           </div>
-        )}
-        <div>
-          <p className="font-medium text-slate-800">{item.name}</p>
-          <p className="text-xs text-slate-500">BDT {Number(item.price).toFixed(0)} · {item.prep_time_mins} min</p>
         </div>
-      </div>
 
-      <button
-        type="button"
-        disabled={loading}
-        onClick={onToggle}
-        className={[
-          'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors disabled:opacity-50',
-          item.is_available ? 'bg-primary' : 'bg-slate-300',
-        ].join(' ')}
-      >
-        <span
-          className={[
-            'inline-block h-5 w-5 rounded-full bg-white shadow transition-transform',
-            item.is_available ? 'translate-x-5' : 'translate-x-0',
-          ].join(' ')}
-        />
-      </button>
-    </div>
+        <Switch checked={item.is_available} disabled={loading} onCheckedChange={onToggle} />
+      </CardContent>
+    </Card>
   )
 }

@@ -2,7 +2,7 @@
 
 **Router:** `backend/app/routers/tables.py`  
 **Schemas:** `backend/app/schemas/table.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-08
 
 ---
 
@@ -60,13 +60,28 @@ Manages the physical tables (seats) in a tenant's venue. Each table has a status
 
 ### `PATCH /api/v1/tables/{table_id}/status`
 
-**Auth:** Required | **Roles:** Admin roles, `staff`, `cleaner`, `server`
+**Auth:** Required | **Roles:** Admin roles only
+
+✅ [2026-07-08 — corrected] Previously documented here as also open to `staff`/`cleaner`/`server`,
+but the router (`require_role(*ADMIN_ROLES)`) has never allowed that — this was stale
+documentation, not a code bug. Those roles don't need direct access to this endpoint because they
+have their own purpose-built flows that move a table through the same statuses: `cleaner` completes
+cleaning via `PATCH /cleaners/logs/{id}/complete` (`modules/cleaners.md`), `occupied` is set
+automatically by `order_service` when an order is placed, and `reserved` is set by the customer via
+`POST /tables/reserve`. This raw admin endpoint is a manual override tool.
 
 **Request body:** `TableUpdateStatus`
 
 | Field | Type | Required | Valid values |
 |---|---|---|---|
-| `status` | str | Yes | `available \| reserved \| occupied \| cleaning` |
+| `status` | `TableStatus` enum | Yes | `available \| reserved \| occupied \| cleaning` |
+
+✅ [2026-07-08] `status` is now a real `TableStatus` enum field (`backend/app/schemas/table.py`), not
+a bare `str` — an invalid value now correctly gets a `422` from FastAPI before it ever reaches the
+DB. Previously it was typed as plain `str`, so an invalid value (e.g. `"banana_status"`) sailed
+through validation and crashed with an unhandled `asyncpg.exceptions.InvalidTextRepresentationError`
+→ raw `500` (the Postgres `tablestatus` enum column rejected it, but nothing caught that). See
+BR-TABLE-1 below.
 
 **Side effects:**
 - When transitioning TO `cleaning`: publishes `TABLE_UPDATE` WebSocket event
@@ -76,27 +91,38 @@ Manages the physical tables (seats) in a tenant's venue. Each table has a status
 
 ---
 
-### `PUT /api/v1/tables/{table_id}` ❌ [Phase 16 — Not yet implemented]
+### `PUT /api/v1/tables/{table_id}` ✅ [Implemented — spec previously said Phase 16 "not yet implemented"; corrected 2026-07-08]
 
-Full table record update (for floor plan editor).
+Full table record update (for floor plan editor). **Roles:** Admin roles.
+
+**Request body:** `TableUpdate` — `table_number`, `zone`, `capacity`, `position_x` (`0-11`),
+`position_y` (`0-7`), all required (full replacement, despite the PUT verb needing every field).
 
 **Response `200`:** `TableResponse`
 
 ---
 
-### `PATCH /api/v1/tables/layout` ❌ [Phase 16 — Not yet implemented]
+### `PATCH /api/v1/tables/layout` ✅ [Implemented — spec previously said Phase 16 "not yet implemented"; corrected 2026-07-08]
 
-Batch update of `position_x`, `position_y`, `zone`, `capacity` for all tables (floor plan drag-and-drop save).
+Batch update of `position_x`, `position_y`, `zone`, `capacity` for all tables (floor plan drag-and-drop save). **Roles:** Admin roles. Declared before `/{table_id}` routes to avoid routing ambiguity with the path param.
 
-**Request body:** `list[{ table_id, position_x, position_y, zone, capacity }]`
+**Request body:** `TableLayoutBatch` = `{ "tables": list[{ table_id, position_x, position_y, zone, capacity }] }`
+
+**Rules:**
+- TR-3: `400 "Duplicate table position in batch"` if two items in the same batch share `(position_x, position_y)`.
+- `403 "Table {id} not accessible"` if any `table_id` doesn't exist or belongs to a different tenant.
+- All updates applied in one transaction (`db.begin_nested()`).
 
 **Response `200`:** `list[TableResponse]`
 
 ---
 
-### `DELETE /api/v1/tables/{table_id}` ❌ [Phase 16 — Not yet implemented]
+### `DELETE /api/v1/tables/{table_id}` ✅ [Implemented — spec previously said Phase 16 "not yet implemented"; corrected 2026-07-08]
 
-**Rules:** `400` if any active (non-delivered, non-cancelled) orders exist for this table.
+**Roles:** Admin roles.
+
+**Rules (TR-1):** `400 "Table has active orders and cannot be deleted"` if any order for this table
+has status `pending`/`confirmed`/`preparing`/`ready`.
 
 **Response `204`**
 
@@ -117,7 +143,7 @@ class TableCreate(BaseModel):
 ### `TableUpdateStatus`
 ```python
 class TableUpdateStatus(BaseModel):
-    status: str    # "available"|"reserved"|"occupied"|"cleaning"
+    status: TableStatus = TableStatus.available   # ✅ [2026-07-08] real enum, not bare str
 ```
 
 ### `TableResponse`
@@ -143,6 +169,26 @@ class TableResponse(BaseModel):
 | `reserved` | A customer has scanned the QR or claimed it |
 | `occupied` | Customer is seated and has active orders |
 | `cleaning` | Customer left; assigned to a cleaner |
+
+---
+
+## Business Rules
+
+### BR-TABLE-1: Status Values Are Validated Before Reaching the DB
+✅ [2026-07-08 — cafeteria-admin sweep]. `PATCH /tables/{table_id}/status`'s `status_data.status` is
+typed as the `TableStatus` enum (`app/models/table.py`) rather than a bare `str`. An invalid value
+now gets a clean `422 Unprocessable Entity` from FastAPI's request validation. Previously (bare
+`str`), an invalid value passed validation and crashed with an unhandled
+`asyncpg.exceptions.InvalidTextRepresentationError` (`invalid input value for enum tablestatus: ...`)
+→ raw `500`, since the Postgres `tablestatus` column enum was the only thing rejecting it, uncaught.
+
+### TR-1: Table Deletion Blocked by Active Orders
+`DELETE /tables/{table_id}` rejects with `400` if the table has any order in
+`pending`/`confirmed`/`preparing`/`ready` status.
+
+### TR-3: Layout Batch Rejects Duplicate Positions
+`PATCH /tables/layout` rejects the whole batch with `400` if two items request the same
+`(position_x, position_y)` — prevents two tables silently landing on the same grid cell.
 
 ---
 

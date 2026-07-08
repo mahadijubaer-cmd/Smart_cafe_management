@@ -74,14 +74,14 @@ export default function TimeSlotPicker({ selectedSlot, onSelect, date }: TimeSlo
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border bg-muted px-4 py-3 text-sm text-muted-foreground">
         <div>
-          <p className="font-semibold text-slate-900">
+          <p className="font-semibold text-foreground">
             {sameCalendarDay(selectedDate, new Date()) ? 'Today' : selectedDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
           </p>
-          <p className="text-xs text-slate-500">Available slots from 8:00 AM to 9:00 PM in 30-minute intervals.</p>
+          <p className="text-xs text-muted-foreground">Available slots from 8:00 AM to 9:00 PM in 30-minute intervals.</p>
         </div>
-        <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#1A4D2E]">
+        <div className="rounded-full bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
           {unavailableSlots.length} reserved
         </div>
       </div>
@@ -101,14 +101,14 @@ export default function TimeSlotPicker({ selectedSlot, onSelect, date }: TimeSlo
               onClick={() => !isUnavailable && !isPast && onSelect(slot)}
               className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
                 isUnavailable || isPast
-                  ? 'cursor-not-allowed border-black/5 bg-slate-100 text-slate-400'
+                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
                   : isSelected
-                    ? 'border-[#1A4D2E] bg-[#1A4D2E] text-white shadow-lg shadow-[#1A4D2E]/15'
-                    : 'border-black/10 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-[#1A4D2E]/20 hover:shadow-md'
+                    ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/15'
+                    : 'bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md'
               }`}
             >
               <span className="block">{formatTime(slot)}</span>
-              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'bg-white/15 text-white' : isUnavailable || isPast ? 'bg-slate-200 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>
+              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'bg-white/15 text-primary-foreground' : isUnavailable || isPast ? 'bg-muted-foreground/20 text-muted-foreground' : 'bg-emerald-50 text-emerald-700'}`}>
                 {isPast ? 'Past' : isUnavailable ? 'Reserved' : isSelected ? 'Selected' : 'Available'}
               </span>
             </button>

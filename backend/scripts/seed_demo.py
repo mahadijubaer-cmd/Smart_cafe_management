@@ -85,7 +85,11 @@ DEMO_USERS = [
         "email": "platform@scms.io",
         "full_name": "Platform Admin",
         "role": UserRole.platform_admin,
-        "password": "Platform@1234",
+        # Must match seed_platform.py's DEMO_PASSWORD: that script runs first and
+        # creates this user, so this script's own insert always skips (upsert-by-
+        # existing-email) and seed_platform.py's password silently wins regardless
+        # of what's set here — keep the two in sync rather than have this be a lie.
+        "password": "Demo@1234",
     },
     {
         "tenant_id": TESTY_BRAND_ID,
@@ -206,7 +210,7 @@ async def seed() -> None:
     print(f"  {'Role':<20} {'Email':<35} {'Password'}")
     print(f"  {'-'*20} {'-'*35} {'-'*15}")
     rows = [
-        ("Platform Admin",    "platform@scms.io",          "Platform@1234"),
+        ("Platform Admin",    "platform@scms.io",          "Demo@1234"),
         ("Super Admin",       "brand@testythreat.com",      "Brand@1234"),
         ("Outlet Admin",      "gulshan@testythreat.com",    "Outlet@1234"),
         ("Tenant Admin",      "admin@bracu.scms",           "Admin@1234"),

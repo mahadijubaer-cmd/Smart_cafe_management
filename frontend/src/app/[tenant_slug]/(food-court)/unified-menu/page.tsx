@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react'
 import apiClient from '@/lib/api'
 import VendorMenuTabs from '@/components/food-court/VendorMenuTabs'
 import type { VendorSummary } from '@/components/food-court/VendorTile'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { UtensilsCrossed } from 'lucide-react'
 
 interface VendorMenuSection {
   vendor_id: string
@@ -45,7 +50,7 @@ export default function FoodCourtMenuPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-black text-slate-900">Unified Menu</h1>
+      <h1 className="text-2xl font-black text-foreground">Unified Menu</h1>
 
       <VendorMenuTabs
         vendors={vendors}
@@ -56,44 +61,49 @@ export default function FoodCourtMenuPage() {
       {loading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
       ) : displaySections.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 py-16 text-center">
-          <p className="text-sm text-slate-400">No items available.</p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <UtensilsCrossed />
+            </EmptyMedia>
+            <EmptyTitle>No items available</EmptyTitle>
+            <EmptyDescription>This vendor hasn&apos;t added any menu items yet.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="space-y-8">
           {displaySections.map((section) => (
             <div key={section.vendor_id}>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-                <span className="rounded-full bg-primary/10 px-3 py-0.5 text-primary">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+                <Badge variant="outline" className="border-transparent bg-primary/10 text-primary">
                   {section.vendor_name}
-                </span>
-                <span className="text-slate-400">({section.items.length} items)</span>
+                </Badge>
+                <span className="text-muted-foreground">({section.items.length} items)</span>
               </h2>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {section.items.map((item) => (
-                  <div
-                    key={item.item_id}
-                    className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-slate-900">{item.name}</p>
-                        {item.description && (
-                          <p className="mt-0.5 text-xs text-slate-500 line-clamp-2">
-                            {item.description}
-                          </p>
-                        )}
+                  <Card key={item.item_id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-card-foreground">{item.name}</p>
+                          {item.description && (
+                            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-sm font-bold text-primary">
+                          ৳{Number(item.price).toFixed(0)}
+                        </span>
                       </div>
-                      <span className="shrink-0 text-sm font-bold text-primary">
-                        ৳{Number(item.price).toFixed(0)}
-                      </span>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </div>

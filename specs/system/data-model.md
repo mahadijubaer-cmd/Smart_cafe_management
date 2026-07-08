@@ -550,3 +550,30 @@ CREATE TABLE staff_invitations (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ```
+
+### `platform_audit_logs` — Phase 24 (RFC-009, Platform Admin Control Plane)
+
+Not tenant-scoped — this table has no `tenant_id` column of its own; `target_tenant_id` refers to
+the tenant an action was *performed on*, which may be null (no future action can ever be tied back to
+it) once that tenant is hard-deleted. `actor_id`/`target_tenant_id` use `SET NULL` rather than
+`CASCADE` deliberately: an audit log's entire purpose is to outlive the account or tenant it
+describes, so the denormalized `actor_email`/`target_tenant_name`/`target_tenant_slug` columns exist
+so a log entry remains readable even after the row it references is gone.
+
+```sql
+CREATE TABLE platform_audit_logs (
+    log_id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    actor_id           UUID REFERENCES users(user_id) ON DELETE SET NULL,
+    actor_email        VARCHAR(150) NOT NULL,
+    action             VARCHAR(50) NOT NULL,
+    target_tenant_id   UUID REFERENCES tenants(tenant_id) ON DELETE SET NULL,
+    target_tenant_name VARCHAR(150),
+    target_tenant_slug VARCHAR(80),
+    details            TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX ix_platform_audit_logs_target_tenant_id ON platform_audit_logs(target_tenant_id);
+CREATE INDEX ix_platform_audit_logs_created_at ON platform_audit_logs(created_at);
+```
+
+See `specs/modules/platform.md` for the full `AuditAction` value list and business rules PA-1–PA-5.

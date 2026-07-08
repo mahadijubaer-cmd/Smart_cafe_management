@@ -22,7 +22,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -35,12 +35,17 @@ from app.core.dependencies import (
     TenantContext,
 )
 from app.core.redis import get_redis
+from app.core.tier_limits import check_tier_limit
+from app.models.menu import MenuItem
+from app.models.models import Order
+from app.models.table import TablesMap
 from app.models.tenant import SubscriptionTier, Tenant, TenantType
 from app.models.user import User, UserRole
 from app.schemas.tenant import (
     SELF_SERVE_TENANT_TYPES,
     OutletCreate,
     TenantCreate,
+    TenantExportResponse,
     TenantListResponse,
     TenantPublicDetailResponse,
     TenantPublicListResponse,
@@ -51,6 +56,7 @@ from app.schemas.tenant import (
     TenantUpdate,
 )
 from app.schemas.user import Token
+from app.services.audit_service import AuditAction, record_audit
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -333,10 +339,11 @@ async def list_tenants(
     return TenantListResponse(items=list(tenants), total=total)
 
 
-@router.post("", response_model=TenantResponse, status_code=201, dependencies=[_admin_only])
+@router.post("", response_model=TenantResponse, status_code=201)
 async def create_tenant(
     data: TenantCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.platform_admin)),
 ):
     existing = await db.execute(select(Tenant).where(Tenant.slug == data.slug))
     if existing.scalar_one_or_none():
@@ -344,6 +351,8 @@ async def create_tenant(
 
     tenant = Tenant(**data.model_dump())
     db.add(tenant)
+    await db.flush()  # populate tenant.tenant_id (Python-side default) before audit logging
+    await record_audit(db, current_user, AuditAction.tenant_created, target_tenant=tenant)
     await db.commit()
     await db.refresh(tenant)
     return tenant
@@ -358,44 +367,63 @@ async def get_tenant(tenant_id: UUID, db: AsyncSession = Depends(get_db)):
     return tenant
 
 
-@router.patch("/{tenant_id}", response_model=TenantResponse, dependencies=[_admin_only])
+@router.patch("/{tenant_id}", response_model=TenantResponse)
 async def update_tenant(
     tenant_id: UUID,
     data: TenantUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.platform_admin)),
 ):
     result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
-    for field, value in data.model_dump(exclude_none=True).items():
+    updates = data.model_dump(exclude_none=True)
+    old_tier = tenant.subscription_tier
+    for field, value in updates.items():
         setattr(tenant, field, value)
+
+    if "subscription_tier" in updates and updates["subscription_tier"] != old_tier.value:
+        await record_audit(
+            db, current_user, AuditAction.tenant_tier_changed, target_tenant=tenant,
+            details={"from": old_tier.value, "to": updates["subscription_tier"]},
+        )
 
     await db.commit()
     await db.refresh(tenant)
     return tenant
 
 
-@router.post("/{tenant_id}/activate", response_model=TenantResponse, dependencies=[_admin_only])
-async def activate_tenant(tenant_id: UUID, db: AsyncSession = Depends(get_db)):
+@router.post("/{tenant_id}/activate", response_model=TenantResponse)
+async def activate_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.platform_admin)),
+):
     result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     tenant.is_active = True
+    await record_audit(db, current_user, AuditAction.tenant_activated, target_tenant=tenant)
     await db.commit()
     await db.refresh(tenant)
     return tenant
 
 
-@router.post("/{tenant_id}/suspend", response_model=TenantResponse, dependencies=[_admin_only])
-async def suspend_tenant(tenant_id: UUID, db: AsyncSession = Depends(get_db)):
+@router.post("/{tenant_id}/suspend", response_model=TenantResponse)
+async def suspend_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.platform_admin)),
+):
     result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     tenant.is_active = False
+    await record_audit(db, current_user, AuditAction.tenant_suspended, target_tenant=tenant)
     await db.commit()
     await db.refresh(tenant)
     return tenant
@@ -458,6 +486,11 @@ async def create_outlet(
     if brand.tenant_type != TenantType.franchise_brand:
         raise HTTPException(status_code=400, detail="Parent tenant is not a franchise_brand")
 
+    outlet_count = await db.scalar(
+        select(func.count(Tenant.tenant_id)).where(Tenant.parent_tenant_id == tenant_id)
+    )
+    check_tier_limit(brand.subscription_tier, "max_outlets", outlet_count)
+
     slug_check = await db.execute(select(Tenant).where(Tenant.slug == data.slug))
     if slug_check.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"Slug '{data.slug}' already taken")
@@ -471,3 +504,82 @@ async def create_outlet(
     await db.commit()
     await db.refresh(outlet)
     return outlet
+
+
+@router.delete("/{tenant_id}", status_code=204)
+async def delete_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.platform_admin)),
+):
+    """Hard delete — BR-PLAT-1 (RFC-009). Requires the tenant already suspended and, for
+    franchise_brand/food_court tenants, zero remaining child tenants."""
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if tenant.is_active:
+        raise HTTPException(
+            status_code=400, detail="Tenant must be suspended before it can be deleted"
+        )
+
+    if tenant.tenant_type in (TenantType.franchise_brand, TenantType.food_court):
+        child_count = await db.scalar(
+            select(func.count(Tenant.tenant_id)).where(Tenant.parent_tenant_id == tenant_id)
+        )
+        if child_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Tenant has active child outlets/vendors — delete or reassign them first",
+            )
+
+    await record_audit(
+        db, current_user, AuditAction.tenant_deleted, target_tenant=tenant,
+        details={"tenant_type": tenant.tenant_type.value},
+    )
+    # Core DELETE (not db.delete(tenant)) so the DB's own ON DELETE CASCADE FKs cascade to
+    # child rows directly — the ORM unit-of-work would otherwise try to null out children's
+    # NOT NULL tenant_id first, since Tenant.users has no passive_deletes=True.
+    await db.execute(delete(Tenant).where(Tenant.tenant_id == tenant_id))
+    await db.commit()
+
+
+@router.get("/{tenant_id}/export", response_model=TenantExportResponse)
+async def export_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_role(UserRole.platform_admin)),
+):
+    """JSON data snapshot — offboarding record, not a full data-portability export."""
+    from datetime import datetime, timezone
+
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    users_result = await db.execute(select(User).where(User.tenant_id == tenant_id))
+    users = users_result.scalars().all()
+
+    menu_item_count = await db.scalar(
+        select(func.count(MenuItem.item_id)).where(MenuItem.tenant_id == tenant_id)
+    )
+    table_count = await db.scalar(
+        select(func.count(TablesMap.table_id)).where(TablesMap.tenant_id == tenant_id)
+    )
+    order_result = await db.execute(
+        select(func.count(Order.order_id), func.coalesce(func.sum(Order.total_amount), 0)).where(
+            Order.tenant_id == tenant_id
+        )
+    )
+    total_orders, total_revenue = order_result.one()
+
+    return TenantExportResponse(
+        tenant=tenant,
+        users=users,
+        menu_item_count=menu_item_count,
+        table_count=table_count,
+        order_summary={"total_orders": total_orders, "total_revenue": str(total_revenue)},
+        exported_at=datetime.now(timezone.utc),
+    )

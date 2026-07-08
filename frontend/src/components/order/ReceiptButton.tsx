@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import { Button } from '@/components/ui/button'
 
@@ -46,9 +46,9 @@ export default function ReceiptButton({ orderId, className }: ReceiptButtonProps
       disabled={downloading}
     >
       {downloading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 data-icon="inline-start" className="animate-spin" />
       ) : (
-        <Download className="h-4 w-4" />
+        <Download data-icon="inline-start" />
       )}
       {downloading ? 'Downloading…' : 'Download Receipt'}
     </Button>

@@ -1,8 +1,20 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
+import { Loader2, Minus, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import apiClient from '@/lib/api'
 import type { Category, MenuItem, Order, TableMap } from '@/types'
 
@@ -101,7 +113,20 @@ export default function StaffPosPage() {
   }
 
   if (loading) {
-    return <p className="p-6 text-sm text-slate-500">Loading menu…</p>
+    return (
+      <div className="grid gap-6 p-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-10 w-full" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-2xl" />
+            ))}
+          </div>
+        </div>
+        <Skeleton className="h-96 rounded-2xl" />
+      </div>
+    )
   }
 
   return (
@@ -114,19 +139,16 @@ export default function StaffPosPage() {
 
         <div className="mt-4 flex gap-2 overflow-x-auto border-b border-slate-200 pb-3">
           {categories.map((cat) => (
-            <button
+            <Button
               key={cat.category_id}
               type="button"
+              size="sm"
+              variant={activeCategoryId === cat.category_id ? 'default' : 'secondary'}
+              className="shrink-0 rounded-full"
               onClick={() => setActiveCategoryId(cat.category_id)}
-              className={[
-                'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition',
-                activeCategoryId === cat.category_id
-                  ? 'bg-primary text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              ].join(' ')}
             >
               {cat.name}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -141,24 +163,37 @@ export default function StaffPosPage() {
                 </div>
                 <div className="mt-3 flex justify-end">
                   {line ? (
-                    <div className="flex h-8 items-center overflow-hidden rounded-full border border-slate-200">
-                      <button type="button" onClick={() => changeQuantity(item.item_id, -1)} className="w-8 font-bold hover:bg-slate-50">
-                        −
-                      </button>
+                    <div className="flex h-8 items-center gap-1 overflow-hidden rounded-full border border-slate-200">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => changeQuantity(item.item_id, -1)}
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </Button>
                       <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
-                      <button type="button" onClick={() => changeQuantity(item.item_id, 1)} className="w-8 font-bold hover:bg-slate-50">
-                        +
-                      </button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => changeQuantity(item.item_id, 1)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   ) : (
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      className="rounded-full"
                       onClick={() => addToCart(item)}
                       disabled={!item.is_available}
-                      className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:bg-slate-300"
                     >
                       + Add
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -188,50 +223,45 @@ export default function StaffPosPage() {
           <span>{formatCurrency(total)}</span>
         </div>
 
-        <div className="mt-4 space-y-3">
-          <label className="block">
-            <span className="text-xs font-semibold uppercase text-slate-500">Table (optional)</span>
-            <select
-              value={tableId}
-              onChange={(e) => setTableId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            >
-              <option value="">Takeaway / counter</option>
-              {tables.map((t) => (
-                <option key={t.table_id} value={t.table_id}>
-                  Table {t.table_number} ({t.zone})
-                </option>
-              ))}
-            </select>
-          </label>
+        <FieldGroup className="mt-4 gap-3">
+          <Field>
+            <FieldLabel htmlFor="pos-table" className="text-xs font-semibold uppercase text-slate-500">
+              Table (optional)
+            </FieldLabel>
+            <Select value={tableId || 'none'} onValueChange={(value) => setTableId(value === 'none' ? '' : value)}>
+              <SelectTrigger id="pos-table">
+                <SelectValue placeholder="Takeaway / counter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Takeaway / counter</SelectItem>
+                {tables.map((t) => (
+                  <SelectItem key={t.table_id} value={String(t.table_id)}>
+                    Table {t.table_number} ({t.zone})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-          <label className="block">
-            <span className="text-xs font-semibold uppercase text-slate-500">Customer name (optional)</span>
-            <input
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
+          <Field>
+            <FieldLabel htmlFor="pos-guest-name" className="text-xs font-semibold uppercase text-slate-500">
+              Customer name (optional)
+            </FieldLabel>
+            <Input id="pos-guest-name" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+          </Field>
 
-          <label className="block">
-            <span className="text-xs font-semibold uppercase text-slate-500">Notes</span>
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-        </div>
+          <Field>
+            <FieldLabel htmlFor="pos-notes" className="text-xs font-semibold uppercase text-slate-500">
+              Notes
+            </FieldLabel>
+            <Input id="pos-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+        </FieldGroup>
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitting || cart.length === 0}
-          className="mt-4 w-full rounded-full bg-primary py-3 text-sm font-semibold text-white disabled:bg-slate-300"
-        >
+        <Button type="button" className="mt-4 w-full rounded-full" onClick={handleSubmit} disabled={submitting || cart.length === 0}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {submitting ? 'Placing order…' : 'Place order'}
-        </button>
+        </Button>
       </aside>
     </div>
   )

@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Layout, Map } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import type { TableMap } from '@/types'
-import ActiveTableMap from '@/components/admin/ActiveTableMap'
 import FloorPlanEditor from '@/components/admin/FloorPlanEditor'
 import TableDetailPanel from '@/components/admin/TableDetailPanel'
 import ZoneFilter from '@/components/admin/ZoneFilter'
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 
 type ViewMode = 'live' | 'editor'
@@ -73,55 +76,39 @@ export default function TablesPage() {
     typeof window !== 'undefined' && window.innerWidth < 768
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
             Tables &amp; Floor Plan
           </h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {tables.length} table{tables.length !== 1 ? 's' : ''} &middot; Live WebSocket updates
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setMode('live')}
-            className={[
-              'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
-              mode === 'live'
-                ? 'bg-primary text-white shadow-sm'
-                : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-            ].join(' ')}
-          >
-            <Map className="h-4 w-4" />
-            Live View
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('editor')}
-            className={[
-              'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
-              mode === 'editor'
-                ? 'bg-primary text-white shadow-sm'
-                : 'border border-slate-200 text-slate-600 hover:bg-slate-50',
-            ].join(' ')}
-          >
-            <Layout className="h-4 w-4" />
-            Edit Layout
-          </button>
-        </div>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as ViewMode)}>
+          <TabsList>
+            <TabsTrigger value="live">
+              <Map data-icon="inline-start" className="size-4" />
+              Live View
+            </TabsTrigger>
+            <TabsTrigger value="editor">
+              <Layout data-icon="inline-start" className="size-4" />
+              Edit Layout
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {loading ? (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       ) : mode === 'live' ? (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {uniqueZones.length > 1 && (
             <ZoneFilter
               zones={uniqueZones}
@@ -134,14 +121,12 @@ export default function TablesPage() {
             tables={filteredTables}
             onTableClick={(id) => setSelectedTableId(id)}
           />
-          {selectedTableId !== null && (
-            <TableDetailPanel
-              tableId={selectedTableId}
-              onClose={() => setSelectedTableId(null)}
-              onStatusChange={handleTableStatusChange}
-              onEditInLayout={() => setMode('editor')}
-            />
-          )}
+          <TableDetailPanel
+            tableId={selectedTableId}
+            onClose={() => setSelectedTableId(null)}
+            onStatusChange={handleTableStatusChange}
+            onEditInLayout={() => setMode('editor')}
+          />
         </div>
       ) : (
         <div>
@@ -166,10 +151,10 @@ export default function TablesPage() {
 
 // Inline live table grid with click support
 const statusStyles: Record<TableMap['status'], string> = {
-  available: 'bg-green-500 text-white',
-  reserved: 'bg-amber-500 text-white',
-  occupied: 'bg-red-500 text-white',
-  cleaning: 'bg-blue-500 text-white',
+  available: 'bg-primary text-primary-foreground',
+  reserved: 'bg-secondary text-secondary-foreground',
+  occupied: 'bg-destructive text-destructive-foreground',
+  cleaning: 'border-2 border-input bg-muted text-foreground',
 }
 
 function LiveTableGrid({
@@ -183,9 +168,10 @@ function LiveTableGrid({
 
   if (tables.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-black/10 p-12 text-center text-sm text-slate-500">
-        No tables found.
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyTitle>No tables found</EmptyTitle>
+        <EmptyDescription>Add tables from the floor plan editor.</EmptyDescription>
+      </Empty>
     )
   }
 
@@ -203,10 +189,10 @@ function LiveTableGrid({
             key={table.table_id}
             type="button"
             onClick={() => onTableClick(table.table_id)}
-            className={[
-              'relative flex flex-col items-center justify-center rounded-2xl p-3 text-xs font-semibold transition hover:ring-2 hover:ring-white/50 hover:opacity-90',
-              statusStyles[table.status as TableMap['status']] ?? 'bg-slate-400 text-white',
-            ].join(' ')}
+            className={cn(
+              'relative flex flex-col items-center justify-center rounded-2xl p-3 text-xs font-semibold transition hover:opacity-90 hover:ring-2 hover:ring-ring',
+              statusStyles[table.status as TableMap['status']] ?? 'bg-muted text-muted-foreground'
+            )}
             style={{
               gridColumn: (table.position_x ?? 0) + 1,
               gridRow: (table.position_y ?? 0) + 1,

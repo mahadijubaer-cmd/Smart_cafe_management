@@ -287,6 +287,44 @@ outlet from `/outlets` without any platform-admin involvement; cross-brand isola
 
 ---
 
+### Phase 24 — Platform Admin Control Plane
+**RFC:** [RFC-009](../decisions/rfcs/RFC-009-platform-admin-control-plane.md)
+**Priority:** P1
+**Status:** 🚧 In progress (2026-07-08)
+
+A review of the `platform_admin` role found it incomplete for genuine cross-platform control: its
+three management pages existed but were unreachable from any nav, there was no audit trail of its
+own (unscoped) actions, subscription tiers were stored but never enforced, there was no impersonation
+path for support, and no offboarding beyond suspend. Fixes:
+
+Backend:
+- New `platform_audit_logs` table + `services/audit_service.py::record_audit()` — every mutating
+  platform-admin action on a tenant now writes one row (PA-1).
+- New `core/tier_limits.py::TIER_LIMITS` — enforced at outlet creation, menu item creation, and
+  staff invite creation (`402` when exceeded — PA-2/PA-3).
+- New `routers/platform.py` — `GET /platform/audit-logs`, `GET /platform/analytics/overview`,
+  `POST /platform/tenants/{id}/impersonate`.
+- `routers/tenants.py` — new `DELETE /{id}` (hard delete, requires suspended-first — BR-PLAT-1) and
+  `GET /{id}/export` (JSON data snapshot).
+- `services/auth_service.py::create_access_token` — new optional `extra_claims` param, used to stamp
+  `impersonation: true` on impersonation tokens (no new auth mechanism needed — see RFC-009 §2.7).
+
+Frontend:
+- `[tenant_slug]/(admin)/layout.tsx` — new role-gated "Platform" nav section (first role-gated nav
+  items in this file; existing gates are tenant-type-gated).
+- `(platform)/admin/audit-log/page.tsx` — new.
+- `(platform)/admin/tenants/page.tsx` — Impersonate / Export / Delete row actions.
+- `(platform)/admin/analytics/page.tsx` — now also calls the genuine platform-wide overview.
+- `components/platform/ImpersonationBanner.tsx` — new.
+
+**Definition of done:** every platform-admin tenant mutation is audit-logged; a `starter`-tier brand
+is blocked (`402`) from creating a 4th outlet; a platform admin can impersonate a tenant, see its
+admin views, and cleanly exit back to their own session; a suspended tenant with no remaining
+children can be hard-deleted; the three pre-existing platform pages plus the new Audit Log page are
+all reachable from nav.
+
+---
+
 ## Priority Matrix
 
 | Feature | User Impact | Effort | Priority |

@@ -23,9 +23,9 @@ export default function TenantWelcomeBanner({ tenant }: TenantWelcomeBannerProps
         </div>
       )}
       <div>
-        <p className="text-xs font-medium uppercase tracking-widest text-white/60">{typeLabel}</p>
-        <h2 className="text-lg font-bold text-white">{tenant.name}</h2>
-        {tenant.city && <p className="text-sm text-white/70">{tenant.city}</p>}
+        <p className="text-xs font-medium uppercase tracking-widest text-primary-foreground/60">{typeLabel}</p>
+        <h2 className="text-lg font-bold text-primary-foreground">{tenant.name}</h2>
+        {tenant.city && <p className="text-sm text-primary-foreground/70">{tenant.city}</p>}
       </div>
     </div>
   )

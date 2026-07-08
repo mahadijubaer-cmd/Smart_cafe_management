@@ -2,6 +2,10 @@
 
 import { useState } from 'react'
 import { Clock, Table2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 export interface ActiveOrder {
   order_id: string
@@ -41,66 +45,48 @@ export default function DeliveryCard({ order, onDeliver }: DeliveryCardProps) {
   const isReady = order.status === 'ready'
 
   return (
-    <div
-      className={[
-        'rounded-2xl border bg-white p-5 shadow-sm transition',
-        isReady ? 'border-green-200' : 'border-slate-100',
-      ].join(' ')}
-    >
-      {/* Header */}
-      <div className="mb-3 flex items-center gap-2">
+    <Card className={cn(isReady && 'border-green-200')}>
+      <CardHeader className="flex-row flex-wrap items-center gap-2 space-y-0">
         {order.vendor_name && (
-          <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary">
+          <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
             {order.vendor_name}
-          </span>
+          </Badge>
         )}
-        <span
-          className={[
-            'rounded-full px-3 py-0.5 text-xs font-semibold capitalize',
-            isReady
-              ? 'bg-green-100 text-green-700'
-              : 'bg-amber-100 text-amber-700',
-          ].join(' ')}
-        >
+        <Badge variant={isReady ? 'default' : 'secondary'} className="capitalize">
           {order.status}
-        </span>
-      </div>
+        </Badge>
+      </CardHeader>
 
-      {/* Table + time */}
-      <div className="mb-3 flex items-center gap-4 text-sm text-slate-600">
-        <span className="flex items-center gap-1.5 font-semibold text-slate-900">
-          <Table2 className="h-4 w-4 text-slate-400" />
-          {order.table_id ? `Table ${order.table_id}` : 'No table'}
-        </span>
-        <span className="flex items-center gap-1 text-xs text-slate-500">
-          <Clock className="h-3 w-3" />
-          {timeAgo(order.time_slot)}
-        </span>
-      </div>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5 font-semibold text-foreground">
+            <Table2 className="size-4 text-muted-foreground" />
+            {order.table_id ? `Table ${order.table_id}` : 'No table'}
+          </span>
+          <span className="flex items-center gap-1 text-xs">
+            <Clock className="size-3" />
+            {timeAgo(order.time_slot)}
+          </span>
+        </div>
 
-      {/* Items */}
-      {order.items && order.items.length > 0 && (
-        <p className="mb-3 text-xs text-slate-500">
-          {order.items.map((i) => `${i.name} × ${i.quantity}`).join(', ')}
+        {order.items && order.items.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {order.items.map((i) => `${i.name} × ${i.quantity}`).join(', ')}
+          </p>
+        )}
+
+        <p className="text-sm font-semibold text-foreground">
+          ৳{Number(order.total_amount).toFixed(0)}
         </p>
-      )}
+      </CardContent>
 
-      {/* Total */}
-      <p className="mb-4 text-sm font-semibold text-slate-800">
-        ৳{Number(order.total_amount).toFixed(0)}
-      </p>
-
-      {/* Action */}
       {isReady && (
-        <button
-          type="button"
-          onClick={handleDeliver}
-          disabled={loading}
-          className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {loading ? 'Marking…' : 'Mark Delivered'}
-        </button>
+        <CardFooter>
+          <Button type="button" className="w-full" onClick={handleDeliver} disabled={loading}>
+            {loading ? 'Marking…' : 'Mark Delivered'}
+          </Button>
+        </CardFooter>
       )}
-    </div>
+    </Card>
   )
 }

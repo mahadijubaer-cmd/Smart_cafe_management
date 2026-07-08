@@ -2,10 +2,23 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { isRestaurantSegment } from '@/lib/segments'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
 import type { GuestOrderGroup, PublicMenuItem, PublicMenuResponse, PublicTenantInfoResponse } from '@/types'
 
 interface GuestCartLine {
@@ -202,7 +215,7 @@ export default function PublicMenuPage() {
     const canPayOnline = info?.guest_checkout_mode === 'online' && !allPaid
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-10 text-center">
-        <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Card className="w-full max-w-sm rounded-2xl p-6 shadow-sm">
           <p className="text-4xl">✅</p>
           <h1 className="mt-3 text-xl font-black text-slate-900">
             {placedGroup.orders.length > 1 ? 'Orders placed!' : 'Order placed!'}
@@ -216,7 +229,7 @@ export default function PublicMenuPage() {
           </p>
 
           {placedGroup.orders.length > 1 ? (
-            <div className="mt-4 space-y-2 text-left">
+            <div className="flex flex-col mt-4 text-left gap-2">
               {placedGroup.orders.map((o) => (
                 <div key={o.order_id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
                   <span className="font-semibold text-slate-800">{o.vendor_name ?? 'Order'}</span>
@@ -227,14 +240,15 @@ export default function PublicMenuPage() {
           ) : null}
 
           {canPayOnline ? (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handlePayOnline}
               disabled={payingOnline}
-              className="mt-4 w-full rounded-full border-2 border-[#1A4D2E] py-3 text-sm font-semibold text-[#1A4D2E] disabled:opacity-60"
+              className="mt-4 w-full rounded-full border-2 border-primary text-primary hover:bg-primary/10"
             >
               {payingOnline ? 'Processing…' : `Pay online now — ${formatCurrency(Number(placedGroup.total_amount))}`}
-            </button>
+            </Button>
           ) : null}
 
           <div className="mx-auto mt-5 flex h-40 w-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
@@ -247,24 +261,25 @@ export default function PublicMenuPage() {
           </div>
           <p className="mt-2 text-xs text-slate-400">Scan or save this link to track your order</p>
 
-          <button
+          <Button
             type="button"
             onClick={() => router.push(trackingPath)}
-            className="mt-5 w-full rounded-full bg-[#1A4D2E] py-3 text-sm font-semibold text-white hover:bg-[#163f25]"
+            className="mt-5 w-full rounded-full"
           >
             Track my order →
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => {
               setPlacedGroup(null)
               setQrData(null)
             }}
-            className="mt-3 w-full rounded-full border border-slate-300 py-3 text-sm font-semibold text-slate-700"
+            className="mt-3 w-full rounded-full"
           >
             Back to menu
-          </button>
-        </div>
+          </Button>
+        </Card>
       </main>
     )
   }
@@ -310,47 +325,40 @@ export default function PublicMenuPage() {
       <div className="sticky top-0 z-20 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3">
         {isFoodCourt ? (
           <>
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant={activeVendorId === 0 ? 'default' : 'secondary'}
+              className="shrink-0 rounded-full"
               onClick={() => setActiveVendorId(0)}
-              className={[
-                'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition',
-                activeVendorId === 0 ? 'bg-[#1A4D2E] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              ].join(' ')}
             >
               All stalls
-            </button>
+            </Button>
             {menu.vendors?.map((v) => (
-              <button
+              <Button
                 key={v.vendor_id}
                 type="button"
+                size="sm"
+                variant={activeVendorId === v.vendor_id ? 'default' : 'secondary'}
+                className="shrink-0 rounded-full"
                 onClick={() => setActiveVendorId(v.vendor_id)}
-                className={[
-                  'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition',
-                  activeVendorId === v.vendor_id
-                    ? 'bg-[#1A4D2E] text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-                ].join(' ')}
               >
                 {v.vendor_name}
-              </button>
+              </Button>
             ))}
           </>
         ) : (
           menu.categories.map((cat) => (
-            <button
+            <Button
               key={cat.category_id}
               type="button"
+              size="sm"
+              variant={activeCategoryId === cat.category_id ? 'default' : 'secondary'}
+              className="shrink-0 rounded-full"
               onClick={() => setActiveCategoryId(cat.category_id)}
-              className={[
-                'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition',
-                activeCategoryId === cat.category_id
-                  ? 'bg-[#1A4D2E] text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              ].join(' ')}
             >
               {cat.name}
-            </button>
+            </Button>
           ))
         )}
       </div>
@@ -359,128 +367,124 @@ export default function PublicMenuPage() {
         {visibleItems.map((item) => {
           const line = cart.find((l) => l.item.item_id === item.item_id)
           return (
-            <div key={item.item_id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <Card key={item.item_id} className="rounded-2xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h3 className="font-bold text-slate-900">{item.name}</h3>
                   {isFoodCourt && item.vendor_name ? (
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{item.vendor_name}</p>
+                    <Badge variant="secondary" className="mt-1">{item.vendor_name}</Badge>
                   ) : null}
                 </div>
-                <p className="font-extrabold text-[#1A4D2E]">{formatCurrency(Number(item.price))}</p>
+                <p className="font-extrabold text-primary">{formatCurrency(Number(item.price))}</p>
               </div>
               {item.description ? <p className="mt-1 text-sm text-slate-500">{item.description}</p> : null}
 
               {canOrder ? (
               <div className="mt-4 flex justify-end">
                 {line ? (
-                  <div className="flex h-9 items-center overflow-hidden rounded-full border border-slate-200">
-                    <button
+                  <div className="flex h-9 items-center overflow-hidden rounded-full border border-input">
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-full w-9 rounded-none font-bold"
                       onClick={() => changeQuantity(item.item_id, -1)}
-                      className="flex h-full w-9 items-center justify-center font-bold text-slate-700 hover:bg-slate-50"
                     >
                       −
-                    </button>
+                    </Button>
                     <span className="w-8 text-center text-sm font-semibold">{line.quantity}</span>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-full w-9 rounded-none font-bold"
                       onClick={() => changeQuantity(item.item_id, 1)}
-                      className="flex h-full w-9 items-center justify-center font-bold text-slate-700 hover:bg-slate-50"
                     >
                       +
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => addToCart(item)}
-                    className="rounded-full bg-[#1A4D2E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#163f25]"
-                  >
+                  <Button type="button" size="sm" className="rounded-full" onClick={() => addToCart(item)}>
                     + Add
-                  </button>
+                  </Button>
                 )}
               </div>
               ) : null}
-            </div>
+            </Card>
           )
         })}
       </div>
 
       {canOrder && itemCount > 0 && !checkoutOpen ? (
-        <button
+        <Button
           type="button"
           onClick={() => setCheckoutOpen(true)}
-          className="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between rounded-2xl bg-[#1A4D2E] px-6 py-4 text-white shadow-2xl"
+          className="fixed inset-x-4 bottom-4 z-30 flex h-auto items-center justify-between rounded-2xl px-6 py-4 shadow-2xl"
         >
           <span className="font-semibold">{itemCount} item{itemCount > 1 ? 's' : ''}</span>
           <span className="font-bold">{formatCurrency(total)} · Checkout →</span>
-        </button>
+        </Button>
       ) : null}
 
-      {checkoutOpen ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-md rounded-t-2xl bg-white p-6 sm:rounded-2xl">
-            <h2 className="text-lg font-bold text-slate-900">Confirm your order</h2>
-            <p className="mt-1 text-sm text-slate-500">
+      <Sheet open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl sm:rounded-2xl">
+          <SheetHeader>
+            <SheetTitle>Confirm your order</SheetTitle>
+            <SheetDescription>
               {isFoodCourt
                 ? "Pay at the counter after each stall confirms. Items from different stalls become separate tickets."
                 : 'Pay at the counter after staff confirms your order.'}
-            </p>
+            </SheetDescription>
+          </SheetHeader>
 
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Table number</span>
-                <input
-                  value={tableNumber}
-                  onChange={(e) => setTableNumber(e.target.value)}
-                  placeholder="e.g. T-04"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1A4D2E]"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your name</span>
-                <input
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1A4D2E]"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone number</span>
-                <input
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1A4D2E]"
-                />
-              </label>
+          <div className="flex flex-col mt-4 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="guest-table">Table number</Label>
+              <Input
+                id="guest-table"
+                value={tableNumber}
+                onChange={(e) => setTableNumber(e.target.value)}
+                placeholder="e.g. T-04"
+              />
             </div>
-
-            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 font-semibold">
-              <span>Total</span>
-              <span>{formatCurrency(total)}</span>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="guest-name">Your name</Label>
+              <Input
+                id="guest-name"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+              />
             </div>
-
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setCheckoutOpen(false)}
-                className="flex-1 rounded-full border border-slate-300 py-3 text-sm font-semibold text-slate-700"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitOrder}
-                disabled={submitting}
-                className="flex-[1.5] rounded-full bg-[#1A4D2E] py-3 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {submitting ? 'Placing order…' : 'Place order'}
-              </button>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="guest-phone">Phone number</Label>
+              <Input
+                id="guest-phone"
+                value={guestPhone}
+                onChange={(e) => setGuestPhone(e.target.value)}
+              />
             </div>
           </div>
-        </div>
-      ) : null}
+
+          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 font-semibold">
+            <span>Total</span>
+            <span>{formatCurrency(total)}</span>
+          </div>
+
+          <SheetFooter className="mt-4 flex-row gap-3">
+            <Button type="button" variant="outline" className="flex-1 rounded-full" onClick={() => setCheckoutOpen(false)}>
+              Back
+            </Button>
+            <Button
+              type="button"
+              className="flex-[1.5] rounded-full"
+              onClick={handleSubmitOrder}
+              disabled={submitting}
+            >
+              {submitting ? 'Placing order…' : 'Place order'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </main>
   )
 }

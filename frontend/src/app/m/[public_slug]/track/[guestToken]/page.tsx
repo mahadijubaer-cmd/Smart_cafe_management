@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import apiClient from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import type { GuestOrder, GuestOrderGroup, OrderStatus } from '@/types'
 
 const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
@@ -28,13 +30,13 @@ function TicketCard({ order }: { order: GuestOrder }) {
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <Card className="rounded-2xl p-6 shadow-sm">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           {order.vendor_name ? order.vendor_name : `Order #${order.order_id.slice(0, 8)}`}
         </p>
         {order.payment_status === 'paid' ? (
-          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Paid</span>
+          <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">Paid</Badge>
         ) : null}
       </div>
       <h2 className="mt-1 text-xl font-black text-slate-900">
@@ -42,7 +44,7 @@ function TicketCard({ order }: { order: GuestOrder }) {
       </h2>
 
       {!isCancelled ? (
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 flex flex-col gap-2">
           {STATUS_STEPS.map((step, index) => {
             const done = currentStepIndex >= 0 && index <= currentStepIndex
             return (
@@ -50,7 +52,7 @@ function TicketCard({ order }: { order: GuestOrder }) {
                 <span
                   className={[
                     'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                    done ? 'bg-[#1A4D2E] text-white' : 'bg-slate-200 text-slate-500',
+                    done ? 'bg-primary text-primary-foreground' : 'bg-slate-200 text-slate-500',
                   ].join(' ')}
                 >
                   {done ? '✓' : index + 1}
@@ -66,7 +68,7 @@ function TicketCard({ order }: { order: GuestOrder }) {
         </p>
       )}
 
-      <ul className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
+      <ul className="mt-4 flex flex-col gap-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
         {order.items.map((line) => (
           <li key={line.order_item_id} className="flex justify-between">
             <span>{line.quantity}×</span>
@@ -80,7 +82,7 @@ function TicketCard({ order }: { order: GuestOrder }) {
         <span>Subtotal</span>
         <span>{formatCurrency(Number(order.total_amount))}</span>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -183,7 +185,7 @@ export default function GuestOrderTrackPage() {
           </span>
         </div>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {group.orders.map((order) => (
             <TicketCard key={order.order_id} order={order} />
           ))}

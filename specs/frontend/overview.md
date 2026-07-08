@@ -2,7 +2,7 @@
 
 **Framework:** Next.js 14 (App Router)  
 **Language:** TypeScript 5.x  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-08
 
 ---
 
@@ -19,10 +19,48 @@
 | react-hot-toast | Toast notifications | — |
 | date-fns | Date formatting | — |
 | papaparse | CSV parsing | — |
-| Tailwind CSS | Styling | Custom components only |
+| Tailwind CSS | Styling | Base styling layer |
+| shadcn/ui | `components/ui/*` primitives | ✅ [2026-07-08] Adopted — see below |
+| class-variance-authority | Variant styling for `components/ui/*` | — |
+| tailwind-merge / clsx | `cn()` helper (`src/lib/utils.ts`) | — |
+| @radix-ui/react-* (`slot`, `alert-dialog`, `switch`, `tooltip`, `label`, `dialog`, `dropdown-menu`, `select`, `tabs`, `popover`, `avatar`, `checkbox`, `radio-group`, `scroll-area`, `separator`, `progress`) | Accessible primitives under `components/ui/*` | — |
+| cmdk, sonner, next-themes | Command palette / toast / theme primitives used by shadcn's `command.tsx`/`sonner.tsx` | `sonner` is separate from the app's existing `react-hot-toast` — both currently present, see note below |
 | @dnd-kit | Drag-and-drop | ❌ Phase 16 — NOT YET INSTALLED |
 
-> shadcn/ui is **NOT** installed. All UI components are custom Tailwind.
+> **shadcn/ui adoption (2026-07-08):** Started as a targeted reimplementation of
+> `components/ui/{button,card,input,label,switch,alert,alert-dialog,tooltip}.tsx` on real shadcn/ui
+> conventions (Radix UI primitives + `cva` + `cn()`), replacing the previous hand-rolled lookalikes,
+> with every exported name/prop kept identical to the old versions **except `Tooltip`**, which now
+> follows shadcn's `TooltipProvider`/`Tooltip`/`TooltipTrigger`/`TooltipContent` split (previously a
+> single component with `content`/`children`/`side` props). `TooltipProvider` is mounted once in the
+> root layout (`src/app/layout.tsx`), alongside `ImpersonationBanner`.
+>
+> The same day, the real `shadcn` CLI (`npx shadcn add ...`) was run directly against the repo,
+> which (a) regenerated `button.tsx` and `label.tsx` to the canonical shadcn output (functionally
+> equivalent to the manual reimplementation, but with the exact upstream class list/exports) and
+> (b) added ~20 further primitives not yet used anywhere in the app: `avatar`, `badge`, `breadcrumb`,
+> `checkbox`, `command`, `dialog`, `dropdown-menu`, `empty`, `field`, `form`, `pagination`, `popover`,
+> `progress`, `radio-group`, `scroll-area`, `select`, `separator`, `sheet`, `sonner`, `table`, `tabs`,
+> `textarea`. These are available for future pages but nothing currently imports them.
+>
+> The CLI-generated components reference `primary-foreground`/`accent-foreground` tokens that didn't
+> exist yet (the initial migration only added `-foreground` pairs for `card`/`popover`/`secondary`/
+> `muted`/`destructive`) — this was a real bug (invisible/low-contrast text on default buttons,
+> checked checkboxes, selected dropdown/select items, badges) caught by grepping the new component
+> set, not by running the CLI's own tests (it has none). Fixed by adding `--primary-foreground: #fff`
+> and `--accent-foreground: #1e293b` to `globals.css` and restructuring `primary`/`accent` in
+> `tailwind.config.js` from flat color strings to `{ DEFAULT, foreground }` objects — Tailwind resolves
+> `bg-primary`/`text-primary`/`primary/20` to `.DEFAULT` automatically, so this is backward-compatible
+> with the ~171 existing `primary`/`accent` usages across 56 files; no call-site changes needed.
+>
+> `tailwind.config.js` / `globals.css` gained the standard shadcn semantic color tokens (`secondary`,
+> `muted`, `destructive`, `border`, `input`, `ring`, `card`, `popover`, `primary`, `accent`, each with a
+> `-foreground` pair) as CSS variables, added **additively** — `background` is unchanged (flat hex).
+>
+> Components not yet migrated to a shadcn equivalent (e.g. inline dialogs in `(admin)/menu/page.tsx`,
+> the `skeletons.tsx` loading placeholders) remain hand-rolled Tailwind — this is a targeted migration
+> of the `components/ui/` primitive set plus CLI-scaffolded extras, not a full design-system rewrite,
+> and not everything under `components/ui/` is actually wired into a page yet.
 
 ---
 
@@ -83,13 +121,34 @@ src/app/
                                         self-service: list + create franchise_outlet tenants.
                                         Nav item only rendered when tenant_type===franchise_brand
                                         (RFC-008)
+      → ✅ [Phase 24 — RFC-009] "Platform" nav section (Tenants/Subscriptions/Analytics/Audit Log)
+        rendered only when role===platform_admin — first ROLE-gated nav items in this layout
+        (existing gates are all tenant_type-gated); see NavItem.allowedRoles
   
   (platform)/
     admin/
-      tenants/page.tsx               → Platform admin tenant CRUD
+      tenants/page.tsx               → Platform admin tenant CRUD — ✅ [Phase 24 — RFC-009] adds
+                                        per-row Impersonate / Export / Delete actions
+      subscriptions/page.tsx         → Tier changes per tenant
+      analytics/page.tsx             → ✅ [Phase 24 — RFC-009] now also calls
+                                        GET /platform/analytics/overview for the genuine
+                                        cross-tenant-type view
+      audit-log/page.tsx             → ✅ [Phase 24 — RFC-009] NEW — paginated platform_audit_logs
+                                        table, filterable by tenant/action, platform_admin-only
   
   unauthorized/page.tsx              → 403 fallback
 ```
+
+**Components:** `components/platform/ImpersonationBanner.tsx` — ✅ [Phase 24 — RFC-009] NEW,
+mounted at the root layout; reads the `impersonation` JWT claim and shows a persistent "Viewing as
+{tenant} — Exit impersonation" banner. Impersonation flow: the Tenants page stashes the platform
+admin's real token in `sessionStorage` before swapping the store token and navigating to
+`/${targetSlug}/dashboard`; Exit restores the stashed token/context and returns to `/admin/tenants`.
+
+`components/ui/tooltip.tsx`'s `TooltipProvider` is also mounted at the root layout (wrapping
+`ImpersonationBanner`, `children`, and `ToastProvider`) — ✅ [2026-07-08, shadcn/ui adoption] required
+by Radix's Tooltip primitive; any `Tooltip`/`TooltipTrigger`/`TooltipContent` usage anywhere in the
+app relies on this single provider instance.
 
 Default slug (redirected to on root): `bracu`
 
@@ -187,6 +246,7 @@ interface JwtPayload {
   outlet_id: string | null;
   exp: number;
   jti: string;
+  impersonation?: boolean;  // ✅ [Phase 24 — RFC-009] true only on impersonation tokens
 }
 
 function getRoleFromToken(token: string): UserRole | null

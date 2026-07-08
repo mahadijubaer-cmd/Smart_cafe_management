@@ -13,7 +13,7 @@ export default function TenantCard({ tenant }: TenantCardProps) {
   return (
     <Link
       href={`/${tenant.slug}/login`}
-      className="group flex flex-col gap-4 rounded-2xl border border-black/8 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="group flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       <div className="flex items-center gap-3">
         {tenant.logo_url ? (
@@ -32,17 +32,17 @@ export default function TenantCard({ tenant }: TenantCardProps) {
           </div>
         )}
         <div>
-          <p className="font-semibold text-slate-800 group-hover:text-primary transition-colors">
+          <p className="font-semibold transition-colors group-hover:text-primary">
             {tenant.name}
           </p>
-          {tenant.city && <p className="text-xs text-slate-500">{tenant.city}</p>}
+          {tenant.city && <p className="text-xs text-muted-foreground">{tenant.city}</p>}
         </div>
       </div>
-      <div className="mt-auto space-y-2">
+      <div className="mt-auto flex flex-col gap-2">
         <span className="inline-flex w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
           {typeLabel}
         </span>
-        <p className="text-xs leading-snug text-slate-500">{meta.description}</p>
+        <p className="text-xs leading-snug text-muted-foreground">{meta.description}</p>
       </div>
     </Link>
   )

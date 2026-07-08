@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -30,17 +30,17 @@ export default function MovementsPage() {
   return (
     <ProtectedRoute allowedRoles={['tenant_admin', 'outlet_admin', 'super_admin', 'platform_admin', 'admin']}>
       <main className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6">
           <div>
-            <Link href={`/${slug}/inventory`} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition mb-3">
-              <ArrowLeft className="h-4 w-4" />
+            <Link href={`/${slug}/inventory`} className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground">
+              <ArrowLeft data-icon="inline-start" />
               Back to Inventory
             </Link>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Stock Movements</h1>
-            <p className="mt-1 text-sm text-slate-600">Complete audit trail of every stock change.</p>
+            <h1 className="text-3xl font-black tracking-tight text-foreground">Stock Movements</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Complete audit trail of every stock change.</p>
           </div>
 
-          <Card className="border-slate-200">
+          <Card>
             <CardHeader>
               <CardTitle>Movement History</CardTitle>
             </CardHeader>

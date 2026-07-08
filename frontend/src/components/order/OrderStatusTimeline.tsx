@@ -1,5 +1,8 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import type { Order } from '@/types'
 
 const steps: { label: string; status: Order['status'] }[] = [
@@ -28,13 +31,12 @@ export default function OrderStatusTimeline({ status }: OrderStatusTimelineProps
   const activeIndex = statusRank[status]
 
   return (
-    <div className="space-y-4 rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-      <div>
-        <h3 className="text-xl font-bold text-slate-900">Order Status</h3>
-        <p className="mt-1 text-sm text-slate-500">Live progress of your meal.</p>
-      </div>
-
-      <div className="flex flex-col gap-4">
+    <Card>
+      <CardHeader>
+        <CardTitle>Order Status</CardTitle>
+        <CardDescription>Live progress of your meal.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
         {steps.map((step, index) => {
           const isComplete = index < activeIndex
           const isCurrent = index === activeIndex
@@ -43,22 +45,29 @@ export default function OrderStatusTimeline({ status }: OrderStatusTimelineProps
             <div key={step.label} className="flex items-center gap-4">
               <div className="flex w-10 items-center justify-center">
                 <span
-                  className={`h-4 w-4 rounded-full ${
-                    isComplete ? 'bg-emerald-600' : isCurrent ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200'
-                  }`}
+                  className={cn(
+                    'size-4 rounded-full',
+                    isComplete ? 'bg-emerald-600' : isCurrent ? 'animate-pulse bg-emerald-500' : 'bg-muted'
+                  )}
                 />
               </div>
 
               <div className="flex-1">
-                <p className={`text-sm font-semibold ${isCurrent ? 'text-emerald-700' : 'text-slate-700'}`}>{step.label}</p>
+                <p className={cn('text-sm font-semibold', isCurrent ? 'text-emerald-700' : 'text-foreground')}>
+                  {step.label}
+                </p>
                 {isCurrent ? <p className="text-xs text-emerald-600">Current step</p> : null}
               </div>
 
-              {isComplete ? <span className="text-xs font-semibold text-emerald-600">Done</span> : null}
+              {isComplete ? (
+                <Badge variant="secondary" className="text-emerald-700">
+                  Done
+                </Badge>
+              ) : null}
             </div>
           )
         })}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

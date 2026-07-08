@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.table import TableStatus
+
 
 class TableResponse(BaseModel):
     table_id: int
@@ -42,4 +44,4 @@ class TableLayoutBatch(BaseModel):
 
 
 class TableUpdateStatus(BaseModel):
-    status: str = "available"
+    status: TableStatus = TableStatus.available

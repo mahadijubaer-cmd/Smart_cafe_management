@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Inbox } from 'lucide-react'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import useWebSocket from '@/hooks/useWebSocket'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { useStore } from '@/store/useStore'
 import type { Order } from '@/types'
 
@@ -120,14 +123,14 @@ function OrderCard({
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Table {order.table_number || order.table_id || 'N/A'}</p>
           <p className="mt-1 text-sm text-slate-500">{formatTime(order.time_slot)}</p>
           {order.order_source === 'guest_qr' || order.order_source === 'kiosk' ? (
-            <span className="mt-1 inline-flex w-fit rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+            <Badge className="mt-1 w-fit bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
               Guest{order.guest_name ? ` · ${order.guest_name}` : ''}
-            </span>
+            </Badge>
           ) : null}
         </div>
-        <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm">
+        <Badge variant="secondary" className="uppercase tracking-wide">
           {order.status.replace('_', ' ')}
-        </span>
+        </Badge>
       </div>
 
       <div className="mt-4 space-y-3">
@@ -144,7 +147,7 @@ function OrderCard({
         </div>
 
         {order.special_notes ? (
-          <span className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">{order.special_notes}</span>
+          <Badge className="bg-slate-900 text-white hover:bg-slate-900">{order.special_notes}</Badge>
         ) : null}
       </div>
 
@@ -152,7 +155,7 @@ function OrderCard({
         <div className="mt-5">
           <Button
             type="button"
-            className="w-full bg-[#1A4D2E] text-white hover:bg-[#163f25]"
+            className="w-full"
             onClick={() => onAdvance(order.order_id, nextStep)}
           >
             {nextStep === 'confirmed' ? 'Confirm Order' : nextStep === 'preparing' ? 'Start Preparing' : nextStep === 'ready' ? 'Mark Ready' : 'Mark Delivered'}
@@ -273,7 +276,7 @@ export default function StaffOrdersPage() {
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
+              <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
                 Staff orders
               </p>
               <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Kitchen queue</h1>
@@ -300,9 +303,13 @@ export default function StaffOrdersPage() {
                       <OrderCard key={order.order_id} order={order} onAdvance={advanceOrder} />
                     ))
                   ) : (
-                    <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-8 text-center text-sm text-slate-500">
-                      No orders here yet.
-                    </div>
+                    <Empty className="border border-dashed border-slate-300 bg-white/70">
+                      <EmptyMedia variant="icon">
+                        <Inbox />
+                      </EmptyMedia>
+                      <EmptyTitle>No orders here yet</EmptyTitle>
+                      <EmptyDescription>New orders will appear here automatically.</EmptyDescription>
+                    </Empty>
                   )}
                 </CardContent>
               </Card>

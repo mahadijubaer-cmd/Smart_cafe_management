@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 import type { Category, MenuItem } from '@/types'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const ROTATE_INTERVAL_MS = 8000
 
@@ -57,8 +58,13 @@ export default function SignagePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <p>Loading menu board…</p>
+      <main className="flex min-h-screen flex-col gap-4 bg-slate-950 px-10 py-8">
+        <Skeleton className="h-10 w-64 bg-white/10" />
+        <div className="mt-6 grid flex-1 grid-cols-2 content-start gap-6 xl:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-20 rounded-3xl bg-white/5" />
+          ))}
+        </div>
       </main>
     )
   }

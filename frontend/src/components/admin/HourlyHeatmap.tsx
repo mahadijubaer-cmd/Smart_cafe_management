@@ -1,5 +1,7 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
+
 interface HourlyData {
   hour: number
   order_count: number
@@ -36,7 +38,7 @@ export default function HourlyHeatmap({ data }: HourlyHeatmapProps) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-end gap-1">
         {hours.map(({ hour, count }) => (
           <div
@@ -49,7 +51,7 @@ export default function HourlyHeatmap({ data }: HourlyHeatmapProps) {
               style={{ height: `${Math.max((count / max) * 80, count > 0 ? 4 : 2)}px` }}
             />
             {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs text-white group-hover:block">
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg group-hover:block">
               {formatHour(hour)} — {count} order{count !== 1 ? 's' : ''}
             </div>
           </div>
@@ -58,25 +60,25 @@ export default function HourlyHeatmap({ data }: HourlyHeatmapProps) {
       {/* X-axis labels — every 3 hours */}
       <div className="flex">
         {hours.map(({ hour }) => (
-          <div key={hour} className="flex-1 text-center text-[9px] text-slate-400">
+          <div key={hour} className="flex-1 text-center text-[9px] text-muted-foreground">
             {hour % 3 === 0 ? formatHour(hour) : ''}
           </div>
         ))}
       </div>
       {/* Legend */}
-      <div className="flex items-center gap-3 pt-1 text-xs text-slate-500">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-slate-100" /> 0
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-300" /> Low
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-orange-500" /> Mid
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-600" /> Peak
-        </span>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <Badge variant="outline" className="gap-1.5 font-normal">
+          <span className="size-2.5 rounded-sm bg-slate-100" /> 0
+        </Badge>
+        <Badge variant="outline" className="gap-1.5 font-normal">
+          <span className="size-2.5 rounded-sm bg-amber-300" /> Low
+        </Badge>
+        <Badge variant="outline" className="gap-1.5 font-normal">
+          <span className="size-2.5 rounded-sm bg-orange-500" /> Mid
+        </Badge>
+        <Badge variant="outline" className="gap-1.5 font-normal">
+          <span className="size-2.5 rounded-sm bg-rose-600" /> Peak
+        </Badge>
       </div>
     </div>
   )

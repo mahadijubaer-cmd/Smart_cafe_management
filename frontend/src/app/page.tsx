@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useStore } from '@/store/useStore'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 export default function Home() {
   const tenantSlug = useStore((state) => state.tenantSlug)
@@ -16,54 +18,43 @@ export default function Home() {
 
       {/* RFC-007: segment landing — cafeteria (registered accounts) vs restaurant (guest QR ordering) */}
       <div className="mt-12 grid w-full max-w-3xl gap-6 sm:grid-cols-2">
-        <Link
-          href="/discover?segment=cafeteria"
-          className="group flex flex-col items-start gap-3 rounded-2xl border border-white/20 bg-white/5 p-8 text-left transition hover:-translate-y-0.5 hover:bg-white/10"
-        >
-          <span className="text-3xl">🍽️</span>
-          <span className="text-xl font-bold">Cafeteria</span>
-          <span className="text-sm text-white/60">
-            For corporate and academic communities. Log in with your account to order and pay from
-            your wallet.
-          </span>
+        <Link href="/discover?segment=cafeteria" className="group block">
+          <Card className="flex flex-col items-start gap-3 rounded-2xl border-white/20 bg-white/5 p-8 text-left shadow-none transition hover:-translate-y-0.5 hover:bg-white/10">
+            <span className="text-3xl">🍽️</span>
+            <span className="text-xl font-bold text-white">Cafeteria</span>
+            <span className="text-sm text-white/60">
+              For corporate and academic communities. Log in with your account to order and pay from
+              your wallet.
+            </span>
+          </Card>
         </Link>
 
-        <Link
-          href="/discover?segment=restaurant"
-          className="group flex flex-col items-start gap-3 rounded-2xl border border-white/20 bg-white/5 p-8 text-left transition hover:-translate-y-0.5 hover:bg-white/10"
-        >
-          <span className="text-3xl">🍔</span>
-          <span className="text-xl font-bold">Restaurant</span>
-          <span className="text-sm text-white/60">
-            Independent restaurants, franchises &amp; food courts. No account needed — scan the
-            table QR to browse the menu and order as a guest.
-          </span>
+        <Link href="/discover?segment=restaurant" className="group block">
+          <Card className="flex flex-col items-start gap-3 rounded-2xl border-white/20 bg-white/5 p-8 text-left shadow-none transition hover:-translate-y-0.5 hover:bg-white/10">
+            <span className="text-3xl">🍔</span>
+            <span className="text-xl font-bold text-white">Restaurant</span>
+            <span className="text-sm text-white/60">
+              Independent restaurants, franchises &amp; food courts. No account needed — scan the
+              table QR to browse the menu and order as a guest.
+            </span>
+          </Card>
         </Link>
       </div>
 
       <div className="mt-10 flex flex-col gap-4 sm:flex-row">
         {hasHydrated && tenantSlug ? (
-          <Link
-            href={`/${tenantSlug}/login`}
-            className="rounded-2xl bg-white px-8 py-3 font-semibold text-[#1A4D2E] transition hover:bg-white/90"
-          >
-            Continue to {tenantSlug}
-          </Link>
+          <Button asChild size="lg" className="rounded-2xl bg-white text-[#1A4D2E] hover:bg-white/90">
+            <Link href={`/${tenantSlug}/login`}>Continue to {tenantSlug}</Link>
+          </Button>
         ) : null}
 
-        <Link
-          href="/discover"
-          className="rounded-2xl border border-white/30 px-8 py-3 font-semibold text-white transition hover:bg-white/10"
-        >
-          Find your organisation
-        </Link>
+        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
+          <Link href="/discover">Find your organisation</Link>
+        </Button>
 
-        <Link
-          href="/register-organization"
-          className="rounded-2xl border border-white/30 px-8 py-3 font-semibold text-white transition hover:bg-white/10"
-        >
-          Register your organisation
-        </Link>
+        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
+          <Link href="/register-organization">Register your organisation</Link>
+        </Button>
       </div>
     </main>
   )

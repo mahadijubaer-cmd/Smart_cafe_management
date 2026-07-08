@@ -12,14 +12,15 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.email import send_invite_email
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import ADMIN_ROLES, TenantContext, get_current_user, get_tenant_context, require_role
+from app.core.dependencies import ADMIN_ROLES, CLEANER_ROLES, FLOOR_STAFF_ROLES, TenantContext, get_current_user, get_tenant_context, require_role
 from app.core.security import hash_password as _hash_password
+from app.core.tier_limits import check_tier_limit
 from app.models.models import StaffInvitation
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
@@ -108,6 +109,15 @@ async def send_invite(
     tenant = tenant_result.scalar_one_or_none()
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found")
+
+    staff_role_values = [r.value for r in (*FLOOR_STAFF_ROLES, *CLEANER_ROLES)]
+    staff_count = await db.scalar(
+        select(func.count(User.user_id)).where(
+            User.tenant_id == current_user.tenant_id,
+            User.role.in_(staff_role_values),
+        )
+    )
+    check_tier_limit(tenant.subscription_tier, "max_staff", staff_count)
 
     raw_token = secrets.token_urlsafe(32)
     token_hash = _hash_token(raw_token)

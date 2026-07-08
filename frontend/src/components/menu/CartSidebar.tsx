@@ -2,8 +2,22 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { CATEGORY_ICONS } from '@/lib/category'
+import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 import type { MenuItem } from '@/types'
 
@@ -29,7 +43,7 @@ export default function CartSidebar() {
   const clearCart = useStore((state) => state.clearCart)
   const isCartOpen = useStore((state) => state.isCartOpen)
   const closeCart = useStore((state) => state.closeCart)
-  const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [removingIds, setRemovingIds] = useState<string[]>([])
 
   const subtotal = useMemo(() => cartTotal(), [cartTotal, cart])
@@ -37,7 +51,7 @@ export default function CartSidebar() {
 
   useEffect(() => {
     if (!isCartOpen) {
-      setConfirmClear(false)
+      setConfirmClearOpen(false)
     }
   }, [isCartOpen])
 
@@ -67,12 +81,7 @@ export default function CartSidebar() {
   }
 
   const handleClearCart = () => {
-    if (!confirmClear) {
-      setConfirmClear(true)
-      return
-    }
-
-    setConfirmClear(false)
+    setConfirmClearOpen(false)
     clearCart()
   }
 
@@ -84,56 +93,49 @@ export default function CartSidebar() {
   return (
     <>
       <div
-        className={[
+        className={cn(
           'fixed inset-0 z-30 bg-black/40 transition-opacity duration-300',
-          isCartOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
-        ].join(' ')}
+          isCartOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        )}
         onClick={handleClose}
         aria-hidden="true"
       />
 
       <aside
-        className={[
-          'fixed z-40 bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
+        className={cn(
+          'fixed z-40 bg-background shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
           'left-0 right-0 bottom-0 rounded-t-2xl lg:left-auto lg:right-0 lg:top-0 lg:h-full lg:w-80 lg:rounded-none',
-          isCartOpen ? 'translate-y-0 lg:translate-x-0' : 'translate-y-full lg:translate-x-full',
-        ].join(' ')}
+          isCartOpen ? 'translate-y-0 lg:translate-x-0' : 'translate-y-full lg:translate-x-full'
+        )}
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-center pt-3 lg:hidden">
-            <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+            <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
           </div>
 
-          <header className="flex items-center justify-between border-b border-gray-100 px-4 py-4 sm:px-5">
+          <header className="flex items-center justify-between border-b px-4 py-4 sm:px-5">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900">My Cart</h2>
-                <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
-                  {itemCount}
-                </span>
+                <h2 className="text-lg font-bold">My Cart</h2>
+                <Badge variant="secondary">{itemCount}</Badge>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Review items before checkout</p>
+              <p className="mt-1 text-xs text-muted-foreground">Review items before checkout</p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-              aria-label="Close cart"
-            >
-              ✕
-            </button>
+            <Button variant="outline" size="icon" className="rounded-full" onClick={handleClose} aria-label="Close cart">
+              <X />
+            </Button>
           </header>
 
           <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5" style={{ maxHeight: '60vh' }}>
             {cart.length === 0 ? (
               <div className="flex min-h-[18rem] flex-col items-center justify-center text-center">
-                <div className="cart-empty-pulse text-6xl">🛒</div>
-                <h3 className="mt-4 text-lg font-bold text-slate-900">Your cart is empty</h3>
-                <p className="mt-2 max-w-xs text-sm text-gray-500">Browse menu to add items</p>
+                <ShoppingCart className="cart-empty-pulse size-16 text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-bold">Your cart is empty</h3>
+                <p className="mt-2 max-w-xs text-sm text-muted-foreground">Browse menu to add items</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {cart.map((cartItem) => {
                   const item = cartItem.item
                   const itemId = item.item_id
@@ -143,55 +145,58 @@ export default function CartSidebar() {
                   return (
                     <div
                       key={itemId}
-                      className={[
-                        'rounded-2xl border border-gray-200 bg-gray-50 p-3 transition-all duration-200',
-                        isRemoving ? 'cart-item-exit pointer-events-none opacity-0 translate-x-10' : 'opacity-100 translate-x-0',
-                      ].join(' ')}
+                      className={cn(
+                        'rounded-2xl border bg-muted/40 p-3 transition-all duration-200',
+                        isRemoving ? 'cart-item-exit pointer-events-none translate-x-10 opacity-0' : 'translate-x-0 opacity-100'
+                      )}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,#F6E7C9_0%,#E8D4A6_45%,#D8B97A_100%)] text-2xl">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,#F6E7C9_0%,#E8D4A6_45%,#D8B97A_100%)] text-2xl">
                           <span aria-hidden="true">{emoji}</span>
                         </div>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="truncate font-semibold text-slate-900">{item.name}</p>
-                              <p className="mt-1 text-sm text-gray-500">{formatCurrency(item.price)}</p>
+                              <p className="truncate font-semibold">{item.name}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
                             </div>
 
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-9 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
                               onClick={() => handleRemove(itemId)}
-                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-white hover:text-red-600"
                               aria-label={`Remove ${item.name}`}
                             >
-                              🗑
-                            </button>
+                              <Trash2 />
+                            </Button>
                           </div>
 
                           <div className="mt-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-1 py-1">
-                              <button
-                                type="button"
+                            <div className="flex items-center gap-2 rounded-full border bg-background px-1 py-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 rounded-full"
                                 onClick={() => handleDecrement(itemId, cartItem.quantity)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-gray-700 transition hover:bg-gray-50"
                                 aria-label={`Decrease ${item.name}`}
                               >
-                                −
-                              </button>
-                              <span className="min-w-7 text-center text-sm font-semibold text-slate-900">{cartItem.quantity}</span>
-                              <button
-                                type="button"
+                                <Minus className="size-4" />
+                              </Button>
+                              <span className="min-w-7 text-center text-sm font-semibold">{cartItem.quantity}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 rounded-full"
                                 onClick={() => updateQuantity(itemId, cartItem.quantity + 1)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-gray-700 transition hover:bg-gray-50"
                                 aria-label={`Increase ${item.name}`}
                               >
-                                +
-                              </button>
+                                <Plus className="size-4" />
+                              </Button>
                             </div>
 
-                            <p className="text-sm font-semibold text-slate-900">{formatCurrency(item.price * cartItem.quantity)}</p>
+                            <p className="text-sm font-semibold">{formatCurrency(item.price * cartItem.quantity)}</p>
                           </div>
                         </div>
                       </div>
@@ -202,35 +207,51 @@ export default function CartSidebar() {
             )}
           </div>
 
-          <footer className="sticky bottom-0 border-t border-gray-100 bg-white px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.04)] sm:px-5">
+          <footer className="sticky bottom-0 border-t bg-background px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.04)] sm:px-5">
             {subtotal < 50 ? (
               <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
                 Min order: ৳50
               </div>
             ) : null}
 
-            <div className="mb-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm font-semibold text-slate-900">
+            <div className="mb-4 flex items-center justify-between border-t pt-4 text-sm font-semibold">
               <span>Subtotal:</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleClearCart}
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                {confirmClear ? 'Sure?' : 'Clear Cart'}
-              </button>
+              <AlertDialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
+                <Button
+                  variant="outline"
+                  className="h-11 flex-1 rounded-full"
+                  onClick={() => setConfirmClearOpen(true)}
+                  disabled={cart.length === 0}
+                >
+                  Clear Cart
+                </Button>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear your cart?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove all items currently in your cart. This can&apos;t be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction variant="destructive" onClick={handleClearCart}>
+                      Clear Cart
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
-              <button
-                type="button"
+              <Button
+                className="h-11 flex-[1.35] rounded-full"
                 onClick={handleProceed}
                 disabled={cart.length === 0}
-                className="inline-flex h-11 flex-[1.35] items-center justify-center rounded-full bg-[#1A4D2E] px-4 text-sm font-semibold text-white transition hover:bg-[#163f25] disabled:cursor-not-allowed disabled:bg-gray-300"
               >
                 Proceed to Order →
-              </button>
+              </Button>
             </div>
           </footer>
         </div>

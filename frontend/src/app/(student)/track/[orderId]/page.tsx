@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BellRing, Check, CheckCheck, Circle, Clock3, Coffee, Loader2, PackageCheck, PartyPopper, Sparkles, UtensilsCrossed } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'

@@ -8,6 +8,7 @@ import { BookOpenText, CircleUserRound, CreditCard, MenuSquare } from 'lucide-re
 import Navbar from '@/components/layout/Navbar'
 import CartSidebar from '@/components/menu/CartSidebar'
 import apiClient from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { isRestaurantSegment } from '@/lib/segments'
 import { useStore } from '@/store/useStore'
 
@@ -94,7 +95,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white shadow-[0_-10px_30px_rgba(15,23,42,0.08)] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background shadow-[0_-10px_30px_rgba(15,23,42,0.08)] lg:hidden">
         <div className="mx-auto grid max-w-7xl grid-cols-4 px-2 py-2">
           {navItems.map((item) => {
             const active = activeRoute(item.href)
@@ -102,14 +103,14 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={[
+                className={cn(
                   'flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs transition',
-                  active ? 'font-semibold text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-800',
-                ].join(' ')}
+                  active ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'
+                )}
               >
-                <span className={active ? 'text-[#1A4D2E]' : 'text-slate-500'}>{item.icon}</span>
+                <span className={active ? 'text-primary' : 'text-muted-foreground'}>{item.icon}</span>
                 <span>{item.label}</span>
-                <span className={['h-0.5 w-8 rounded-full transition', active ? 'bg-[#1A4D2E] opacity-100' : 'bg-transparent opacity-0'].join(' ')} />
+                <span className={cn('h-0.5 w-8 rounded-full transition', active ? 'bg-primary opacity-100' : 'bg-transparent opacity-0')} />
               </Link>
             )
           })}

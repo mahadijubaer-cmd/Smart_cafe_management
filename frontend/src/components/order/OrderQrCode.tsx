@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { QrCode } from 'lucide-react'
 import apiClient from '@/lib/api'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface OrderQrCodeProps {
   orderId: string
@@ -37,8 +38,8 @@ export default function OrderQrCode({ orderId }: OrderQrCodeProps) {
   if (loading) {
     return (
       <div className="flex flex-col items-center gap-3 py-2">
-        <div className="h-36 w-36 animate-pulse rounded-2xl bg-slate-100" />
-        <p className="text-xs text-slate-400">Loading QR code…</p>
+        <Skeleton className="size-36 rounded-2xl" />
+        <p className="text-xs text-muted-foreground">Loading QR code…</p>
       </div>
     )
   }
@@ -46,22 +47,22 @@ export default function OrderQrCode({ orderId }: OrderQrCodeProps) {
   if (error || !base64) {
     return (
       <div className="flex flex-col items-center gap-2 py-2 text-center">
-        <QrCode className="h-8 w-8 text-slate-300" />
-        <p className="text-xs text-slate-400">QR code unavailable</p>
+        <QrCode className="size-8 text-muted-foreground/50" />
+        <p className="text-xs text-muted-foreground">QR code unavailable</p>
       </div>
     )
   }
 
   return (
     <div className="flex flex-col items-center gap-3 py-2">
-      <div className="rounded-2xl border border-black/10 bg-white p-3 shadow-sm">
+      <div className="rounded-2xl border bg-card p-3 shadow-sm">
         <img
           src={`data:image/png;base64,${base64}`}
           alt={`QR code for order ${orderId}`}
-          className="h-36 w-36 rounded-xl object-contain"
+          className="size-36 rounded-xl object-contain"
         />
       </div>
-      <p className="text-xs text-slate-500">Show this at the counter to collect your order.</p>
+      <p className="text-xs text-muted-foreground">Show this at the counter to collect your order.</p>
     </div>
   )
 }

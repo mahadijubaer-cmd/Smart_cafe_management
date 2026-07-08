@@ -9,6 +9,165 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — Cafeteria-admin sweep: cross-tenant category leak in menu/inventory, and a table-status crash (2026-07-08)
+
+Found by exercising the `bracu` (academic/cafeteria-segment) admin's full admin surface end-to-end
+against the live Docker stack (dashboard, menu, inventory, tables, users, settings, public-link,
+analytics/reports, notifications) — not just reading code.
+
+**1. Menu items could be linked to another tenant's category, and a bad `category_id` crashed with
+a raw 500.** `POST /menu/items`, `PUT /menu/items/{item_id}`, and `PATCH /menu/items/{item_id}` only
+relied on the DB's `menu_items_category_id_fkey` foreign key to guard `category_id`. That FK catches
+a *nonexistent* `category_id` (as an unhandled `IntegrityError` → `500`, not a clean `400`) but
+cannot catch a `category_id` that exists and just belongs to a *different* tenant — Postgres has no
+way to know that's wrong for this endpoint. Confirmed exploitable: logged in as the `bracu`
+tenant_admin, `POST /menu/items` with a `category_id` belonging to a different demo tenant returned
+`201` and created a real cross-tenant-linked menu item. Fixed with a new
+`_validate_category_id()` helper in `app/routers/menu.py` that checks the category exists, is
+active, and belongs to the caller's effective tenant (the brand tenant for franchise outlets/brand
+admins, same scoping `GET /menu/categories` already uses) before every create/update — `400
+"category_id does not exist for this tenant"` otherwise. See `BR-MENU-1` in `specs/modules/menu.md`.
+
+**2. Same class of bug in inventory items' `inv_category_id`.** `POST /inventory/items` and
+`PUT /inventory/items/{item_id}` had the identical gap (FK is `ON DELETE SET NULL`, so a
+cross-tenant `inv_category_id` would silently succeed). Fixed with the analogous
+`_validate_inv_category_id()` helper in `app/routers/inventory.py`. See `INV-8` in
+`specs/modules/inventory.md`.
+
+**3. `PATCH /tables/{table_id}/status` with an invalid status string crashed with a raw 500.**
+`TableUpdateStatus.status` (`app/schemas/table.py`) was typed as a bare `str`, so an invalid value
+(e.g. `"banana_status"`) passed request validation and only got rejected by Postgres's
+`tablestatus` enum column — as an unhandled `asyncpg.exceptions.InvalidTextRepresentationError` →
+`500`. Retyped the field to the existing `TableStatus` enum (`app/models/table.py`) so FastAPI
+rejects it with a clean `422` before it reaches the DB. No data corruption occurred pre-fix (the
+failed transaction rolled back), but confirmed the crash via `docker logs scms_backend`. See
+`BR-TABLE-1` in `specs/modules/tables.md`.
+
+**4. Spec corrections (no code change) found along the way in `specs/modules/tables.md`:**
+`PUT /tables/{table_id}`, `PATCH /tables/layout`, and `DELETE /tables/{table_id}` were all marked
+"Phase 16 — Not yet implemented," but all three are fully implemented in
+`app/routers/tables.py` (and `FloorPlanEditor.tsx` already calls all three) — stale documentation,
+not a dead-endpoint bug. Also, `PATCH /tables/{table_id}/status` was documented as open to
+`staff`/`cleaner`/`server` in addition to admin roles, but the router has only ever allowed
+`ADMIN_ROLES` — also stale documentation, not a code bug: those roles have their own dedicated
+flows for every status transition (`cleaner` via `PATCH /cleaners/logs/{id}/complete`, `occupied`
+set automatically by `order_service` on order placement, `reserved` via the customer's own
+`POST /tables/reserve`), so this raw endpoint is an admin-only manual override. Spec updated to
+match actual code in both cases.
+
+**Verified working correctly, no bug found:** users list/search/toggle, staff invite flow
+(persists across refresh), RBAC (staff correctly 403's on `GET /users`), all 6 analytics endpoints
+(dashboard/reports/analytics pages) match spec response shape exactly, settings round-trip
+(brand_color, org profile, homemade/strict-inventory toggles correctly gated to `academic` tenant
+type), category deletion correctly blocked by linked items, and BR-SEG-3 (cafeteria public-link is
+read-only — guest-checkout toggle and QR-sheet download correctly hidden for cafeteria tenants,
+backend `create_public_order` gate independently enforces it regardless of `guest_checkout_mode`).
+
+- `backend/app/routers/menu.py` — new `_validate_category_id()`; called from `create_menu_item`,
+  `update_menu_item` (PUT), `patch_menu_item` (PATCH)
+- `backend/app/routers/inventory.py` — new `_validate_inv_category_id()`; called from
+  `create_inventory_item`, `update_inventory_item`
+- `backend/app/schemas/table.py` — `TableUpdateStatus.status` retyped `str` → `TableStatus` enum
+- `specs/modules/menu.md` — new `BR-MENU-1`
+- `specs/modules/inventory.md` — new `INV-8`
+- `specs/modules/tables.md` — new `BR-TABLE-1`; corrected stale "Phase 16 — not yet implemented"
+  markers and the `PATCH /status` role list to match actual code
+
+### Fix — Two legacy test files never actually ran, plus a real order_id UUID bug they exposed (2026-07-08)
+
+`backend/tests/test_auth.py` and `backend/tests/test_orders.py` each defined their own local
+`db_session` fixture (predating multi-tenancy) instead of using the shared one in `conftest.py` —
+neither received the Postgres-server-default-stripping fix conftest's fixture has, so their
+`CREATE TABLE` DDL failed outright on SQLite (`uuid_generate_v4()`). Both also assumed a
+pre-multitenant world: no `tenant_id`, a `UserRole.admin` value that no longer exists, and
+register/login payloads missing the now-required `tenant_slug`. Rewrote both files against the
+shared conftest fixtures and the current API contract.
+
+Fixing `test_orders.py` surfaced a real, previously-undiscovered inconsistency in the application
+code itself: `OrderService.update_status` correctly parses the path-string `order_id` into a real
+`uuid.UUID` before querying (`Order.order_id` is a native UUID column), but `orders.py::get_order`,
+`orders.py::cancel_order`, `orders.py::complete_meal`, and `OrderService.complete_meal` all
+compared the raw string directly. This never surfaced against production Postgres/asyncpg (which
+tolerates a plain string for a UUID column), but is a genuine type-correctness bug and broke
+outright under the SQLite test harness every other test file in this suite already relies on.
+Fixed by adding the same `uuid.UUID(str(order_id))` parse (404 on `ValueError`) at all four sites,
+via a new shared `_parse_order_id()` helper in `orders.py` — matching the pattern
+`update_status` already established.
+
+- `backend/tests/test_auth.py` — rewritten against `conftest.py` fixtures + current auth contract
+- `backend/tests/test_orders.py` — rewritten against `conftest.py` fixtures + current order contract;
+  also fixed a `student_client`/`staff_client` fixture bug where both mutated the *same* shared
+  `async_client.headers` dict, so whichever resolved last silently won for both roles
+- `backend/app/routers/orders.py` — new `_parse_order_id()` helper; used in `get_order`,
+  `cancel_order`, `complete_meal`
+- `backend/app/services/order_service.py` — `complete_meal` now parses `order_id` before querying,
+  and uses the already-loaded `order.order_id` (not the raw string) for the cleaner-assignment and
+  reward-log calls
+
+Full suite: 201 passing, only the single pre-existing flaky `test_otp.py::test_max_attempts_invalidates_code` remains (confirmed non-deterministic — passed on its own in the same session).
+
+### Changed — Adopt real shadcn/ui for `components/ui/*` primitives (2026-07-08)
+
+`components/ui/{button,card,input,label,switch,alert,alert-dialog,tooltip}.tsx` were previously
+hand-rolled lookalikes (template-string classes, no Radix underneath). Reimplemented on real
+shadcn/ui conventions — Radix UI primitives + `class-variance-authority` + `cn()` — gaining real
+focus-trap/Escape/scroll-lock on `AlertDialog` and accessible keyboard/ARIA behavior on `Switch`/
+`Tooltip`. See `specs/frontend/overview.md` (Tech Stack) for the full token/provider details.
+
+- All exported component names/props kept identical to the previous versions **except `Tooltip`**,
+  which now follows shadcn's `TooltipProvider`/`Tooltip`/`TooltipTrigger`/`TooltipContent` split.
+- `frontend/src/lib/utils.ts` — new, `cn()` helper
+- `frontend/components.json` — new, shadcn CLI config (for future `npx shadcn add <name>`)
+- `frontend/tailwind.config.js`, `frontend/src/app/globals.css` — additive new semantic color
+  tokens (`secondary`, `muted`, `destructive`, `border`, `input`, `ring`, `card`, `popover`);
+  existing `primary`/`accent`/`background` tokens unchanged
+- `frontend/src/app/layout.tsx` — mounts `TooltipProvider`
+- `frontend/src/components/order/TableGrid.tsx` — updated to the new Tooltip trigger/content API
+- `frontend/package.json` — added `class-variance-authority`, `tailwind-merge`,
+  `@radix-ui/react-{slot,alert-dialog,switch,tooltip,label}`
+
+**Follow-up (same day): real `shadcn` CLI run + missing-token fix.** The `shadcn` CLI was then run
+directly against the repo, regenerating `button.tsx`/`label.tsx` to canonical upstream output and
+adding ~20 unused-for-now primitives (`avatar`, `badge`, `dialog`, `dropdown-menu`, `select`, `tabs`,
+`table`, etc. — see `specs/frontend/overview.md` for the full list). This surfaced a real bug: the
+CLI-generated components reference `primary-foreground`/`accent-foreground` tokens that the initial
+migration never added (it only covered `card`/`popover`/`secondary`/`muted`/`destructive`), which
+would have rendered invisible/low-contrast text on default buttons, checked checkboxes, and selected
+dropdown/select items. Fixed by adding `--primary-foreground`/`--accent-foreground` CSS variables and
+restructuring `primary`/`accent` in `tailwind.config.js` into `{ DEFAULT, foreground }` objects
+(backward-compatible with all existing `bg-primary`/`text-primary`/`primary/20`-style usages).
+
+- `frontend/tailwind.config.js` — `primary`/`accent` restructured to `{ DEFAULT, foreground }`
+- `frontend/src/app/globals.css` — added `--primary-foreground`, `--accent-foreground`
+- `frontend/src/components/ui/{button,label}.tsx` — CLI-regenerated (functionally equivalent)
+- `frontend/src/components/ui/{avatar,badge,breadcrumb,checkbox,command,dialog,dropdown-menu,empty,field,form,pagination,popover,progress,radio-group,scroll-area,select,separator,sheet,sonner,table,tabs,textarea}.tsx` — new, CLI-scaffolded, not yet imported anywhere
+- `frontend/package.json` — added `@radix-ui/react-{avatar,checkbox,dialog,dropdown-menu,popover,progress,radio-group,scroll-area,select,separator,tabs}`, `cmdk`, `sonner`, `next-themes`
+
+### Added — Platform Admin Control Plane (Phase 24, RFC-009, 2026-07-08)
+
+Platform admin gains: an audit trail of every tenant mutation it performs, enforced subscription-tier
+resource limits (outlets/menu items/staff), tenant impersonation for support, hard-delete + JSON
+export for offboarding, and navigation links to the previously URL-only platform pages. See
+`specs/decisions/rfcs/RFC-009-platform-admin-control-plane.md` and new `specs/modules/platform.md`.
+
+- `backend/app/models/models.py` — new `PlatformAuditLog` model
+- `backend/alembic/versions/0008_add_platform_audit_log.py` — new migration
+- `backend/app/services/audit_service.py` — new, `record_audit()` + `AuditAction`
+- `backend/app/core/tier_limits.py` — new, `TIER_LIMITS` + `check_tier_limit()`
+- `backend/app/routers/platform.py` — new, audit-logs/analytics-overview/impersonate endpoints
+- `backend/app/routers/tenants.py` — `DELETE /{id}` (hard delete), `GET /{id}/export`, audit-log
+  calls on create/tier-change/activate/suspend, tier-limit check on outlet creation
+- `backend/app/routers/menu.py` — tier-limit check on item creation
+- `backend/app/routers/invitations.py` — tier-limit check on staff invite
+- `backend/app/services/auth_service.py` — `create_access_token` gains optional `extra_claims`
+- `backend/tests/test_platform_admin.py` — new
+- `frontend/src/lib/auth.ts` — `JwtPayload.impersonation`
+- `frontend/src/app/[tenant_slug]/(admin)/layout.tsx` — role-gated "Platform" nav section
+- `frontend/src/app/(platform)/admin/audit-log/page.tsx` — new
+- `frontend/src/app/(platform)/admin/tenants/page.tsx` — Impersonate/Export/Delete actions
+- `frontend/src/app/(platform)/admin/analytics/page.tsx` — genuine platform-wide overview
+- `frontend/src/components/platform/ImpersonationBanner.tsx` — new
+
 ### Added — Franchise self-service outlet provisioning (Phase 23, 2026-07-05)
 
 A franchise brand's own admin (`super_admin`/`tenant_admin`) can now create and list their own

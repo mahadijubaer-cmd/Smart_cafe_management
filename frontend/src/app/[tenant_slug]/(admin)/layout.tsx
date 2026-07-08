@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, usePathname, useRouter } from 'next/navigation'
 import {
@@ -8,8 +8,9 @@ import {
   Box,
   Download,
   FileText,
+  History,
   LayoutDashboard,
-  Menu,
+  LogOut,
   QrCode,
   Settings,
   ShoppingBag,
@@ -18,49 +19,77 @@ import {
   Users,
   UtensilsCrossed,
   Warehouse,
-  X,
 } from 'lucide-react'
 
+import { getRoleFromToken } from '@/lib/auth'
 import { useStore } from '@/store/useStore'
-import type { TenantType } from '@/types'
+import type { TenantType, UserRole } from '@/types'
+import { Button } from '@/components/ui/button'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
 
 type NavItem = {
   label: string
   path: string
   icon: ReactNode
   allowedTypes?: TenantType[]
+  allowedRoles?: UserRole[]
+  /** Absolute href instead of `/${slug}/${path}` — used by pages outside the tenant_slug tree. */
+  absolute?: boolean
 }
 
+// ✅ [Phase 24 — RFC-009] Platform section — gated by ROLE (platform_admin), not tenant_type;
+// these pages live under (platform)/admin/*, outside the [tenant_slug] route tree.
+const PLATFORM_NAV_DEFS: NavItem[] = [
+  { label: 'Platform Tenants', path: '/admin/tenants', icon: <Store />, absolute: true, allowedRoles: ['platform_admin'] },
+  { label: 'Subscriptions', path: '/admin/subscriptions', icon: <BarChart3 />, absolute: true, allowedRoles: ['platform_admin'] },
+  { label: 'Platform Analytics', path: '/admin/analytics', icon: <BarChart3 />, absolute: true, allowedRoles: ['platform_admin'] },
+  { label: 'Audit Log', path: '/admin/audit-log', icon: <History />, absolute: true, allowedRoles: ['platform_admin'] },
+]
+
 const NAV_DEFS: NavItem[] = [
-  { label: 'Dashboard', path: 'dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: 'Orders', path: 'orders', icon: <ShoppingBag className="h-4 w-4" /> },
-  { label: 'Tables', path: 'tables', icon: <Table2 className="h-4 w-4" /> },
-  { label: 'Menu', path: 'menu-management', icon: <UtensilsCrossed className="h-4 w-4" /> },
-  { label: 'Inventory', path: 'inventory', icon: <Box className="h-4 w-4" /> },
+  { label: 'Dashboard', path: 'dashboard', icon: <LayoutDashboard /> },
+  { label: 'Orders', path: 'orders', icon: <ShoppingBag /> },
+  { label: 'Tables', path: 'tables', icon: <Table2 /> },
+  { label: 'Menu', path: 'menu-management', icon: <UtensilsCrossed /> },
+  { label: 'Inventory', path: 'inventory', icon: <Box /> },
   {
     label: 'Central Inventory',
     path: 'inventory/central',
-    icon: <Warehouse className="h-4 w-4" />,
+    icon: <Warehouse />,
     allowedTypes: ['franchise_brand'],
   },
   {
     label: 'Outlets',
     path: 'outlets',
-    icon: <Store className="h-4 w-4" />,
+    icon: <Store />,
     allowedTypes: ['franchise_brand'],
   },
-  { label: 'Users', path: 'users', icon: <Users className="h-4 w-4" /> },
+  { label: 'Users', path: 'users', icon: <Users /> },
   {
     label: 'Public Link',
     path: 'public-link',
-    icon: <QrCode className="h-4 w-4" />,
+    icon: <QrCode />,
     // All tenant types may publish a public menu — restaurant segment gets guest
     // ordering, cafeteria segment gets read-only browsing only (RFC-007 Phase D).
   },
-  { label: 'Analytics', path: 'analytics', icon: <BarChart3 className="h-4 w-4" /> },
-  { label: 'Reports', path: 'reports', icon: <Download className="h-4 w-4" /> },
-  { label: 'Memo', path: 'memo', icon: <FileText className="h-4 w-4" /> },
-  { label: 'Settings', path: 'settings', icon: <Settings className="h-4 w-4" /> },
+  { label: 'Analytics', path: 'analytics', icon: <BarChart3 /> },
+  { label: 'Reports', path: 'reports', icon: <Download /> },
+  { label: 'Memo', path: 'memo', icon: <FileText /> },
+  { label: 'Settings', path: 'settings', icon: <Settings /> },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -72,7 +101,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const token = useStore((state) => state.token)
   const tenantType = useStore((state) => state.tenantType)
   const clearAuth = useStore((state) => state.clearAuth)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const role = getRoleFromToken(token)
 
   useEffect(() => {
     if (!token) router.replace(`/${slug}/login`)
@@ -86,97 +116,84 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const visibleNav = NAV_DEFS.filter((item) =>
     !item.allowedTypes || (tenantType && item.allowedTypes.includes(tenantType))
   )
-
-  const NavLinks = () => (
-    <ul className="space-y-1">
-      {visibleNav.map((item) => {
-        const href = `/${slug}/${item.path}`
-        const active = pathname === href || pathname.startsWith(`${href}/`)
-        return (
-          <li key={item.path}>
-            <Link
-              href={href}
-              onClick={() => setSidebarOpen(false)}
-              className={[
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                active
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-              ].join(' ')}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
+  const visiblePlatformNav = PLATFORM_NAV_DEFS.filter(
+    (item) => !item.allowedRoles || (role && item.allowedRoles.includes(role))
   )
 
-  const SidebarContent = () => (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <div className="flex items-center gap-2 text-primary">
-          <span className="text-xl" aria-hidden="true">🍽</span>
-          <span className="font-bold tracking-tight">SCMS Admin</span>
-        </div>
-        <p className="mt-0.5 truncate text-xs text-slate-400">{slug}</p>
-      </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <NavLinks />
-      </nav>
-      <div className="border-t border-slate-200 px-3 py-4">
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
-        >
-          Logout
-        </button>
-      </div>
-    </div>
-  )
+  const isActive = (item: NavItem) => {
+    const href = item.absolute ? item.path : `/${slug}/${item.path}`
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   return (
-    <div className="flex min-h-screen bg-[#f9fafb]">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-        <SidebarContent />
-      </aside>
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="border-b px-3 py-3">
+          <div className="flex items-center gap-2 px-2 text-primary">
+            <span className="text-xl" aria-hidden="true">🍽</span>
+            <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">SCMS Admin</span>
+          </div>
+          <p className="truncate px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{slug}</p>
+        </SidebarHeader>
 
-      {/* Mobile overlay */}
-      {sidebarOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl">
-            <SidebarContent />
-          </aside>
-        </div>
-      ) : null}
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleNav.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild isActive={isActive(item)} tooltip={item.label}>
+                      <Link href={`/${slug}/${item.path}`}>
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
-      {/* Main */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile topbar */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <span className="text-sm font-bold text-primary">SCMS Admin</span>
-          <button
-            type="button"
+          {visiblePlatformNav.length > 0 ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visiblePlatformNav.map((item) => (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton asChild isActive={isActive(item)} tooltip={item.label}>
+                        <Link href={item.path}>
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
+        </SidebarContent>
+
+        <SidebarFooter className="border-t px-3 py-3">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
             onClick={handleLogout}
-            className="text-xs font-medium text-red-500"
           >
-            Logout
-          </button>
-        </header>
+            <LogOut data-icon="inline-start" />
+            <span className="group-data-[collapsible=icon]:hidden">Logout</span>
+          </Button>
+        </SidebarFooter>
+      </Sidebar>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </div>
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
+          <SidebarTrigger />
+          <span className="text-sm font-bold text-primary">SCMS Admin</span>
+        </header>
+        <main className="flex-1 overflow-y-auto bg-muted/30">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

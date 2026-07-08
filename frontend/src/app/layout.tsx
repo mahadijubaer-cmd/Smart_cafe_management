@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 
 import './globals.css'
 import ToastProvider from '@/components/ToastProvider'
+import ImpersonationBanner from '@/components/platform/ImpersonationBanner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 export default function RootLayout({
   children,
@@ -16,8 +18,11 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="bg-background text-gray-900">
-        {children}
-        <ToastProvider />
+        <TooltipProvider delayDuration={200}>
+          <ImpersonationBanner />
+          {children}
+          <ToastProvider />
+        </TooltipProvider>
       </body>
     </html>
   )

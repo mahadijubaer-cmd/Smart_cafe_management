@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ShieldCheck } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { getClaimsFromToken, getRoleFromToken } from '@/lib/auth'
@@ -15,7 +15,7 @@ import OtpInput from '@/components/auth/OtpInput'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import type { UserRole } from '@/types'
 
 const loginSchema = z.object({
@@ -94,7 +94,7 @@ export default function TenantLoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      const response = await apiClient.post('/auth/login', values)
+      const response = await apiClient.post('/auth/login', { ...values, tenant_slug: slug })
       const accessToken = response.data.access_token as string
       const role = getRoleFromToken(accessToken)
 
@@ -168,33 +168,47 @@ export default function TenantLoginPage() {
                   <CardDescription>Use your registered email and password to continue.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" placeholder="you@example.com" {...register('email')} />
-                      {errors.email ? <p className="text-sm text-red-600">{errors.email.message}</p> : null}
-                    </div>
+                  <form onSubmit={handleSubmit(onSubmit)}>
+                    <FieldGroup>
+                      <Field data-invalid={!!errors.email}>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="you@example.com"
+                          aria-invalid={!!errors.email}
+                          {...register('email')}
+                        />
+                        {errors.email ? <FieldDescription className="text-destructive">{errors.email.message}</FieldDescription> : null}
+                      </Field>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="password">Password</Label>
-                        <a
-                          href={`/${slug}/forgot-password`}
-                          className="text-xs font-medium text-primary hover:underline"
-                        >
-                          Forgot password?
-                        </a>
-                      </div>
-                      <Input id="password" type="password" placeholder="••••••••" {...register('password')} />
-                      {errors.password ? <p className="text-sm text-red-600">{errors.password.message}</p> : null}
-                    </div>
+                      <Field data-invalid={!!errors.password}>
+                        <div className="flex items-center justify-between">
+                          <FieldLabel htmlFor="password">Password</FieldLabel>
+                          <a
+                            href={`/${slug}/forgot-password`}
+                            className="text-xs font-medium text-primary hover:underline"
+                          >
+                            Forgot password?
+                          </a>
+                        </div>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="••••••••"
+                          aria-invalid={!!errors.password}
+                          {...register('password')}
+                        />
+                        {errors.password ? <FieldDescription className="text-destructive">{errors.password.message}</FieldDescription> : null}
+                      </Field>
 
-                    <Button className="w-full bg-[#1A4D2E] text-white hover:bg-[#163f25]" type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? 'Signing in…' : 'Sign in'}
-                    </Button>
+                      <Button className="w-full" type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? 'Signing in…' : 'Sign in'}
+                      </Button>
+                    </FieldGroup>
                   </form>
 
-                  <p className="mt-6 text-center text-sm text-slate-600">
+                  <p className="mt-6 text-center text-sm text-muted-foreground">
                     Need an account?{' '}
                     <a className="font-semibold text-primary hover:underline" href={`/${slug}/register`}>
                       Register
@@ -210,7 +224,7 @@ export default function TenantLoginPage() {
                     Two-factor verification
                   </CardTitle>
                   <CardDescription>
-                    Enter the 6-digit code sent to <span className="font-semibold text-slate-700">{pendingEmail}</span>.
+                    Enter the 6-digit code sent to <span className="font-semibold text-foreground">{pendingEmail}</span>.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
@@ -219,7 +233,7 @@ export default function TenantLoginPage() {
                     onResend={handleResend}
                     disabled={otpVerifying}
                   />
-                  <p className="mt-6 text-center text-sm text-slate-500">
+                  <p className="mt-6 text-center text-sm text-muted-foreground">
                     Not you?{' '}
                     <button
                       type="button"

@@ -2,13 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import InventoryTable from '@/components/inventory/InventoryTable'
 import type { InventoryItem } from '@/types'
 
@@ -75,8 +82,8 @@ export default function CentralInventoryPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="border-slate-200">
+    <div className="flex flex-col gap-6">
+      <Card>
         <CardHeader>
           <CardTitle className="text-lg">Central Inventory — Brand Warehouse</CardTitle>
         </CardHeader>
@@ -85,65 +92,65 @@ export default function CentralInventoryPanel() {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <ArrowRight className="h-5 w-5 text-[#1A4D2E]" />
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <ArrowRight data-icon="inline-start" className="text-primary" />
             Transfer Stock to Outlet
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleTransfer} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="transfer-item">Item</Label>
-                <select
-                  id="transfer-item"
-                  className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary"
-                  value={selectedItem}
-                  onChange={(e) => setSelectedItem(e.target.value)}
-                >
-                  <option value="">— Select central item —</option>
-                  {items.map((item) => (
-                    <option key={item.item_id} value={item.item_id}>
-                      {item.name} ({Number(item.quantity_on_hand).toFixed(2)} {item.unit})
-                    </option>
-                  ))}
-                </select>
+          <form onSubmit={handleTransfer}>
+            <FieldGroup>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="transfer-item">Item</FieldLabel>
+                  <Select value={selectedItem} onValueChange={setSelectedItem}>
+                    <SelectTrigger id="transfer-item">
+                      <SelectValue placeholder="Select central item" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {items.map((item) => (
+                        <SelectItem key={item.item_id} value={item.item_id}>
+                          {item.name} ({Number(item.quantity_on_hand).toFixed(2)} {item.unit})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="transfer-outlet">To Outlet</FieldLabel>
+                  <Select value={selectedOutlet} onValueChange={setSelectedOutlet}>
+                    <SelectTrigger id="transfer-outlet">
+                      <SelectValue placeholder="Select outlet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {outlets.map((outlet) => (
+                        <SelectItem key={outlet.outlet_tenant_id} value={outlet.outlet_tenant_id}>
+                          {outlet.outlet_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="transfer-qty">Quantity</FieldLabel>
+                  <Input
+                    id="transfer-qty"
+                    type="number"
+                    min={0.001}
+                    step="any"
+                    value={transferQty}
+                    onChange={(e) => setTransferQty(e.target.value)}
+                    placeholder="e.g. 10.5"
+                  />
+                </Field>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="transfer-outlet">To Outlet</Label>
-                <select
-                  id="transfer-outlet"
-                  className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary"
-                  value={selectedOutlet}
-                  onChange={(e) => setSelectedOutlet(e.target.value)}
-                >
-                  <option value="">— Select outlet —</option>
-                  {outlets.map((outlet) => (
-                    <option key={outlet.outlet_tenant_id} value={outlet.outlet_tenant_id}>
-                      {outlet.outlet_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="transfer-qty">Quantity</Label>
-                <Input
-                  id="transfer-qty"
-                  type="number"
-                  min={0.001}
-                  step="any"
-                  value={transferQty}
-                  onChange={(e) => setTransferQty(e.target.value)}
-                  placeholder="e.g. 10.5"
-                />
-              </div>
-            </div>
-            <Button type="submit" className="bg-[#1A4D2E] text-white hover:bg-[#163f25] gap-2" disabled={transferring}>
-              <ArrowRight className="h-4 w-4" />
-              {transferring ? 'Transferring...' : 'Transfer Stock'}
-            </Button>
+              <Button type="submit" className="w-fit gap-2" disabled={transferring}>
+                <ArrowRight data-icon="inline-start" />
+                {transferring ? 'Transferring...' : 'Transfer Stock'}
+              </Button>
+            </FieldGroup>
           </form>
         </CardContent>
       </Card>

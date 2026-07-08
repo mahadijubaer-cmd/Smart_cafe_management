@@ -10,6 +10,8 @@ import {
   YAxis,
 } from 'recharts'
 
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
+
 interface TopItem {
   item_name: string
   total_quantity: number
@@ -27,9 +29,10 @@ function formatCurrency(v: number) {
 export default function TopItemsChart({ data }: TopItemsChartProps) {
   if (data.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
-        No item data for this period.
-      </div>
+      <Empty className="h-48">
+        <EmptyTitle>No item data</EmptyTitle>
+        <EmptyDescription>No item data for this period.</EmptyDescription>
+      </Empty>
     )
   }
 
@@ -58,10 +61,10 @@ export default function TopItemsChart({ data }: TopItemsChartProps) {
             if (!active || !payload?.length) return null
             const d = payload[0].payload as TopItem
             return (
-              <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-lg text-xs">
-                <p className="font-semibold text-slate-800">{d.item_name}</p>
-                <p className="text-slate-500">{d.total_quantity} orders</p>
-                <p className="text-slate-500">{formatCurrency(d.total_revenue)} revenue</p>
+              <div className="rounded-xl border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg">
+                <p className="font-semibold">{d.item_name}</p>
+                <p className="text-muted-foreground">{d.total_quantity} orders</p>
+                <p className="text-muted-foreground">{formatCurrency(d.total_revenue)} revenue</p>
               </div>
             )
           }}

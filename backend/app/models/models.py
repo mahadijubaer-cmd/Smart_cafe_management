@@ -326,3 +326,38 @@ class StaffInvitation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
+
+
+# ─────────────────────────────────────────────
+# PLATFORM AUDIT LOG (RFC-009)
+# ─────────────────────────────────────────────
+
+class PlatformAuditLog(Base):
+    """Audit trail of platform_admin actions. Outlives the actor/target it describes —
+    actor_id/target_tenant_id are SET NULL (not CASCADE) and actor_email/target_tenant_name/
+    target_tenant_slug are denormalized so a log entry stays readable after either is gone.
+    """
+    __tablename__ = "platform_audit_logs"
+
+    log_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actor_email: Mapped[str] = mapped_column(String(150), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.tenant_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    target_tenant_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    target_tenant_slug: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP"), index=True
+    )

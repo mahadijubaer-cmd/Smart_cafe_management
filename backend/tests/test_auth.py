@@ -1,107 +1,55 @@
+"""Auth flow tests — register, login, /auth/me, role guard, expired token, BR-REG-1.
+
+Uses the shared conftest.py fixtures (db_session/async_client/tenants/users) rather than a
+local db_session fixture — this file previously defined its own SQLite db_session that never
+received the Postgres-server-default-stripping fix conftest's fixture has, so its CREATE TABLE
+DDL broke on `uuid_generate_v4()`. It also predated multi-tenancy: register/login now require
+`tenant_slug`, and `UserRole.admin` no longer exists (current admin roles are tenant_admin /
+outlet_admin / super_admin / food_court_admin / platform_admin).
+"""
 from datetime import timedelta
-from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import Base, get_db
-from app.core.security import hash_password
-from app.main import app
-from app.models.user import User, UserRole
+from app.models.tenant import Tenant
+from app.models.user import User
 from app.services.auth_service import AuthService
-
+from tests.conftest import SLUG_ALPHA
 
 TEST_PASSWORD = "password123"
-TEST_STUDENT_EMAIL = "student.test@bracu.ac.bd"
-TEST_ADMIN_EMAIL = "admin.test@bracu.ac.bd"
 auth_service = AuthService()
 
 
 @pytest_asyncio.fixture
-async def db_session():
-    engine = create_async_engine(
-        "sqlite+aiosqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all, tables=[User.__table__])
-
-    session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with session_maker() as session:
-        admin_user = User(
-            user_id=uuid4(),
-            full_name="Admin User",
-            email=TEST_ADMIN_EMAIL,
-            password_hash=hash_password(TEST_PASSWORD),
-            role=UserRole.admin,
-            student_id=None,
-            phone=None,
-            wallet_balance=0,
-            reward_points=0,
-            is_active=True,
-        )
-        session.add(admin_user)
-        await session.commit()
-
-        async def override_get_db():
-            yield session
-
-        app.dependency_overrides[get_db] = override_get_db
-
-        try:
-            yield session
-        finally:
-            app.dependency_overrides.pop(get_db, None)
-
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def async_client(db_session):
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
-
-
-@pytest_asyncio.fixture
-async def student_token(async_client):
+async def student_token(async_client: AsyncClient, tenants: dict[str, Tenant]) -> str:
     register_payload = {
         "full_name": "Student User",
-        "email": TEST_STUDENT_EMAIL,
+        "email": "student.test@bracu.ac.bd",
         "password": TEST_PASSWORD,
         "role": "student",
         "student_id": "22101234",
         "phone": "01700000000",
+        "tenant_slug": SLUG_ALPHA,
     }
     register_response = await async_client.post("/api/v1/auth/register", json=register_payload)
     assert register_response.status_code == 201
 
+    # Not conftest's get_token() helper — it hardcodes conftest.TEST_PASSWORD, not this
+    # file's own TEST_PASSWORD used at registration above.
     login_response = await async_client.post(
         "/api/v1/auth/login",
-        json={"email": TEST_STUDENT_EMAIL, "password": TEST_PASSWORD},
+        json={"email": "student.test@bracu.ac.bd", "password": TEST_PASSWORD, "tenant_slug": SLUG_ALPHA},
     )
-    assert login_response.status_code == 200
-    return login_response.json()["access_token"]
-
-
-@pytest_asyncio.fixture
-async def admin_token(async_client, db_session):
-    login_response = await async_client.post(
-        "/api/v1/auth/login",
-        json={"email": TEST_ADMIN_EMAIL, "password": TEST_PASSWORD},
-    )
-    assert login_response.status_code == 200
+    assert login_response.status_code == 200, login_response.text
     return login_response.json()["access_token"]
 
 
 @pytest.mark.asyncio
-async def test_register_success(async_client):
+async def test_register_success(async_client: AsyncClient, tenants: dict[str, Tenant]):
     response = await async_client.post(
         "/api/v1/auth/register",
         json={
@@ -111,6 +59,7 @@ async def test_register_success(async_client):
             "role": "student",
             "student_id": "22109999",
             "phone": "01711111111",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
 
@@ -122,7 +71,7 @@ async def test_register_success(async_client):
 
 
 @pytest.mark.asyncio
-async def test_register_duplicate_email(async_client):
+async def test_register_duplicate_email(async_client: AsyncClient, tenants: dict[str, Tenant]):
     payload = {
         "full_name": "Duplicate User",
         "email": "duplicate@bracu.ac.bd",
@@ -130,6 +79,7 @@ async def test_register_duplicate_email(async_client):
         "role": "student",
         "student_id": "22100001",
         "phone": "01722222222",
+        "tenant_slug": SLUG_ALPHA,
     }
 
     first_response = await async_client.post("/api/v1/auth/register", json=payload)
@@ -137,11 +87,11 @@ async def test_register_duplicate_email(async_client):
 
     assert first_response.status_code == 201
     assert second_response.status_code == 400
-    assert second_response.json()["detail"] == "Email already registered"
+    assert second_response.json()["detail"] == "Email already registered for this tenant"
 
 
 @pytest.mark.asyncio
-async def test_register_weak_password(async_client):
+async def test_register_weak_password(async_client: AsyncClient, tenants: dict[str, Tenant]):
     response = await async_client.post(
         "/api/v1/auth/register",
         json={
@@ -151,6 +101,7 @@ async def test_register_weak_password(async_client):
             "role": "student",
             "student_id": "22100002",
             "phone": "01733333333",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
 
@@ -158,7 +109,7 @@ async def test_register_weak_password(async_client):
 
 
 @pytest.mark.asyncio
-async def test_login_success(async_client):
+async def test_login_success(async_client: AsyncClient, tenants: dict[str, Tenant]):
     await async_client.post(
         "/api/v1/auth/register",
         json={
@@ -168,12 +119,13 @@ async def test_login_success(async_client):
             "role": "student",
             "student_id": "22100003",
             "phone": "01744444444",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
 
     response = await async_client.post(
         "/api/v1/auth/login",
-        json={"email": "login.student@bracu.ac.bd", "password": TEST_PASSWORD},
+        json={"email": "login.student@bracu.ac.bd", "password": TEST_PASSWORD, "tenant_slug": SLUG_ALPHA},
     )
 
     assert response.status_code == 200
@@ -183,7 +135,7 @@ async def test_login_success(async_client):
 
 
 @pytest.mark.asyncio
-async def test_login_wrong_password(async_client):
+async def test_login_wrong_password(async_client: AsyncClient, tenants: dict[str, Tenant]):
     await async_client.post(
         "/api/v1/auth/register",
         json={
@@ -193,47 +145,48 @@ async def test_login_wrong_password(async_client):
             "role": "student",
             "student_id": "22100004",
             "phone": "01755555555",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
 
     response = await async_client.post(
         "/api/v1/auth/login",
-        json={"email": "wrong.password@bracu.ac.bd", "password": "incorrect-password"},
+        json={"email": "wrong.password@bracu.ac.bd", "password": "incorrect-password", "tenant_slug": SLUG_ALPHA},
     )
 
     assert response.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_login_nonexistent_email(async_client):
+async def test_login_nonexistent_email(async_client: AsyncClient, tenants: dict[str, Tenant]):
     response = await async_client.post(
         "/api/v1/auth/login",
-        json={"email": "missing@bracu.ac.bd", "password": TEST_PASSWORD},
+        json={"email": "missing@bracu.ac.bd", "password": TEST_PASSWORD, "tenant_slug": SLUG_ALPHA},
     )
 
     assert response.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_me_authenticated(async_client, student_token):
+async def test_get_me_authenticated(async_client: AsyncClient, student_token: str):
     response = await async_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {student_token}"},
     )
 
     assert response.status_code == 200
-    assert response.json()["email"] == TEST_STUDENT_EMAIL
+    assert response.json()["email"] == "student.test@bracu.ac.bd"
 
 
 @pytest.mark.asyncio
-async def test_get_me_unauthenticated(async_client):
+async def test_get_me_unauthenticated(async_client: AsyncClient):
     response = await async_client.get("/api/v1/auth/me")
 
     assert response.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_me_expired_token(async_client, db_session):
+async def test_get_me_expired_token(async_client: AsyncClient, db_session: AsyncSession, tenants: dict[str, Tenant]):
     await async_client.post(
         "/api/v1/auth/register",
         json={
@@ -243,6 +196,7 @@ async def test_get_me_expired_token(async_client, db_session):
             "role": "student",
             "student_id": "22100005",
             "phone": "01766666666",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
 
@@ -251,7 +205,8 @@ async def test_get_me_expired_token(async_client, db_session):
     assert user is not None
 
     expired_token = auth_service.create_access_token(
-        {"sub": str(user.user_id), "role": user.role.value},
+        user=user,
+        tenant=tenants["alpha"],
         expires_delta=timedelta(minutes=-5),
     )
 
@@ -264,7 +219,7 @@ async def test_get_me_expired_token(async_client, db_session):
 
 
 @pytest.mark.asyncio
-async def test_role_guard_student_on_admin(async_client, student_token):
+async def test_role_guard_student_on_admin(async_client: AsyncClient, student_token: str):
     response = await async_client.get(
         "/api/v1/analytics/summary",
         headers={"Authorization": f"Bearer {student_token}"},
@@ -280,7 +235,7 @@ _BLOCKED_ROLES = ["staff", "cleaner", "outlet_admin", "tenant_admin", "platform_
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("role", _BLOCKED_ROLES)
-async def test_blocked_role_self_register_returns_400(async_client, role):
+async def test_blocked_role_self_register_returns_400(async_client: AsyncClient, tenants: dict[str, Tenant], role: str):
     """BR-REG-1: Privileged roles must not be creatable via self-registration."""
     response = await async_client.post(
         "/api/v1/auth/register",
@@ -289,7 +244,7 @@ async def test_blocked_role_self_register_returns_400(async_client, role):
             "email": f"{role}.sneaky@bracu.ac.bd",
             "password": TEST_PASSWORD,
             "role": role,
-            "tenant_slug": "bracu",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
     assert response.status_code == 400
@@ -297,7 +252,7 @@ async def test_blocked_role_self_register_returns_400(async_client, role):
 
 
 @pytest.mark.asyncio
-async def test_customer_can_self_register(async_client):
+async def test_customer_can_self_register(async_client: AsyncClient, tenants: dict[str, Tenant]):
     """BR-REG-1: customer role is allowed through self-registration."""
     response = await async_client.post(
         "/api/v1/auth/register",
@@ -306,15 +261,14 @@ async def test_customer_can_self_register(async_client):
             "email": "customer.ok@bracu.ac.bd",
             "password": TEST_PASSWORD,
             "role": "customer",
-            "tenant_slug": "bracu",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
-    # 201 or 400-duplicate are both acceptable; 400 'admin invitation' is not
-    assert response.status_code != 400 or "admin invitation" not in response.json().get("detail", "")
+    assert response.status_code == 201
 
 
 @pytest.mark.asyncio
-async def test_student_can_self_register(async_client):
+async def test_student_can_self_register(async_client: AsyncClient, tenants: dict[str, Tenant]):
     """BR-REG-1: student role is allowed through self-registration."""
     response = await async_client.post(
         "/api/v1/auth/register",
@@ -324,7 +278,7 @@ async def test_student_can_self_register(async_client):
             "password": TEST_PASSWORD,
             "role": "student",
             "student_id": "22300001",
-            "tenant_slug": "bracu",
+            "tenant_slug": SLUG_ALPHA,
         },
     )
-    assert response.status_code != 400 or "admin invitation" not in response.json().get("detail", "")
+    assert response.status_code == 201

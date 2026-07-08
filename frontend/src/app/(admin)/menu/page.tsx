@@ -2,53 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import { Clock, Pencil, Plus, Trash2 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import CategoryManager from '@/components/admin/CategoryManager'
 import MenuItemForm from '@/components/admin/MenuItemForm'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { Category, MenuItem } from '@/types'
-
-// ─── Alert Dialog (inline — no shadcn) ───────────────────────────────────────
-
-function AlertDialog({
-  open,
-  title,
-  description,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean
-  title: string
-  description: string
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h3 className="text-base font-bold text-slate-900">{title}</h3>
-        <p className="mt-2 text-sm text-slate-600">{description}</p>
-        <div className="mt-5 flex gap-3">
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ─── Menu item row ────────────────────────────────────────────────────────────
 
@@ -83,11 +62,7 @@ function MenuItemRow({
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="font-bold text-slate-900 truncate">{item.name}</span>
           <span className="text-sm font-semibold text-primary">৳{Number(item.price).toFixed(0)}</span>
-          {item.is_homemade && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-              Homemade
-            </span>
-          )}
+          {item.is_homemade && <Badge variant="secondary">Homemade</Badge>}
         </div>
         <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1">
@@ -100,37 +75,30 @@ function MenuItemRow({
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-2">
         {/* Availability toggle */}
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={item.is_available ? 'secondary' : 'outline'}
           onClick={onToggle}
           title={item.is_available ? 'Mark unavailable' : 'Mark available'}
-          className={[
-            'rounded-full px-3 py-1 text-xs font-semibold transition',
-            item.is_available
-              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-              : 'bg-slate-100 text-slate-500 hover:bg-slate-200',
-          ].join(' ')}
         >
           {item.is_available ? 'Available' : 'Unavailable'}
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          onClick={onEdit}
-          className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-          title="Edit"
-        >
+        <Button type="button" size="icon" variant="outline" onClick={onEdit} title="Edit">
           <Pencil className="h-4 w-4" />
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
+          size="icon"
+          variant="outline"
+          className="text-destructive hover:bg-destructive/10"
           onClick={onDelete}
-          className="rounded-xl border border-red-100 p-2 text-red-500 hover:bg-red-50"
           title="Delete"
         >
           <Trash2 className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -255,55 +223,63 @@ export default function AdminMenuPage() {
               {items.length} item{items.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <button
+          <Button
             type="button"
             onClick={() => {
               setEditingItem(undefined)
               setShowForm(true)
             }}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
           >
-            <Plus className="h-4 w-4" />
+            <Plus data-icon="inline-start" />
             Add Item
-          </button>
+          </Button>
         </div>
 
         {/* Mobile category selector */}
         <div className="lg:hidden">
-          <select
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none"
-            value={selectedCategoryId ?? ''}
-            onChange={(e) => setSelectedCategoryId(Number(e.target.value))}
+          <Select
+            value={selectedCategoryId !== null ? String(selectedCategoryId) : undefined}
+            onValueChange={(value) => setSelectedCategoryId(Number(value))}
           >
-            {categories.map((c) => (
-              <option key={c.category_id} value={c.category_id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c.category_id} value={String(c.category_id)}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Items */}
         {loadingItems ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+              <Skeleton key={i} className="h-20 rounded-2xl" />
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-200 py-16 text-center">
-            <p className="text-slate-400 text-sm">No items in this category yet.</p>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingItem(undefined)
-                setShowForm(true)
-              }}
-              className="mt-3 text-sm font-semibold text-primary hover:underline"
-            >
-              + Add the first item
-            </button>
-          </div>
+          <Empty className="border border-dashed border-slate-200 py-16">
+            <EmptyMedia variant="icon">
+              <Plus />
+            </EmptyMedia>
+            <EmptyTitle>No items in this category yet.</EmptyTitle>
+            <EmptyDescription>
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => {
+                  setEditingItem(undefined)
+                  setShowForm(true)
+                }}
+              >
+                + Add the first item
+              </Button>
+            </EmptyDescription>
+          </Empty>
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
@@ -337,13 +313,22 @@ export default function AdminMenuPage() {
       )}
 
       {/* Delete confirmation */}
-      <AlertDialog
-        open={!!deleteTarget}
-        title={`Delete "${deleteTarget?.name}"?`}
-        description="This cannot be undone. The item will be permanently removed."
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &quot;{deleteTarget?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone. The item will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

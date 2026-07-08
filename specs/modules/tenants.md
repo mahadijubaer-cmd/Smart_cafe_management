@@ -131,6 +131,7 @@ brand's own `super_admin`/`tenant_admin`, scoped to their own tenant — see BR-
 
 **Business logic:**
 - `slug` uniqueness check → `400 "Slug '{slug}' already taken"`
+- Writes a `tenant_created` audit log entry (PA-1, RFC-009) — see `modules/platform.md`.
 
 **Response `201`:** `TenantResponse`
 
@@ -211,13 +212,17 @@ Creates a brand-new organization (tenant) **and** its first admin user in one at
 
 > **`slug` and `tenant_type` cannot be changed after creation.** They are not in `TenantUpdate`.
 
+**Business logic:** if `subscription_tier` is present and differs from the current value, writes a
+`tenant_tier_changed` audit log entry with `details={"from": "...", "to": "..."}` (PA-1, RFC-009).
+Any other field change alone does not write an audit entry.
+
 **Response `200`:** `TenantResponse`
 
 ---
 
 ### `POST /api/v1/tenants/{tenant_id}/activate`
 
-Sets `tenant.is_active = True`.
+Sets `tenant.is_active = True`. Writes a `tenant_activated` audit log entry (PA-1, RFC-009).
 
 **Response `200`:** `TenantResponse`
 
@@ -225,7 +230,7 @@ Sets `tenant.is_active = True`.
 
 ### `POST /api/v1/tenants/{tenant_id}/suspend`
 
-Sets `tenant.is_active = False`.
+Sets `tenant.is_active = False`. Writes a `tenant_suspended` audit log entry (PA-1, RFC-009).
 
 **Response `200`:** `TenantResponse`
 
@@ -272,8 +277,73 @@ and by a franchise brand's own admin to self-provision a new branch (RFC-008).
 **Response `201`:** `TenantResponse`
 
 **Errors:** `400` if the target tenant is not a `franchise_brand` (defends the `platform_admin`
-path) · `400` slug taken · `403` if a non-platform-admin caller's own tenant isn't `tenant_id` (or
-isn't a `franchise_brand`).
+path) · `400` slug taken · `402` if the brand's subscription tier's `max_outlets` cap is already
+reached — see **PA-2/PA-3** in `modules/platform.md` (RFC-009) · `403` if a non-platform-admin
+caller's own tenant isn't `tenant_id` (or isn't a `franchise_brand`).
+
+---
+
+### `DELETE /api/v1/tenants/{tenant_id}` ✅ [RFC-009 — Platform Admin Control Plane]
+
+Hard-deletes a tenant and all its data. Irreversible.
+
+**Auth:** Required | **Roles:** `platform_admin` only
+
+**Business logic (BR-PLAT-1, see below):**
+1. Load tenant → `404` if not found.
+2. `tenant.is_active` must already be `False` (i.e. suspended first) → else `400
+   "Tenant must be suspended before it can be deleted"`.
+3. Snapshot `{name, slug, tenant_type}` into a `tenant_deleted` audit log entry (PA-1) **before**
+   deletion.
+4. Delete the `Tenant` row — all child rows (`users`, `orders`, `menu_items`, `tables_map`, etc.)
+   cascade via existing `ON DELETE CASCADE` foreign keys. Child tenants (`franchise_outlet` /
+   `food_court_vendor`) are **not** cascade-deleted by this — see BR-PLAT-1.
+
+**Response:** `204 No Content`
+
+**Errors:** `404 "Tenant not found"` · `400 "Tenant must be suspended before it can be deleted"` ·
+`409 "Tenant has active child outlets/vendors — delete or reassign them first"` if the tenant is a
+`franchise_brand`/`food_court` with any child tenant still present.
+
+---
+
+### `GET /api/v1/tenants/{tenant_id}/export` ✅ [RFC-009 — Platform Admin Control Plane]
+
+Exports a tenant's core data as JSON — intended as a pre-deletion snapshot / offboarding record, not
+a full GDPR-grade data-portability system.
+
+**Auth:** Required | **Roles:** `platform_admin` only
+
+**Response `200`:**
+
+```json
+{
+  "tenant": { "...": "full TenantResponse shape" },
+  "users": [ { "user_id": "...", "email": "...", "full_name": "...", "role": "...", "is_active": true } ],
+  "menu_item_count": 42,
+  "table_count": 12,
+  "order_summary": { "total_orders": 350, "total_revenue": "125000.00" },
+  "exported_at": "2026-07-08T10:30:00Z"
+}
+```
+
+`users[]` never includes `password_hash`. `menu_item_count`/`table_count`/`order_summary` are
+aggregate counts, not full row dumps — full order/menu export is out of scope for this endpoint.
+
+**Errors:** `404 "Tenant not found"`.
+
+---
+
+## Business Rules — Platform Admin Control Plane (RFC-009)
+
+**BR-PLAT-1:** `DELETE /tenants/{tenant_id}` requires `is_active == False` (BR-PLAT-1a) and, if the
+tenant is a `franchise_brand` or `food_court`, requires zero remaining child tenants
+(`franchise_outlet` / `food_court_vendor` with `parent_tenant_id == tenant_id`) (BR-PLAT-1b) — a
+brand/food-court must have its outlets/vendors deleted or reassigned first, so a hard delete never
+silently orphans or cascades into deleting tenants the caller didn't explicitly target.
+
+See `modules/platform.md` for the full PA-1 … PA-5 rule set (audit logging, tier limits,
+impersonation) that this RFC also introduces.
 
 ---
 

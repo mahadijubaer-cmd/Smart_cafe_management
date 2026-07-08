@@ -125,6 +125,24 @@ async def list_inventory_items(
     return result.scalars().all()
 
 
+async def _validate_inv_category_id(db: AsyncSession, tenant_id: UUID, inv_category_id: int) -> None:
+    """Ensure inv_category_id belongs to the caller's own tenant.
+
+    Without this, the FK (`ON DELETE SET NULL`) doesn't reject a category_id that exists but
+    belongs to a *different* tenant, silently creating a cross-tenant category link.
+    """
+    exists = await db.scalar(
+        select(InventoryCategory.inv_category_id).where(
+            InventoryCategory.inv_category_id == inv_category_id,
+            InventoryCategory.tenant_id == tenant_id,
+        )
+    )
+    if exists is None:
+        raise HTTPException(
+            status_code=400, detail="inv_category_id does not exist for this tenant"
+        )
+
+
 @router.post("/items", response_model=InventoryItemResponse, status_code=201)
 async def create_inventory_item(
     data: InventoryItemCreate,
@@ -132,6 +150,7 @@ async def create_inventory_item(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_role(*_INV_ADMINS)),
 ):
+    await _validate_inv_category_id(db, ctx.tenant_id, data.inv_category_id)
     item = InventoryItem(tenant_id=ctx.tenant_id, **data.model_dump())
     db.add(item)
     await db.commit()
@@ -175,6 +194,8 @@ async def update_inventory_item(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
+    if data.inv_category_id is not None:
+        await _validate_inv_category_id(db, ctx.tenant_id, data.inv_category_id)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
     await db.commit()

@@ -1,14 +1,34 @@
 'use client'
 
+import { History } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import type { InventoryMovement, StockMovementType } from '@/types'
 
-const movementColors: Record<StockMovementType, string> = {
-  purchase: 'bg-emerald-100 text-emerald-700',
-  transfer_in: 'bg-sky-100 text-sky-700',
-  transfer_out: 'bg-violet-100 text-violet-700',
-  consumption: 'bg-amber-100 text-amber-700',
-  adjustment: 'bg-slate-100 text-slate-700',
-  waste: 'bg-red-100 text-red-700',
+const movementVariants: Record<StockMovementType, BadgeProps['variant']> = {
+  purchase: 'default',
+  transfer_in: 'secondary',
+  transfer_out: 'secondary',
+  consumption: 'outline',
+  adjustment: 'outline',
+  waste: 'destructive',
 }
 
 type Props = {
@@ -19,9 +39,9 @@ type Props = {
 export default function StockMovementLog({ movements, loading = false }: Props) {
   if (loading) {
     return (
-      <div className="animate-pulse space-y-2">
+      <div className="flex flex-col gap-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-10 rounded-xl bg-slate-100" />
+          <Skeleton key={i} className="h-10 w-full rounded-xl" />
         ))}
       </div>
     )
@@ -29,52 +49,61 @@ export default function StockMovementLog({ movements, loading = false }: Props) 
 
   if (movements.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-8 text-center">
-        <p className="text-sm text-slate-500">No stock movements yet.</p>
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <History />
+          </EmptyMedia>
+          <EmptyTitle>No stock movements yet</EmptyTitle>
+          <EmptyDescription>Movements will appear here once stock changes are recorded.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left">
-              <th className="px-4 py-3 font-semibold text-slate-600">Date</th>
-              <th className="px-4 py-3 font-semibold text-slate-600">Item</th>
-              <th className="px-4 py-3 font-semibold text-slate-600">Type</th>
-              <th className="px-4 py-3 font-semibold text-slate-600">Delta</th>
-              <th className="px-4 py-3 font-semibold text-slate-600">Before</th>
-              <th className="px-4 py-3 font-semibold text-slate-600">After</th>
-              <th className="px-4 py-3 font-semibold text-slate-600">Notes</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {movements.map((m) => (
-              <tr key={m.movement_id} className="hover:bg-slate-50 transition">
-                <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                  {new Date(m.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                </td>
-                <td className="px-4 py-3 font-medium text-slate-900">
-                  {m.inventory_item?.name ?? m.inventory_item_id.slice(0, 8)}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${movementColors[m.movement_type]}`}>
-                    {m.movement_type.replace('_', ' ')}
-                  </span>
-                </td>
-                <td className={`px-4 py-3 font-semibold ${m.quantity_delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {m.quantity_delta >= 0 ? '+' : ''}{Number(m.quantity_delta).toFixed(3)}
-                </td>
-                <td className="px-4 py-3 text-slate-500">{Number(m.quantity_before).toFixed(3)}</td>
-                <td className="px-4 py-3 text-slate-500">{Number(m.quantity_after).toFixed(3)}</td>
-                <td className="px-4 py-3 text-slate-500 max-w-xs truncate">{m.notes ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="overflow-hidden rounded-2xl border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Item</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Delta</TableHead>
+            <TableHead>Before</TableHead>
+            <TableHead>After</TableHead>
+            <TableHead>Notes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {movements.map((m) => (
+            <TableRow key={m.movement_id}>
+              <TableCell className="whitespace-nowrap text-muted-foreground">
+                {new Date(m.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              </TableCell>
+              <TableCell className="font-medium">
+                {m.inventory_item?.name ?? m.inventory_item_id.slice(0, 8)}
+              </TableCell>
+              <TableCell>
+                <Badge variant={movementVariants[m.movement_type]}>
+                  {m.movement_type.replace('_', ' ')}
+                </Badge>
+              </TableCell>
+              <TableCell
+                className={cn(
+                  'font-semibold',
+                  m.quantity_delta >= 0 ? 'text-emerald-600' : 'text-destructive'
+                )}
+              >
+                {m.quantity_delta >= 0 ? '+' : ''}{Number(m.quantity_delta).toFixed(3)}
+              </TableCell>
+              <TableCell className="text-muted-foreground">{Number(m.quantity_before).toFixed(3)}</TableCell>
+              <TableCell className="text-muted-foreground">{Number(m.quantity_after).toFixed(3)}</TableCell>
+              <TableCell className="max-w-xs truncate text-muted-foreground">{m.notes ?? '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   )
 }
