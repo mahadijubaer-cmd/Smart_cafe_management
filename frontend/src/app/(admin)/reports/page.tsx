@@ -6,6 +6,7 @@ import Papa from 'papaparse'
 import { toast } from 'sonner'
 
 import SalesChart from '@/components/admin/SalesChart'
+import PageHeader from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -139,28 +140,21 @@ export default function AdminReportsPage() {
   const highestQuantity = Math.max(...topItems.map((item) => item.total_quantity), 1)
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
+    <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-              Reports
-            </p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Analytics reports</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-              Filter by date range, review top items, and export the current analytics snapshot.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+        <PageHeader
+          eyebrow="Reports"
+          title="Analytics reports"
+          description="Filter by date range, review top items, and export the current analytics snapshot."
+          action={
             <Button type="button" onClick={handleExportCsv} disabled={exporting}>
               <Download data-icon="inline-start" />
               {exporting ? 'Exporting...' : 'Export CSV'}
             </Button>
-          </div>
-        </div>
+          }
+        />
 
-        <Card className="border-black/10 bg-white/90 shadow-sm">
+        <Card className="border-border bg-card/90 shadow-sm">
           <CardContent className="p-5 md:p-6">
             <FieldGroup className="grid gap-4 lg:grid-cols-[repeat(2,minmax(0,12rem))_auto]">
               <Field>
@@ -194,7 +188,7 @@ export default function AdminReportsPage() {
         </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-black/10 bg-white/90 shadow-sm">
+          <Card className="border-border bg-card/90 shadow-sm">
             <CardHeader>
               <CardTitle>Revenue Chart</CardTitle>
             </CardHeader>
@@ -207,13 +201,13 @@ export default function AdminReportsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-black/10 bg-white/90 shadow-sm">
+          <Card className="border-border bg-card/90 shadow-sm">
             <CardHeader>
               <CardTitle>Top Items</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {topItems.length === 0 ? (
-                <Empty className="border border-dashed border-black/10">
+                <Empty className="border border-dashed border-border">
                   <EmptyMedia variant="icon">
                     <Filter />
                   </EmptyMedia>
@@ -222,17 +216,17 @@ export default function AdminReportsPage() {
                 </Empty>
               ) : (
                 topItems.map((item, index) => (
-                  <div key={item.item_name} className="space-y-2 rounded-2xl border border-black/10 p-4">
+                  <div key={item.item_name} className="space-y-2 rounded-2xl border border-border p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="font-semibold text-slate-900">{index + 1}. {item.item_name}</p>
-                        <p className="text-sm text-slate-500">
+                        <p className="font-semibold text-foreground">{index + 1}. {item.item_name}</p>
+                        <p className="text-sm text-muted-foreground">
                           {item.total_quantity.toLocaleString('en-BD')} orders · {formatCurrency(Number(item.total_revenue))}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-slate-900">{item.total_quantity.toLocaleString('en-BD')}</p>
+                      <p className="text-sm font-semibold text-foreground">{item.total_quantity.toLocaleString('en-BD')}</p>
                     </div>
-                    <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-3 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-[#F59E0B] to-[#F97316]"
                         style={{ width: `${(item.total_quantity / highestQuantity) * 100}%` }}

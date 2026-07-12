@@ -3,13 +3,13 @@
 **Router:** `backend/app/routers/menu.py`  
 **Schemas:** `backend/app/schemas/menu.py`  
 **Service:** `backend/app/services/menu_service.py`  
-**Last verified:** 2026-07-08
+**Last verified:** 2026-07-11
 
 ---
 
 ## Overview
 
-Manages menu categories, items, and recipe links (which inventory ingredients an item consumes). Menu responses are Redis-cached per tenant and invalidated on any write.
+Manages menu categories and items. Menu responses are Redis-cached per tenant and invalidated on any write. (There is no recipe/ingredient-linkage functionality in this module — inventory consumption is tracked separately, if at all; see `modules/inventory.md`.)
 
 ---
 
@@ -33,13 +33,16 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 
 **Auth:** Required | **Roles:** Admin roles
 
-**Request body:** `CategoryCreate`
+**Request params:** bare function parameters passed as **query params**, not a JSON body — there is
+no `CategoryCreate` schema in the code.
 
-| Field | Type | Required | Default |
+| Param | Type | Required | Default |
 |---|---|---|---|
 | `name` | str | Yes | — |
 | `display_order` | int | No | 0 |
-| `icon_url` | str \| null | No | null |
+
+`icon_url` is **not** settable via the API at all currently — `Category` has no such column exposed
+here.
 
 **Response `201`:** `CategoryResponse`
 
@@ -49,7 +52,8 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 
 **Auth:** Required | **Roles:** Admin roles
 
-**Request body:** All `CategoryCreate` fields (full replacement)
+**Request params:** same as `POST` above — `name` and `display_order` as query params (full
+replacement of those two fields only).
 
 **Response `200`:** `CategoryResponse`
 
@@ -67,9 +71,10 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 
 ### `GET /api/v1/menu/items`
 
-**Auth:** Required | **Roles:** All except `cleaner`
+**Auth:** Required | **Roles:** All authenticated — there is no `require_role` restriction on this
+endpoint; any authenticated user, including `cleaner`, can call it.
 
-**Query params:** `?category_id=<int>&is_available=true`
+**Query params:** `?category_id=<int>&is_available=true&is_homemade=false`
 
 **Response `200`:** `list[MenuItemResponse]`
 
@@ -130,15 +135,60 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 
 ---
 
-### `PATCH /api/v1/menu/items/{item_id}/availability`
+### `PATCH /api/v1/menu/items/{item_id}/toggle`
 
-**Auth:** Required | **Roles:** Admin roles, `staff`
+**Auth:** Required | **Roles:** `WORK_ROLES` (includes admin roles and `server`)
 
-**Request body:** `{ "is_available": false }`
+Flips `item.is_available` (no request body — always toggles to the opposite of its current value).
+Any work role, including `outlet_admin`, can toggle any item visible to their scope.
 
-**Response `200`:** `{ "is_available": false }`
+**Response `200`:** `MenuItemResponse` (updated `is_available` reflected)
 
 **Side effect:** Invalidates `cache:menu:{tenant_id}` in Redis.
+
+---
+
+### `PATCH /api/v1/menu/items/{item_id}`
+
+**Auth:** Required | **Roles:** Admin roles
+
+**Request body:** `MenuItemPatch` — a generic partial update; every field optional, only submitted
+fields are applied (`model_dump(exclude_unset=True)`).
+
+| Field | Type |
+|---|---|
+| `category_id` | int \| null |
+| `name` | str \| null |
+| `description` | str \| null |
+| `price` | Decimal \| null |
+| `image_url` | str \| null |
+| `is_available` | bool \| null |
+| `is_homemade` | bool \| null |
+| `prep_time_mins` | int \| null |
+
+Same franchise guards as `PUT` (an `outlet_admin` may only patch their own outlet's items; a
+`super_admin` may only patch brand-level items). If `category_id` is submitted, it is re-validated
+against the effective tenant (BR-MENU-1).
+
+**Response `200`:** `MenuItemResponse`
+
+**Side effect:** Invalidates `cache:menu:{tenant_id}` in Redis.
+
+---
+
+### `POST /api/v1/menu/items/{item_id}/image`
+
+**Auth:** Required | **Roles:** Admin roles
+
+**Request:** `multipart/form-data` with a single `image` file field (PNG, JPEG, or WebP only,
+≤ 5 MB).
+
+**Business logic:**
+1. Reject non-allowed content types → `400 "Only PNG, JPEG, and WebP images are accepted"`.
+2. Reject files over 5 MB → `400 "Image must be ≤ 5 MB"`.
+3. Save to `MEDIA_ROOT/menu/{item_id}.{ext}`, set `item.image_url = "/media/menu/{item_id}.{ext}"`.
+
+**Response `200`:** `{ "image_url": "/media/menu/<item_id>.<ext>" }`
 
 ---
 
@@ -152,58 +202,10 @@ Manages menu categories, items, and recipe links (which inventory ingredients an
 
 ---
 
-### `GET /api/v1/menu/items/{item_id}/recipe`
-
-**Auth:** Required | **Roles:** Admin roles
-
-**Response `200`:** `list[RecipeLineResponse]`
-
-```json
-[
-  {
-    "recipe_id": "...",
-    "tenant_id": "...",
-    "menu_item_id": "...",
-    "inventory_item_id": "...",
-    "quantity_per_serving": "0.2500"
-  }
-]
-```
-
----
-
-### `POST /api/v1/menu/items/{item_id}/recipe`
-
-**Auth:** Required | **Roles:** Admin roles
-
-**Request body:** `RecipeLineCreate`
-
-| Field | Type | Required | Constraint |
-|---|---|---|---|
-| `inventory_item_id` | UUID | Yes | Must exist in tenant |
-| `quantity_per_serving` | Decimal | Yes | `gt=0` |
-
-**Response `201`:** `RecipeLineResponse`
-
----
-
-### `DELETE /api/v1/menu/items/{item_id}/recipe/{recipe_id}`
-
-**Auth:** Required | **Roles:** Admin roles
-
-**Response `204`**
-
----
-
 ## Pydantic Schemas
 
-### `CategoryCreate`
-```python
-class CategoryCreate(BaseModel):
-    name: str
-    display_order: int = 0
-    icon_url: str | None = None
-```
+> There is no `CategoryCreate` schema in the code — `POST`/`PUT /menu/categories` take bare `name`
+> and `display_order` query params (see endpoints above).
 
 ### `CategoryResponse`
 ```python
@@ -242,22 +244,22 @@ class MenuItemResponse(BaseModel):
     created_at: datetime
 ```
 
-### `RecipeLineCreate`
+### `MenuItemPatch`
 ```python
-class RecipeLineCreate(BaseModel):
-    inventory_item_id: UUID
-    quantity_per_serving: Decimal = Field(..., gt=0)
+class MenuItemPatch(BaseModel):
+    """Partial update — all fields optional."""
+    category_id: int | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = None
+    price: Decimal | None = Field(default=None, ge=0)
+    image_url: str | None = None
+    is_available: bool | None = None
+    is_homemade: bool | None = None
+    prep_time_mins: int | None = None
 ```
 
-### `RecipeLineResponse`
-```python
-class RecipeLineResponse(BaseModel):
-    recipe_id: UUID
-    tenant_id: UUID
-    menu_item_id: UUID
-    inventory_item_id: UUID
-    quantity_per_serving: Decimal
-```
+> There are no recipe-line endpoints or schemas (`RecipeLineCreate`/`RecipeLineResponse`) in
+> `menu.py` — recipe/ingredient linkage is not implemented in this module.
 
 ---
 
@@ -284,6 +286,7 @@ server-side with the caller's own tenant's Homemade category via `_get_homemade_
 it never trusts client input for this field.
 
 - Key: `cache:menu:{tenant_id}`
-- Invalidated on: `POST`, `PUT`, `DELETE`, and `PATCH /availability` for both categories and items
+- Invalidated on: `POST`, `PUT`, `PATCH` (`/toggle` and generic), `DELETE`, and image upload, for
+  both categories and items
 - Cache miss: fresh DB query; result cached
 - No TTL — cache lives until next write (menu changes are low-frequency)

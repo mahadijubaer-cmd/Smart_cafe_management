@@ -2,7 +2,7 @@
 
 **Router:** `backend/app/routers/tables.py`  
 **Schemas:** `backend/app/schemas/table.py`  
-**Last verified:** 2026-07-08
+**Last verified:** 2026-07-11
 
 ---
 
@@ -18,7 +18,8 @@ Manages the physical tables (seats) in a tenant's venue. Each table has a status
 
 **Auth:** Required | **Roles:** All authenticated
 
-**Query params:** `?zone=indoor&status=available`
+No query params — the router has no `zone`/`status` filters; it always returns every table for the
+caller's tenant, ordered by `(position_y, position_x)`.
 
 **Response `200`:** `list[TableResponse]`
 
@@ -55,6 +56,52 @@ Manages the physical tables (seats) in a tenant's venue. Each table has a status
 | `position_y` | int \| null | No | null |
 
 **Response `201`:** `TableResponse`
+
+---
+
+### `GET /api/v1/tables/reserved-slots`
+
+**Auth:** Required | **Roles:** All authenticated
+
+Returns every future reservation slot (`reserved_for >= now()`) for the caller's tenant, as a flat
+list of ISO-8601 timestamps — used by the reservation UI to show which slots are already taken.
+
+**Response `200`:** `list[str]` (ISO-8601 datetimes)
+
+```json
+["2026-07-11T14:00:00+00:00", "2026-07-11T15:00:00+00:00"]
+```
+
+---
+
+### `GET /api/v1/tables/{table_id}`
+
+**Auth:** Required | **Roles:** All authenticated
+
+Fetch a single table by ID, scoped to the caller's tenant.
+
+**Response `200`:** `TableResponse`
+
+**Errors:** `404 "Table not found"` if the table doesn't exist or belongs to a different tenant.
+
+---
+
+### `POST /api/v1/tables/reserve`
+
+**Auth:** Required | **Roles:** `CUSTOMER_ROLES` (`customer`, `student`)
+
+Creates a `Reservation` row for the calling customer and flips the table's status to `reserved`.
+
+**Query params:** `table_id` (int, required) — note this is a query param, not a path param or JSON
+body field.
+
+**Business logic:**
+1. Load table by `table_id` scoped to tenant → `404 "Table not found"` if missing.
+2. Table's current status must be `available` → `400 "Table not available"` otherwise.
+3. Create `Reservation(tenant_id, user_id=current_user.user_id, table_id, reserved_for=now()+1h, duration_mins=60)`.
+4. Set `table.status = "reserved"`.
+
+**Response `201`:** `{ "reservation_id": "...", "table_id": <int> }`
 
 ---
 

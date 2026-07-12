@@ -7,6 +7,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, Users, UtensilsCro
 
 import ActiveTableMap from '@/components/admin/ActiveTableMap'
 import SalesChart from '@/components/admin/SalesChart'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import apiClient from '@/lib/api'
@@ -43,16 +44,16 @@ function StatCard({ icon, label, value, trend, suffix }: StatCardProps) {
   const trendIsAvailable = typeof trend === 'number' && Number.isFinite(trend)
 
   return (
-    <Card className="border-black/10 bg-white/90 shadow-sm">
+    <Card className="border-border bg-card/90 shadow-sm">
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">{label}</p>
-            <p className="mt-3 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+            <p className="mt-3 text-3xl font-black tracking-tight text-foreground md:text-4xl">
               {value}
-              {suffix ? <span className="ml-1 text-lg font-semibold text-slate-500">{suffix}</span> : null}
+              {suffix ? <span className="ml-1 text-lg font-semibold text-muted-foreground">{suffix}</span> : null}
             </p>
-            <div className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-500">
+            <div className="mt-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
               {trendIsAvailable ? (
                 <>
                   {trend! >= 0 ? (
@@ -144,17 +145,13 @@ export default function AdminDashboardPage() {
   const cleanersOnDuty = summary?.cleaners_on_duty ?? 0
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
+    <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-            Admin Overview
-          </p>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Operations dashboard</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-            Track today’s orders, revenue, tables, and staffing at a glance.
-          </p>
-        </div>
+        <PageHeader
+          eyebrow="Admin Overview"
+          title="Operations dashboard"
+          description="Track today’s orders, revenue, tables, and staffing at a glance."
+        />
 
         {loading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -163,7 +160,7 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="motion-safe:animate-fade-up grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard icon={<BarChart3 className="h-6 w-6" />} label="Total Orders Today" value={String(todayOrders)} trend={yesterdayComparison?.orderTrend} />
             <StatCard icon={<Warehouse className="h-6 w-6" />} label="Revenue Today" value={formatCurrency(todayRevenue)} trend={yesterdayComparison?.revenueTrend} />
             <StatCard icon={<UtensilsCrossed className="h-6 w-6" />} label="Active Tables" value={String(activeTables)} />
@@ -171,8 +168,8 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-black/10 bg-white/90 shadow-sm">
+        <div className="motion-safe:animate-fade-up grid gap-6 lg:grid-cols-2">
+          <Card className="border-border bg-card/90 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Sales Trend</CardTitle>
               <Link
@@ -193,7 +190,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-black/10 bg-white/90 shadow-sm">
+          <Card className="border-border bg-card/90 shadow-sm">
             <CardHeader>
               <CardTitle>Active Table Map</CardTitle>
             </CardHeader>

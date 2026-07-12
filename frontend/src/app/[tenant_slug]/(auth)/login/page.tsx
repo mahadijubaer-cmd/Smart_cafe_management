@@ -9,7 +9,7 @@ import { ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
-import { getClaimsFromToken, getRoleFromToken } from '@/lib/auth'
+import { getClaimsFromToken, getRoleFromToken, isTokenExpired } from '@/lib/auth'
 import { useStore } from '@/store/useStore'
 import OtpInput from '@/components/auth/OtpInput'
 import { Button } from '@/components/ui/button'
@@ -54,19 +54,28 @@ export default function TenantLoginPage() {
   const token = useStore((state) => state.token)
   const setToken = useStore((state) => state.setToken)
   const setTenantContext = useStore((state) => state.setTenantContext)
+  const clearAuth = useStore((state) => state.clearAuth)
 
   const [step, setStep] = useState<Step>('credentials')
   const [pendingToken, setPendingToken] = useState<string | null>(null)
   const [pendingEmail, setPendingEmail] = useState('')
   const [otpVerifying, setOtpVerifying] = useState(false)
 
-  const existingRole = useMemo(() => getRoleFromToken(token), [token])
+  const existingClaims = useMemo(() => getClaimsFromToken(token), [token])
 
   useEffect(() => {
-    if (token && existingRole) {
-      router.replace(getRedirectPath(existingRole, slug))
+    if (!token || !existingClaims) return
+    // An expired token must never auto-redirect — /auth/me would 401 on the target page and
+    // bounce back here, creating an infinite /login ↔ /menu loop. Drop it instead.
+    if (isTokenExpired(token)) {
+      clearAuth()
+      return
     }
-  }, [existingRole, router, slug, token])
+    // A valid session for a DIFFERENT tenant shouldn't be sent into this tenant's app either —
+    // stay on the login form so the user can sign in to this organisation.
+    if (existingClaims.tenant_slug !== slug) return
+    router.replace(getRedirectPath(existingClaims.role as UserRole, slug))
+  }, [clearAuth, existingClaims, router, slug, token])
 
   const {
     register,
@@ -149,26 +158,29 @@ export default function TenantLoginPage() {
       <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
         <div className="grid w-full gap-6 xl:grid-cols-[1.08fr_0.92fr] xl:gap-8">
           <section className="flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20 md:p-10">
-            <p className="mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
+            <p className="motion-safe:animate-fade-up mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
               Smart Cafe Management System
             </p>
-            <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+            <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
               Welcome back to the cafe dashboard.
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg">
+            <p
+              className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
+              style={{ animationDelay: '80ms' }}
+            >
               Sign in to manage orders, tables, cleaning workflows, and dining activity from one place.
             </p>
           </section>
 
-          <Card className="self-center overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm">
+          <Card className="motion-safe:animate-scale-in self-center overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm">
             {step === 'credentials' ? (
-              <>
+              <div key="credentials" className="motion-safe:animate-fade-up">
                 <CardHeader>
                   <CardTitle>Login</CardTitle>
                   <CardDescription>Use your registered email and password to continue.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <form onSubmit={handleSubmit(onSubmit)}>
+                  <form method="post" onSubmit={handleSubmit(onSubmit)}>
                     <FieldGroup>
                       <Field data-invalid={!!errors.email}>
                         <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -202,7 +214,7 @@ export default function TenantLoginPage() {
                         {errors.password ? <FieldDescription className="text-destructive">{errors.password.message}</FieldDescription> : null}
                       </Field>
 
-                      <Button className="w-full" type="submit" disabled={isSubmitting}>
+                      <Button className="w-full transition-transform hover:-translate-y-0.5" type="submit" disabled={isSubmitting}>
                         {isSubmitting ? 'Signing in…' : 'Sign in'}
                       </Button>
                     </FieldGroup>
@@ -215,9 +227,9 @@ export default function TenantLoginPage() {
                     </a>
                   </p>
                 </CardContent>
-              </>
+              </div>
             ) : (
-              <>
+              <div key="otp" className="motion-safe:animate-fade-up">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-primary" />
@@ -244,7 +256,7 @@ export default function TenantLoginPage() {
                     </button>
                   </p>
                 </CardContent>
-              </>
+              </div>
             )}
           </Card>
         </div>

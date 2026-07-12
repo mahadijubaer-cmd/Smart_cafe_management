@@ -2,7 +2,7 @@
 
 **Project:** Smart Cafe Management System v3.1  
 **Type:** Multi-tenant SaaS (FastAPI + PostgreSQL + Redis + Next.js 14)  
-**Last updated:** 2026-06-30
+**Last updated:** 2026-07-11
 
 > **This folder is the heart of the project.**  
 > Every piece of code in this repository must match what is written here.  
@@ -37,7 +37,7 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 | File | What it covers |
 |---|---|
 | [modules/auth.md](modules/auth.md) | `/auth/*`, `/otp/*` endpoints · registration · login · logout · JWT · OTP · password policy · permission matrix |
-| [modules/menu.md](modules/menu.md) | `/menu/*` endpoints · categories · items · recipes · caching |
+| [modules/menu.md](modules/menu.md) | `/menu/*` endpoints · categories · items · caching |
 | [modules/orders.md](modules/orders.md) | `/orders/*` endpoints · order status machine · business rules OR-1→OR-10 · reward points RWD-1→RWD-4 |
 | [modules/tables.md](modules/tables.md) | `/tables/*` endpoints · table status · zones · floor plan (Phase 16) |
 | [modules/cleaners.md](modules/cleaners.md) | `/cleaners/*` endpoints · assignment lifecycle · WebSocket events CLEAN_ASSIGNED · TABLE_CLEAN · MEAL_DONE |
@@ -50,7 +50,8 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 | [modules/tenants.md](modules/tenants.md) | `/tenants/*` endpoints · tenant types · hierarchy · subscription tiers · domain rules |
 | [modules/users.md](modules/users.md) | `/users/*` endpoints · user roles · activation · Phase 21 invite flow |
 | [modules/public-surface.md](modules/public-surface.md) | ✅ [Phase 22 — Implemented 2026-07-05] `/public/*` endpoints · guest QR ordering · kiosk/signage · rate limiting (RFC-007) |
-| [modules/platform.md](modules/platform.md) | 🚧 [Phase 24] `/platform/*` endpoints · audit log · platform-wide analytics · impersonation · subscription tier limits (RFC-009) |
+| [modules/platform.md](modules/platform.md) | ✅ Implemented `/platform/*` endpoints · audit log · platform-wide analytics · impersonation · subscription tier limits (RFC-009) |
+| [modules/notifications.md](modules/notifications.md) | `/notifications/*` endpoints · user notification inbox · unread counts |
 
 ### Frontend
 
@@ -65,7 +66,7 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 |---|---|
 | [operations/deployment.md](operations/deployment.md) | Environment variables · Docker setup · Alembic · seed scripts · production checklist |
 | [operations/testing.md](operations/testing.md) | Test stack · conftest fixtures · test files · how to run · how to write new tests |
-| [operations/roadmap.md](operations/roadmap.md) | Phases 14–21 · missing features · acceptance criteria per phase |
+| [operations/roadmap.md](operations/roadmap.md) | Phases 14–24 · missing features · acceptance criteria per phase |
 
 ### Decisions
 
@@ -107,6 +108,8 @@ When you change a file in the codebase, you MUST update the corresponding spec f
 | `backend/app/core/tier_limits.py` | `specs/modules/platform.md` |
 | `backend/app/services/audit_service.py` | `specs/modules/platform.md` |
 | `backend/app/routers/public.py` | `specs/modules/public-surface.md` |
+| `backend/app/routers/notifications.py` | `specs/modules/notifications.md` |
+| `backend/app/routers/invitations.py` | `specs/modules/users.md` |
 | `backend/app/core/segments.py` | `specs/system/segments.md` |
 | `backend/app/schemas/*.py` | The module spec file matching the schema's domain |
 | `backend/app/services/*.py` | The module spec file matching the service's domain |

@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, PackageCheck } from 'lucide-react'
 import apiClient from '@/lib/api'
 import DeliveryCard, { type ActiveOrder } from '@/components/food-court/DeliveryCard'
 import { useStore } from '@/store/useStore'
+import PageHeader from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -79,12 +80,11 @@ export default function FoodCourtDeliverPage() {
   const inProgress = orders.filter((o) => o.status !== 'ready')
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-black text-foreground">Delivery Queue</h1>
-        {ready.length > 0 && <Badge>{ready.length} ready</Badge>}
-      </div>
+    <div className="motion-safe:animate-fade-up space-y-6">
+      <PageHeader
+        title="Delivery Queue"
+        action={ready.length > 0 ? <Badge>{ready.length} ready</Badge> : undefined}
+      />
 
       {loading ? (
         <div className="space-y-3">

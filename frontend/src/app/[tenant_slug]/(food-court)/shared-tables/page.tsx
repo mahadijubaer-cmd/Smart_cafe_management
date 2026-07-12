@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -83,8 +84,8 @@ export default function FoodCourtTablesPage() {
     selectedZone === null ? tables : tables.filter((t) => t.zone === selectedZone)
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-black text-foreground">Shared Tables</h1>
+    <div className="motion-safe:animate-fade-up space-y-5">
+      <PageHeader title="Shared Tables" />
 
       {/* Zone filter */}
       {zones.length > 1 && (

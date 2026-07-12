@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import CategoryManager from '@/components/admin/CategoryManager'
 import MenuItemForm from '@/components/admin/MenuItemForm'
+import PageHeader from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -43,9 +44,9 @@ function MenuItemRow({
   onToggle: () => void
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
       {/* Thumbnail */}
-      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
         {item.image_url ? (
           <img
             src={item.image_url}
@@ -60,11 +61,11 @@ function MenuItemRow({
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="font-bold text-slate-900 truncate">{item.name}</span>
+          <span className="font-bold text-foreground truncate">{item.name}</span>
           <span className="text-sm font-semibold text-primary">৳{Number(item.price).toFixed(0)}</span>
           {item.is_homemade && <Badge variant="secondary">Homemade</Badge>}
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
+        <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {item.prep_time_mins} min
@@ -197,7 +198,7 @@ export default function AdminMenuPage() {
   return (
     <div className="flex h-full min-h-screen">
       {/* Left: Category panel */}
-      <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white p-4 lg:block">
+      <aside className="hidden w-56 shrink-0 border-r border-border bg-card p-4 lg:block">
         <CategoryManager
           categories={categories}
           selectedId={selectedCategoryId}
@@ -213,27 +214,22 @@ export default function AdminMenuPage() {
 
       {/* Main: Item list */}
       <main className="flex-1 space-y-4 p-6">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              {selectedCategory ? selectedCategory.name : 'All Items'}
-            </h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {items.length} item{items.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => {
-              setEditingItem(undefined)
-              setShowForm(true)
-            }}
-          >
-            <Plus data-icon="inline-start" />
-            Add Item
-          </Button>
-        </div>
+        <PageHeader
+          title={selectedCategory ? selectedCategory.name : 'All Items'}
+          description={`${items.length} item${items.length !== 1 ? 's' : ''}`}
+          action={
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingItem(undefined)
+                setShowForm(true)
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              Add Item
+            </Button>
+          }
+        />
 
         {/* Mobile category selector */}
         <div className="lg:hidden">
@@ -262,7 +258,7 @@ export default function AdminMenuPage() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <Empty className="border border-dashed border-slate-200 py-16">
+          <Empty className="border border-dashed border-border py-16">
             <EmptyMedia variant="icon">
               <Plus />
             </EmptyMedia>

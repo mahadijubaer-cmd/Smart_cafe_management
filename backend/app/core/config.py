@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "/app/media"
     FRONTEND_URL: str = "https://scms.bracu.ac.bd"
 
-    # Email / OTP (fastapi-mail)
+    # Email / OTP — SMTP (fastapi-mail) fallback path
     MAIL_USERNAME: str = ""
     MAIL_PASSWORD: str = ""
     MAIL_FROM: str = "noreply@scms.local"
@@ -38,10 +38,31 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
 
+    # Email / OTP — Brevo transactional email API (see ADR-007). Preferred over SMTP
+    # when set: Brevo's API is more reliable in practice than raw SMTP credentials.
+    BREVO_API_KEY: str = ""
+
     @property
     def mail_enabled(self) -> bool:
         """True only when SMTP credentials are actually configured."""
         return bool(self.MAIL_USERNAME and self.MAIL_PASSWORD)
+
+    @property
+    def brevo_enabled(self) -> bool:
+        return bool(self.BREVO_API_KEY)
+
+    @property
+    def mail_provider(self) -> str:
+        """Which transport `send_otp_email`/`send_invite_email` actually use.
+
+        Brevo takes priority when configured (see ADR-007); SMTP is the legacy fallback;
+        otherwise emails are just logged (dev mode).
+        """
+        if self.brevo_enabled:
+            return "brevo"
+        if self.mail_enabled:
+            return "smtp"
+        return "none"
 
     @property
     def redis_url(self) -> str:

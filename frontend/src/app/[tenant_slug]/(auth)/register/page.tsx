@@ -213,13 +213,13 @@ export default function TenantRegisterPage() {
       <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
         <div className="grid w-full gap-6 xl:grid-cols-[0.95fr_1.05fr] xl:gap-8">
           {/* Form panel */}
-          <Card className="order-2 overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm lg:order-1">
+          <Card className="motion-safe:animate-scale-in order-2 overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm lg:order-1">
             <CardContent className="pt-6">
               <StepBar current={step} invite={Boolean(inviteToken)} />
 
               {/* STEP 1 — Choose organisation */}
               {step === 'organisation' && (
-                <div className="space-y-5">
+                <div key="organisation" className="motion-safe:animate-fade-up space-y-5">
                   <div>
                     <CardTitle className="text-xl">Choose your organisation</CardTitle>
                     <CardDescription className="mt-1">
@@ -230,7 +230,7 @@ export default function TenantRegisterPage() {
                   <TenantSelector selectedSlug={selectedSlug} onSelect={handleTenantSelect} />
 
                   <Button
-                    className="w-full"
+                    className="w-full transition-transform hover:-translate-y-0.5"
                     type="button"
                     onClick={handleTenantContinue}
                     disabled={!selectedSlug || tenantLoading}
@@ -256,7 +256,7 @@ export default function TenantRegisterPage() {
 
               {/* STEP 2 — Profile type */}
               {step === 'profile_type' && (
-                <div className="space-y-5">
+                <div key="profile_type" className="motion-safe:animate-fade-up space-y-5">
                   <div>
                     <CardTitle className="text-xl">Create your account</CardTitle>
                     <CardDescription className="mt-1">
@@ -288,7 +288,7 @@ export default function TenantRegisterPage() {
 
               {/* STEP 3 — Details */}
               {step === 'details' && (
-                <div className="space-y-5">
+                <div key="details" className="motion-safe:animate-fade-up space-y-5">
                   <div>
                     <CardTitle className="text-xl">
                       {inviteToken
@@ -304,7 +304,7 @@ export default function TenantRegisterPage() {
                     </CardDescription>
                   </div>
 
-                  <form onSubmit={handleSubmit(onSubmit)}>
+                  <form method="post" onSubmit={handleSubmit(onSubmit)}>
                     <FieldGroup>
                       <Field data-invalid={!!errors.full_name}>
                         <FieldLabel htmlFor="full_name">Full name</FieldLabel>
@@ -358,7 +358,7 @@ export default function TenantRegisterPage() {
                           </Button>
                         )}
                         <Button
-                          className="flex-1"
+                          className="flex-1 transition-transform hover:-translate-y-0.5"
                           type="submit"
                           disabled={isSubmitting}
                         >
@@ -372,7 +372,7 @@ export default function TenantRegisterPage() {
 
               {/* STEP 4 — OTP */}
               {step === 'otp' && (
-                <div className="space-y-5">
+                <div key="otp" className="motion-safe:animate-fade-up space-y-5">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-xl">
                       <MailCheck className="h-5 w-5 text-primary" />
@@ -409,10 +409,13 @@ export default function TenantRegisterPage() {
               <div className="h-[72px]" />
             )}
             <div className="mt-auto">
-              <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+              <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
                 Your cafe account starts here.
               </h1>
-              <p className="mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg">
+              <p
+                className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
+                style={{ animationDelay: '80ms' }}
+              >
                 Order food, track your wallet and rewards, or manage your cafe — all from one account.
               </p>
             </div>

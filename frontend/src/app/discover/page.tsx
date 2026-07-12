@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import apiClient from '@/lib/api'
 import TenantCard from '@/components/auth/TenantCard'
 import { getSegment, type Segment } from '@/lib/segments'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -44,14 +46,22 @@ export default function DiscoverPage() {
     <main className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-primary px-6 py-16 text-center text-white">
-        <h1 className="text-4xl font-black tracking-tight">
+        <h1 className="motion-safe:animate-fade-up text-4xl font-black tracking-tight">
           {segmentFilter === 'cafeteria' && 'Find your cafeteria'}
           {segmentFilter === 'restaurant' && 'Find your restaurant'}
           {!segmentFilter && 'Find your organisation'}
         </h1>
-        <p className="mt-3 text-white/70">Search cafeterias, restaurants, and food courts on the platform.</p>
+        <p
+          className="motion-safe:animate-fade-up mt-3 text-white/70"
+          style={{ animationDelay: '80ms' }}
+        >
+          Search cafeterias, restaurants, and food courts on the platform.
+        </p>
 
-        <div className="mx-auto mt-8 flex max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
+        <div
+          className="motion-safe:animate-fade-up mx-auto mt-8 flex max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg transition-shadow focus-within:shadow-xl"
+          style={{ animationDelay: '160ms' }}
+        >
           <Search className="h-5 w-5 text-slate-400 shrink-0" />
           <Input
             type="text"
@@ -61,6 +71,20 @@ export default function DiscoverPage() {
             className="h-auto flex-1 border-0 bg-transparent p-0 text-slate-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
+
+        {segmentFilter && (
+          <div
+            className="motion-safe:animate-fade-up mx-auto mt-5 max-w-md"
+            style={{ animationDelay: '240ms' }}
+          >
+            <Button asChild variant="outline" className="w-full gap-2 border-white/30 bg-white/10 text-white transition-transform hover:-translate-y-0.5 hover:bg-white/20 hover:text-white">
+              <Link href={`/register-organization?segment=${segmentFilter}`}>
+                <Plus className="h-4 w-4" />
+                {segmentFilter === 'cafeteria' ? 'Register your cafeteria' : 'Register your restaurant'}
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Results */}
@@ -93,8 +117,14 @@ export default function DiscoverPage() {
 
         {!loading && !error && visibleTenants.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleTenants.map((t) => (
-              <TenantCard key={t.slug} tenant={t} />
+            {visibleTenants.map((t, i) => (
+              <div
+                key={t.slug}
+                className="motion-safe:animate-fade-up"
+                style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+              >
+                <TenantCard tenant={t} />
+              </div>
             ))}
           </div>
         )}

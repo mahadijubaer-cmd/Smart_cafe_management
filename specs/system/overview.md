@@ -1,6 +1,6 @@
 # System Overview
 
-**Last verified against code:** 2026-06-30
+**Last verified against code:** 2026-07-11
 
 ---
 
@@ -116,12 +116,18 @@ ALL_STAFF = ADMIN_ROLES + FLOOR_STAFF_ROLES
 
 ## Subscription Tiers
 
-| Tier | Description |
-|---|---|
-| `free` | Trial access; limited features |
-| `starter` | Basic features; limited inventory; 1 admin user |
-| `professional` | Full features; unlimited inventory; 5 admin users |
-| `enterprise` | Professional + dedicated support; custom integrations |
+Enforced resource caps are the single source of truth in `backend/app/core/tier_limits.py::TIER_LIMITS`
+(RFC-009, PA-2/PA-3). `null` means unlimited.
+
+| Tier | `max_outlets` | `max_menu_items` | `max_staff` |
+|---|---|---|---|
+| `free` | 1 | 20 | 2 |
+| `starter` | 3 | 100 | 10 |
+| `professional` | 10 | 500 | 50 |
+| `enterprise` | unlimited (`null`) | unlimited (`null`) | unlimited (`null`) |
+
+Exceeding a tier's cap on creation (outlet, menu item, or staff invite) returns `402 Payment Required`
+with the limit and current count — see `modules/platform.md`.
 
 Default tier for new tenants: `starter`.
 

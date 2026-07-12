@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
+import PageHeader from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
@@ -68,16 +69,14 @@ export default function PublicLinkPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-black text-foreground">
-          {restaurantSegment ? 'Public Guest Ordering' : 'Public Menu'}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {restaurantSegment
+      <PageHeader
+        title={restaurantSegment ? 'Public Guest Ordering' : 'Public Menu'}
+        description={
+          restaurantSegment
             ? 'Let walk-in guests scan a table QR, browse your menu, and order without an account (pay at the counter).'
-            : 'Publish a read-only menu page for people to browse without logging in. Cafeteria tenants order through the regular app — this link is browsing only, not guest checkout.'}
-        </p>
-      </div>
+            : 'Publish a read-only menu page for people to browse without logging in. Cafeteria tenants order through the regular app — this link is browsing only, not guest checkout.'
+        }
+      />
 
       <Card>
         <CardContent className="flex items-center justify-between gap-4 p-5">

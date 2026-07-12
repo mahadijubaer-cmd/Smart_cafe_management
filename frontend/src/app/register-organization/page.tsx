@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Building2, Check, Loader2, ShieldCheck, Store } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import apiClient from '@/lib/api'
 import { getClaimsFromToken, getRoleFromToken } from '@/lib/auth'
 import { useStore } from '@/store/useStore'
 import OrgCategorySelector from '@/components/auth/OrgCategorySelector'
+import type { Segment } from '@/lib/segments'
 import { TENANT_TYPE_META } from '@/lib/tenantTypes'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -70,6 +71,8 @@ function StepBar({ current }: { current: Step }) {
 
 export default function RegisterOrganizationPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const segmentFilter = searchParams.get('segment') as Segment | null
   const setToken = useStore((state) => state.setToken)
   const setTenantContext = useStore((state) => state.setTenantContext)
 
@@ -171,25 +174,30 @@ export default function RegisterOrganizationPage() {
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto grid min-h-screen w-full max-w-6xl items-stretch gap-6 px-4 py-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8 lg:py-10">
         {/* Form panel */}
-        <Card className="order-2 self-center overflow-hidden border-black/5 bg-white shadow-sm lg:order-1">
+        <Card className="motion-safe:animate-scale-in order-2 self-center overflow-hidden border-black/5 bg-white shadow-sm lg:order-1">
           <CardContent className="pt-6">
             <StepBar current={step} />
 
             {/* STEP 1 — Category */}
             {step === 'category' && (
               <div className="flex flex-col gap-5">
-                <div>
-                  <CardTitle className="text-xl">Register your organisation</CardTitle>
+                <div className="motion-safe:animate-fade-up">
+                  <CardTitle className="text-xl">
+                    {segmentFilter === 'cafeteria' && 'Register your cafeteria'}
+                    {segmentFilter === 'restaurant' && 'Register your restaurant'}
+                    {!segmentFilter && 'Register your organisation'}
+                  </CardTitle>
                   <CardDescription className="mt-1">
-                    Choose the category that best describes your business. This decides how your
-                    account works on the platform.
+                    {segmentFilter
+                      ? 'Choose the category that best describes your organisation.'
+                      : 'Choose the category that best describes your business. This decides how your account works on the platform.'}
                   </CardDescription>
                 </div>
 
-                <OrgCategorySelector selected={tenantType} onSelect={setTenantType} />
+                <OrgCategorySelector selected={tenantType} onSelect={setTenantType} segmentFilter={segmentFilter} />
 
                 <Button
-                  className="w-full bg-primary text-white hover:bg-primary/90"
+                  className="w-full bg-primary text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90"
                   type="button"
                   onClick={handleCategoryContinue}
                   disabled={!tenantType}
@@ -199,7 +207,10 @@ export default function RegisterOrganizationPage() {
 
                 <p className="text-center text-sm text-slate-600">
                   Just want to order food?{' '}
-                  <Link className="font-semibold text-primary hover:underline" href="/discover">
+                  <Link
+                    className="font-semibold text-primary hover:underline"
+                    href={segmentFilter ? `/discover?segment=${segmentFilter}` : '/discover'}
+                  >
                     Find your organisation
                   </Link>
                 </p>
@@ -208,7 +219,7 @@ export default function RegisterOrganizationPage() {
 
             {/* STEP 2 — Organisation details */}
             {step === 'organisation' && (
-              <div className="flex flex-col gap-5">
+              <div className="motion-safe:animate-fade-up flex flex-col gap-5">
                 <div>
                   <CardTitle className="text-xl">Organisation details</CardTitle>
                   <CardDescription className="mt-1">
@@ -300,7 +311,7 @@ export default function RegisterOrganizationPage() {
                     Back
                   </Button>
                   <Button
-                    className="flex-1 bg-primary text-white hover:bg-primary/90"
+                    className="flex-1 bg-primary text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90"
                     type="button"
                     onClick={handleOrgContinue}
                   >
@@ -312,7 +323,7 @@ export default function RegisterOrganizationPage() {
 
             {/* STEP 3 — Admin account */}
             {step === 'admin' && (
-              <div className="flex flex-col gap-5">
+              <div className="motion-safe:animate-fade-up flex flex-col gap-5">
                 <div>
                   <CardTitle className="text-xl">Create your admin account</CardTitle>
                   <CardDescription className="mt-1">
@@ -320,7 +331,7 @@ export default function RegisterOrganizationPage() {
                   </CardDescription>
                 </div>
 
-                <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+                <form method="post" className="flex flex-col gap-4" onSubmit={handleSubmit}>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="admin-name">Your full name</Label>
                     <Input
@@ -369,7 +380,7 @@ export default function RegisterOrganizationPage() {
                       Back
                     </Button>
                     <Button
-                      className="flex-1 gap-2 bg-primary text-white hover:bg-primary/90"
+                      className="flex-1 gap-2 bg-primary text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90"
                       type="submit"
                       disabled={submitting}
                     >
@@ -394,14 +405,17 @@ export default function RegisterOrganizationPage() {
 
         {/* Right panel */}
         <section className="order-1 flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20 md:p-10 lg:order-2">
-          <p className="mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
+          <p className="motion-safe:animate-fade-up mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
             For business owners
           </p>
           <div className="mt-auto">
-            <h1 className="max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+            <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
               Put your cafe on the platform.
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg">
+            <p
+              className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
+              style={{ animationDelay: '80ms' }}
+            >
               Restaurants, cafeterias, franchises, and food courts — pick your category, set up your
               organisation, and start taking orders in minutes.
             </p>

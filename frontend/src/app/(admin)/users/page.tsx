@@ -5,11 +5,19 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ShieldCheck, ShieldOff, Search, UserPlus } from 'lucide-react'
 
+import PageHeader from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import {
   Select,
   SelectContent,
@@ -45,16 +53,16 @@ const ROLE_STYLES: Record<UserRole, string> = {
   staff: 'bg-amber-100 text-amber-700',
   server: 'bg-amber-100 text-amber-700',
   cleaner: 'bg-emerald-100 text-emerald-700',
-  admin: 'bg-slate-200 text-slate-800', // legacy alias
-  outlet_admin: 'bg-slate-200 text-slate-800',
-  tenant_admin: 'bg-slate-200 text-slate-800',
+  admin: 'bg-muted text-foreground', // legacy alias
+  outlet_admin: 'bg-muted text-foreground',
+  tenant_admin: 'bg-muted text-foreground',
   super_admin: 'bg-violet-100 text-violet-700',
   food_court_admin: 'bg-violet-100 text-violet-700',
   platform_admin: 'bg-rose-100 text-rose-700',
 }
 
 function RoleBadge({ role }: { role: AdminUser['role'] }) {
-  const style = ROLE_STYLES[role] ?? 'bg-slate-100 text-slate-600'
+  const style = ROLE_STYLES[role] ?? 'bg-muted text-muted-foreground'
   return (
     <Badge variant="outline" className={`border-transparent uppercase tracking-[0.15em] ${style}`}>
       {role}
@@ -136,33 +144,29 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
+    <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-              User Management
-            </p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Manage users</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-              Search by name or email, filter by role, and toggle account status.
-            </p>
-          </div>
-          {params.tenant_slug && (
-            <Button asChild>
-              <Link href={`/${params.tenant_slug}/users/invite`}>
-                <UserPlus data-icon="inline-start" />
-                Invite Staff
-              </Link>
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          eyebrow="User Management"
+          title="Manage users"
+          description="Search by name or email, filter by role, and toggle account status."
+          action={
+            params.tenant_slug ? (
+              <Button asChild>
+                <Link href={`/${params.tenant_slug}/users/invite`}>
+                  <UserPlus data-icon="inline-start" />
+                  Invite Staff
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
 
-        <Card className="border-black/10 bg-white/90 shadow-sm">
+        <Card className="border-border bg-card/90 shadow-sm">
           <CardContent className="space-y-5 p-5 md:p-6">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -199,7 +203,7 @@ export default function AdminUsersPage() {
                 ))}
               </div>
             ) : visibleUsers.length === 0 ? (
-              <Empty className="border border-dashed border-black/10">
+              <Empty className="border border-dashed border-border">
                 <EmptyMedia variant="icon">
                   <Search />
                 </EmptyMedia>
@@ -207,7 +211,7 @@ export default function AdminUsersPage() {
                 <EmptyDescription>Try a different search term or role filter.</EmptyDescription>
               </Empty>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-black/10">
+              <div className="motion-safe:animate-fade-up overflow-hidden rounded-2xl border border-border">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -225,17 +229,17 @@ export default function AdminUsersPage() {
                     <TableBody>
                       {visibleUsers.map((user) => (
                         <TableRow key={user.user_id}>
-                          <TableCell className="font-semibold text-slate-900">{user.full_name}</TableCell>
-                          <TableCell className="text-slate-600">{user.email}</TableCell>
+                          <TableCell className="font-semibold text-foreground">{user.full_name}</TableCell>
+                          <TableCell className="text-muted-foreground">{user.email}</TableCell>
                           <TableCell><RoleBadge role={user.role} /></TableCell>
-                          <TableCell className="text-slate-700">{formatCurrency(Number(user.wallet_balance))}</TableCell>
-                          <TableCell className="text-slate-700">{user.reward_points.toLocaleString('en-BD')}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatCurrency(Number(user.wallet_balance))}</TableCell>
+                          <TableCell className="text-muted-foreground">{user.reward_points.toLocaleString('en-BD')}</TableCell>
                           <TableCell>
                             <Badge variant={user.is_active ? 'default' : 'destructive'}>
                               {user.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-600">{formatDate(user.created_at)}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatDate(user.created_at)}</TableCell>
                           <TableCell>
                             <Button
                               type="button"
@@ -257,30 +261,36 @@ export default function AdminUsersPage() {
             )}
 
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Showing {filteredUsers.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length}
               </p>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+              <Pagination className="mx-0 w-auto">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      aria-disabled={currentPage === 1}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setCurrentPage((page) => Math.max(page - 1, 1))
+                      }}
+                    />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      aria-disabled={currentPage >= totalPages}
+                      className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : undefined}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setCurrentPage((page) => Math.min(page + 1, totalPages))
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           </CardContent>
         </Card>

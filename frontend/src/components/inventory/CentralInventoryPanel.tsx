@@ -100,7 +100,7 @@ export default function CentralInventoryPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleTransfer}>
+          <form method="post" onSubmit={handleTransfer}>
             <FieldGroup>
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field>

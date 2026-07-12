@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import { cn } from '@/lib/utils'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -37,7 +39,7 @@ interface TenantRow {
 const TIERS: Tier[] = ['free', 'starter', 'professional', 'enterprise']
 
 const TIER_COLORS: Record<Tier, string> = {
-  free: 'bg-slate-100 text-slate-600',
+  free: 'bg-muted text-muted-foreground',
   starter: 'bg-blue-100 text-blue-700',
   professional: 'bg-purple-100 text-purple-700',
   enterprise: 'bg-amber-100 text-amber-700',
@@ -79,18 +81,26 @@ export default function SubscriptionsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col p-6 gap-4">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
+      <ProtectedRoute allowedRoles={['platform_admin']}>
+        <div className="flex flex-col p-6 gap-4">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
+      </ProtectedRoute>
     )
   }
 
   return (
-    <div className="p-6">
-      <h1 className="mb-6 text-2xl font-black text-slate-900">Subscriptions</h1>
+    <ProtectedRoute allowedRoles={['platform_admin']}>
+      <div className="flex flex-col gap-6 p-6">
+        <PageHeader
+          eyebrow="Platform Admin"
+          title="Subscriptions"
+          description="Manage subscription tiers across every tenant on the platform."
+          breadcrumbs={[{ label: 'Platform' }, { label: 'Subscriptions' }]}
+        />
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+      <div className="motion-safe:animate-fade-up overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -105,10 +115,10 @@ export default function SubscriptionsPage() {
             {tenants.map((t) => (
               <TableRow key={t.tenant_id}>
                 <TableCell>
-                  <p className="font-semibold text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-400">{t.slug}</p>
+                  <p className="font-semibold text-foreground">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.slug}</p>
                 </TableCell>
-                <TableCell className="capitalize text-slate-600">
+                <TableCell className="capitalize text-muted-foreground">
                   {t.tenant_type.replace(/_/g, ' ')}
                 </TableCell>
                 <TableCell>
@@ -117,7 +127,7 @@ export default function SubscriptionsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={cn('capitalize border-transparent', TIER_COLORS[t.subscription_tier] ?? 'bg-slate-100 text-slate-600')}>
+                  <Badge variant="outline" className={cn('capitalize border-transparent', TIER_COLORS[t.subscription_tier] ?? 'bg-muted text-muted-foreground')}>
                     {t.subscription_tier}
                   </Badge>
                 </TableCell>
@@ -144,6 +154,7 @@ export default function SubscriptionsPage() {
           </TableBody>
         </Table>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

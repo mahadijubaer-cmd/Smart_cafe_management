@@ -156,3 +156,15 @@ Documented in `operations/testing.md`; implemented in `backend/tests/test_org_re
 > Test-infra note: `conftest.py` gained a `@compiles(UUID, "sqlite")` hook and a
 > `_strip_pg_only_server_defaults()` helper so the PostgreSQL-typed models create cleanly on the
 > in-memory SQLite test database.
+
+## 6. Addendum (2026-07-11): Segment-scoped entry point from `/discover`
+
+`/discover?segment=cafeteria` and `/discover?segment=restaurant` (RFC-007's tenant directory) now
+each show a "Register your {cafeteria|restaurant}" CTA linking to
+`/register-organization?segment=cafeteria|restaurant`. When that query param is present,
+`OrgCategorySelector`'s Step-1 grid is filtered (client-side, via `getSegment()`) to only the
+self-serve types belonging to that segment — `corporate`/`academic` for cafeteria,
+`independent_restaurant`/`franchise_brand`/`food_court` for restaurant — instead of always showing
+all 5. This is a UI convenience only: no new endpoint, no new business rule. `POST
+/tenants/register` still independently enforces BR-ORG-1 server-side no matter which types the
+frontend chose to display, so this addendum introduces no new security surface.

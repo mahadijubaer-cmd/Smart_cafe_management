@@ -91,7 +91,7 @@ export default function LoginPage() {
               <CardDescription>Use your registered email and password to continue.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+              <form method="post" className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" type="email" placeholder="you@example.com" {...register('email')} />

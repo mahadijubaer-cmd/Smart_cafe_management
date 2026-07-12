@@ -23,21 +23,25 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
   const slug = params.tenant_slug
   const token = useStore((state) => state.token)
   const clearAuth = useStore((state) => state.clearAuth)
+  const hasHydrated = useStore((state) => state.hasHydrated)
 
   useEffect(() => {
+    if (!hasHydrated) return
     if (!token) router.replace(`/${slug}/login`)
-  }, [router, slug, token])
+  }, [hasHydrated, router, slug, token])
 
   const handleLogout = () => {
     clearAuth()
     router.push(`/${slug}/login`)
   }
 
+  if (!hasHydrated) return null
+
   return (
     <div className="min-h-screen bg-muted/30">
-      <nav className="flex items-center justify-between gap-4 bg-primary px-6 py-3 text-primary-foreground shadow-md">
-        <div className="flex flex-wrap items-center gap-6">
-          {NAV_DEFS.map((item, index) => {
+      <nav className="flex items-center justify-between gap-4 bg-primary px-4 py-3 text-primary-foreground shadow-md sm:px-6">
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto sm:gap-2">
+          {NAV_DEFS.map((item) => {
             const href = `/${slug}/${item.path}`
             const active = pathname === href || pathname.startsWith(`${href}/`)
             const Icon = item.icon
@@ -46,9 +50,10 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
                 key={item.path}
                 href={href}
                 className={cn(
-                  'flex items-center gap-2 text-sm transition',
-                  index === 0 ? 'text-lg font-bold tracking-tight' : 'text-primary-foreground/80 hover:text-primary-foreground',
-                  active && index !== 0 && 'font-semibold text-primary-foreground'
+                  'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition',
+                  active
+                    ? 'bg-white/15 text-primary-foreground'
+                    : 'text-primary-foreground/75 hover:bg-white/10 hover:text-primary-foreground'
                 )}
               >
                 <Icon className="size-4" />
@@ -60,11 +65,11 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
         <Button
           variant="ghost"
           size="sm"
-          className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
+          className="shrink-0 text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
           onClick={handleLogout}
         >
           <LogOut data-icon="inline-start" />
-          Logout
+          <span className="hidden sm:inline">Logout</span>
         </Button>
       </nav>
       <main className="p-6">{children}</main>

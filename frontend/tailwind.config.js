@@ -17,7 +17,7 @@ module.exports = {
   				DEFAULT: '#F59E0B',
   				foreground: 'var(--accent-foreground)'
   			},
-  			background: '#F5F0E8',
+  			background: 'var(--background)',
   			foreground: 'var(--foreground)',
   			card: {
   				DEFAULT: 'var(--card)',
@@ -57,8 +57,26 @@ module.exports = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		fontFamily: {
+  			sans: ['var(--font-body)', 'Arial', 'Helvetica', 'sans-serif'],
+  			heading: ['var(--font-heading)', 'var(--font-body)', 'Arial', 'Helvetica', 'sans-serif']
+  		},
+  		keyframes: {
+  			'fade-up': {
+  				'0%': { opacity: '0', transform: 'translateY(8px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  			},
+  			'scale-in': {
+  				'0%': { opacity: '0', transform: 'scale(0.96)' },
+  				'100%': { opacity: '1', transform: 'scale(1)' }
+  			}
+  		},
+  		animation: {
+  			'fade-up': 'fade-up 0.5s ease-out both',
+  			'scale-in': 'scale-in 0.2s ease-out both'
   		}
   	}
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 }

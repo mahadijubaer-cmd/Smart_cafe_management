@@ -6,6 +6,8 @@ import { ArrowLeft, Gift, Loader2, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
+import { Button } from '@/components/ui/button'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 import type { User } from '@/types'
@@ -256,32 +258,23 @@ export default function StudentWalletPage() {
 
   return (
     <ProtectedRoute allowedRoles={['student', 'customer']}>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#f1ede4_0%,#ffffff_38%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
-                Wallet
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Balance, rewards, and history</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-                Keep your wallet funded, monitor your reward tier, and review every payment from one place.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#1A4D2E]/30 hover:text-[#1A4D2E]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-          </div>
+          <PageHeader
+            eyebrow="Wallet"
+            title="Balance, rewards, and history"
+            description="Keep your wallet funded, monitor your reward tier, and review every payment from one place."
+            action={
+              <Button type="button" variant="outline" className="gap-2 rounded-full" onClick={() => router.back()}>
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            }
+          />
 
           <section className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
             <div className="space-y-6">
-              <div className="overflow-hidden rounded-[2rem] border border-black/10 bg-[linear-gradient(135deg,#14351f_0%,#1a4d2e_55%,#2d6a3d_100%)] p-6 text-white shadow-[0_24px_80px_rgba(20,53,31,0.28)] md:p-8">
+              <div className="overflow-hidden rounded-[2rem] border border-border bg-[linear-gradient(135deg,#14351f_0%,#1a4d2e_55%,#2d6a3d_100%)] p-6 text-white shadow-[0_24px_80px_rgba(20,53,31,0.28)] md:p-8">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-white/70">Available balance</p>
@@ -293,56 +286,56 @@ export default function StudentWalletPage() {
                       Spend this directly on wallet payments or top it up before checkout.
                     </p>
                   </div>
-                  <div className="rounded-3xl bg-white/10 p-4 text-white ring-1 ring-white/15 backdrop-blur">
+                  <div className="rounded-3xl bg-card/10 p-4 text-white ring-1 ring-white/15 backdrop-blur">
                     <Wallet className="h-8 w-8" />
                   </div>
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Reward points</p>
+                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Reward points</p>
                   <div className="mt-3 flex items-center gap-3">
-                    <Gift className="h-6 w-6 text-[#1A4D2E]" />
-                    <span className="text-3xl font-black text-slate-900">{rewardPoints.toLocaleString('en-BD')}</span>
+                    <Gift className="h-6 w-6 text-primary" />
+                    <span className="text-3xl font-black text-foreground">{rewardPoints.toLocaleString('en-BD')}</span>
                   </div>
-                  <p className="mt-3 text-sm text-slate-600">
+                  <p className="mt-3 text-sm text-muted-foreground">
                     {pointsToNextTier === 0 && rewardPoints > 0
                       ? 'You have reached a reward tier.'
                       : `${pointsToNextTier} points to the next reward.`}
                   </p>
                 </div>
 
-                <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Reward tier</p>
-                  <div className="mt-3 text-sm text-slate-600">
+                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Reward tier</p>
+                  <div className="mt-3 text-sm text-muted-foreground">
                     500 points unlocks a free menu item on the next checkout.
                   </div>
-                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#1A4D2E] to-[#79a55e] transition-[width] duration-700 ease-out"
                       style={{ width: progressReady ? `${rewardProgressPercent}%` : '0%' }}
                     />
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                     <span>{normalizedProgress} / {REWARD_TIER} points</span>
                     <span>Next tier: {pointsToNextTier || 0} points</span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">Top up wallet</h3>
-                    <p className="mt-1 text-sm text-slate-500">Pick a quick amount or enter a custom value up to 10,000 BDT.</p>
+                    <h3 className="text-xl font-bold text-foreground">Top up wallet</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Pick a quick amount or enter a custom value up to 10,000 BDT.</p>
                   </div>
-                  <div className="rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold text-[#1A4D2E]">
+                  <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     Fast checkout ready
                   </div>
                 </div>
 
-                <form className="space-y-5" onSubmit={handleTopUp}>
+                <form method="post" className="space-y-5" onSubmit={handleTopUp}>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {QUICK_TOPUP_AMOUNTS.map((preset) => {
                       const active = Number(amount) === preset
@@ -351,7 +344,7 @@ export default function StudentWalletPage() {
                           key={preset}
                           type="button"
                           onClick={() => handleQuickAmount(preset)}
-                          className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${active ? 'border-[#1A4D2E] bg-[#1A4D2E] text-white shadow-lg shadow-[#1A4D2E]/15' : 'border-black/10 bg-slate-50 text-slate-700 hover:border-[#1A4D2E]/30 hover:bg-[#1A4D2E]/5'}`}
+                          className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${active ? 'border-primary bg-primary text-white shadow-lg shadow-primary/15' : 'border-border bg-muted text-muted-foreground hover:border-primary/30 hover:bg-primary/5'}`}
                         >
                           BDT {preset}
                         </button>
@@ -360,7 +353,7 @@ export default function StudentWalletPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-900" htmlFor="topup-amount">
+                    <label className="mb-2 block text-sm font-semibold text-foreground" htmlFor="topup-amount">
                       Custom amount
                     </label>
                     <input
@@ -372,14 +365,14 @@ export default function StudentWalletPage() {
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
                       placeholder="Enter amount"
-                      className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/10"
+                      className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1A4D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#163f25] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     Add Funds
@@ -389,21 +382,21 @@ export default function StudentWalletPage() {
             </div>
 
             <div className="space-y-6">
-              <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">Transaction history</h3>
-                    <p className="mt-1 text-sm text-slate-500">Wallet payments and added funds.</p>
+                    <h3 className="text-xl font-bold text-foreground">Transaction history</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Wallet payments and added funds.</p>
                   </div>
-                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
                     Page {currentPage} of {totalPages}
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-black/10">
+                <div className="overflow-hidden rounded-2xl border border-border">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-black/10 text-sm">
-                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.15em] text-slate-500">
+                    <table className="min-w-full divide-y divide-border text-sm">
+                      <thead className="bg-muted text-left text-xs uppercase tracking-[0.15em] text-muted-foreground">
                         <tr>
                           <th className="px-4 py-3">Date</th>
                           <th className="px-4 py-3">Details</th>
@@ -412,16 +405,16 @@ export default function StudentWalletPage() {
                           <th className="px-4 py-3">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-black/10 bg-white">
+                      <tbody className="divide-y divide-border bg-card">
                         {loadingState ? (
                           <tr>
-                            <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
+                            <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
                               Loading history...
                             </td>
                           </tr>
                         ) : visibleTransactions.length === 0 ? (
                           <tr>
-                            <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
+                            <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
                               No transactions yet.
                             </td>
                           </tr>
@@ -429,20 +422,20 @@ export default function StudentWalletPage() {
                           visibleTransactions.map((entry) => {
                             const isCredit = entry.kind === 'topup'
                             return (
-                              <tr key={entry.id} className="hover:bg-slate-50/60">
-                                <td className="px-4 py-3 text-slate-600">{formatDate(entry.createdAt)}</td>
+                              <tr key={entry.id} className="hover:bg-muted/60">
+                                <td className="px-4 py-3 text-muted-foreground">{formatDate(entry.createdAt)}</td>
                                 <td className="px-4 py-3">
                                   <div className="space-y-1">
-                                    <p className="font-semibold text-slate-900">{entry.title}</p>
-                                    <p className="text-xs text-slate-500">{entry.subtitle}</p>
+                                    <p className="font-semibold text-foreground">{entry.title}</p>
+                                    <p className="text-xs text-muted-foreground">{entry.subtitle}</p>
                                   </div>
                                 </td>
                                 <td className={`px-4 py-3 font-semibold ${isCredit ? 'text-emerald-600' : 'text-rose-600'}`}>
                                   {isCredit ? '+' : '-'} {formatBdt(Math.abs(entry.amount))}
                                 </td>
-                                <td className="px-4 py-3 text-slate-600">{entry.method}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{entry.method}</td>
                                 <td className="px-4 py-3">
-                                  <span className="rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#1A4D2E]">
+                                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary">
                                     {entry.status}
                                   </span>
                                 </td>
@@ -458,7 +451,7 @@ export default function StudentWalletPage() {
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                     disabled={currentPage === 1}
                   >
@@ -466,7 +459,7 @@ export default function StudentWalletPage() {
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
                     disabled={currentPage >= totalPages}
                   >

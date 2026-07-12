@@ -6,9 +6,16 @@ import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
-import { Button } from '@/components/ui/button'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -77,19 +84,16 @@ export default function AuditLogPage() {
 
   return (
     <ProtectedRoute allowedRoles={['platform_admin']}>
-      <div className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <div className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="flex flex-col mx-auto max-w-6xl gap-6">
-          <div>
-            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-              Platform Admin
-            </p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Audit Log</h1>
-            <p className="mt-2 text-sm text-slate-600">
-              Every platform-admin tenant mutation — create, tier change, activate, suspend, delete, impersonate.
-            </p>
-          </div>
+          <PageHeader
+            eyebrow="Platform Admin"
+            title="Audit Log"
+            description="Every platform-admin tenant mutation — create, tier change, activate, suspend, delete, impersonate."
+            breadcrumbs={[{ label: 'Platform' }, { label: 'Audit Log' }]}
+          />
 
-          <Card className="border-slate-200">
+          <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
                 <History className="h-5 w-5 text-primary" />
@@ -116,7 +120,7 @@ export default function AuditLogPage() {
                   {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}
                 </div>
               ) : items.length === 0 ? (
-                <Empty className="border border-dashed border-slate-300 bg-slate-50">
+                <Empty className="border border-dashed border-border bg-muted">
                   <EmptyMedia variant="icon">
                     <History />
                   </EmptyMedia>
@@ -124,7 +128,7 @@ export default function AuditLogPage() {
                   <EmptyDescription>Tenant mutations will show up here as they happen.</EmptyDescription>
                 </Empty>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="motion-safe:animate-fade-up overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -138,22 +142,22 @@ export default function AuditLogPage() {
                     <TableBody>
                       {items.map((entry) => (
                         <TableRow key={entry.log_id}>
-                          <TableCell className="whitespace-nowrap text-slate-600">
+                          <TableCell className="whitespace-nowrap text-muted-foreground">
                             {new Date(entry.created_at).toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-slate-700">{entry.actor_email}</TableCell>
+                          <TableCell className="text-muted-foreground">{entry.actor_email}</TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="capitalize">
                               {entry.action.replace(/_/g, ' ')}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-700">
-                            {entry.target_tenant_name ?? <span className="text-slate-400">—</span>}
+                          <TableCell className="text-muted-foreground">
+                            {entry.target_tenant_name ?? <span className="text-muted-foreground">—</span>}
                             {entry.target_tenant_slug ? (
-                              <span className="ml-1 font-mono text-xs text-slate-400">/{entry.target_tenant_slug}</span>
+                              <span className="ml-1 font-mono text-xs text-muted-foreground">/{entry.target_tenant_slug}</span>
                             ) : null}
                           </TableCell>
-                          <TableCell className="max-w-xs truncate font-mono text-xs text-slate-500">
+                          <TableCell className="max-w-xs truncate font-mono text-xs text-muted-foreground">
                             {entry.details ?? '—'}
                           </TableCell>
                         </TableRow>
@@ -164,17 +168,35 @@ export default function AuditLogPage() {
               )}
 
               <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Showing {items.length === 0 ? 0 : skip + 1}–{skip + items.length} of {total}
                 </p>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-                    Previous
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={skip + PAGE_SIZE >= total} onClick={() => setSkip(skip + PAGE_SIZE)}>
-                    Next
-                  </Button>
-                </div>
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        aria-disabled={skip === 0}
+                        className={skip === 0 ? 'pointer-events-none opacity-50' : undefined}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          setSkip(Math.max(0, skip - PAGE_SIZE))
+                        }}
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        aria-disabled={skip + PAGE_SIZE >= total}
+                        className={skip + PAGE_SIZE >= total ? 'pointer-events-none opacity-50' : undefined}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          setSkip(skip + PAGE_SIZE)
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             </CardContent>
           </Card>

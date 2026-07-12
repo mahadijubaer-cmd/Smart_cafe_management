@@ -2,7 +2,7 @@
 
 **Routers:** `backend/app/routers/users.py` (directory + activation), `backend/app/routers/invitations.py` (invite flow)  
 **Schemas:** `backend/app/schemas/user.py`  
-**Last verified:** 2026-07-02
+**Last verified:** 2026-07-11
 
 ---
 
@@ -120,11 +120,16 @@ Lists invitations sent for the calling admin's tenant, most recently created fir
 ```
 
 **Business logic:**
-1. Validate token (exists, not expired, not already accepted)
-2. Create user with invited role and tenant
-3. Mark invitation as accepted
+1. Validate password complexity — must be at least 8 characters with an uppercase letter, a digit,
+   and a special character → `400` if it fails the regex check (same complexity rule enforced at
+   `POST /users/invite`-adjacent flows and `auth.py`'s password endpoints)
+2. Validate token (exists, not expired, not already accepted)
+3. Create user with invited role and tenant
+4. Mark invitation as accepted
 
-**Response `201`:** `Token`
+**Response `201`:** `{ "access_token": "<jwt>", "token_type": "bearer" }` — not the full `Token`
+schema; no `user_id`/`tenant_id`/`role`/etc. claims in the response body (they're inside the JWT
+itself, not the JSON envelope).
 
 ---
 

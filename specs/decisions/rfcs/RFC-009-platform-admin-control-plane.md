@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-08
 **Author:** Mahadi Jubaer (22301162)
-**Status:** Accepted
+**Status:** Implemented
 **Related spec files:** `modules/platform.md` (new), `modules/tenants.md`, `modules/menu.md`,
 `modules/users.md`, `system/data-model.md`, `system/security.md`, `frontend/overview.md`,
 `operations/roadmap.md`
@@ -197,8 +197,8 @@ RFC; it is a follow-up if a specific page is found broken under impersonation.
 - [x] `specs/frontend/overview.md` updated (nav, new pages/components)
 - [x] `specs/operations/roadmap.md` updated (Phase 24)
 - [x] `specs/README.md` file-ownership map updated
-- [ ] Alembic migration `0008_add_platform_audit_log.py`
-- [ ] Backend implementation
-- [ ] Tests written (`backend/tests/test_platform_admin.py`)
-- [ ] Frontend implementation
-- [ ] `CHANGELOG.md` updated
+- [x] Alembic migration `0008_add_platform_audit_log.py`
+- [x] Backend implementation
+- [x] Tests written (`backend/tests/test_platform_admin.py`)
+- [x] Frontend implementation
+- [x] `CHANGELOG.md` updated

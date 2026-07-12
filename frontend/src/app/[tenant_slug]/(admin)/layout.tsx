@@ -16,15 +16,18 @@ import {
   ShoppingBag,
   Store,
   Table2,
+  UserPlus,
   Users,
   UtensilsCrossed,
   Warehouse,
 } from 'lucide-react'
 
 import { getRoleFromToken } from '@/lib/auth'
+import { useTenantInfo } from '@/hooks/useTenantInfo'
 import { useStore } from '@/store/useStore'
 import type { TenantType, UserRole } from '@/types'
 import { Button } from '@/components/ui/button'
+import CommandPalette from '@/components/layout/CommandPalette'
 import {
   Sidebar,
   SidebarContent,
@@ -101,12 +104,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const token = useStore((state) => state.token)
   const tenantType = useStore((state) => state.tenantType)
   const clearAuth = useStore((state) => state.clearAuth)
+  const hasHydrated = useStore((state) => state.hasHydrated)
+  const { tenant } = useTenantInfo(slug)
 
   const role = getRoleFromToken(token)
 
   useEffect(() => {
+    if (!hasHydrated) return
     if (!token) router.replace(`/${slug}/login`)
-  }, [router, slug, token])
+  }, [hasHydrated, router, slug, token])
 
   const handleLogout = () => {
     clearAuth()
@@ -125,15 +131,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 
+  // UIX-3: the palette gets the exact same visible lists the sidebar just rendered above — no
+  // separate/duplicated nav source. See specs/frontend/overview.md "Command palette (UIX-3)".
+  const paletteItems = [
+    ...visibleNav.map((item) => ({ label: item.label, href: `/${slug}/${item.path}`, icon: item.icon })),
+    ...visiblePlatformNav.map((item) => ({ label: item.label, href: item.path, icon: item.icon })),
+  ]
+  const paletteQuickActions = [
+    { label: 'Invite user', href: `/${slug}/users/invite`, icon: <UserPlus /> },
+  ]
+
+  if (!hasHydrated) return null
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b px-3 py-3">
-          <div className="flex items-center gap-2 px-2 text-primary">
-            <span className="text-xl" aria-hidden="true">🍽</span>
-            <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">SCMS Admin</span>
+          <div className="flex items-center justify-between gap-2 px-2 text-primary">
+            <div className="flex items-center gap-2">
+              <span className="text-xl" aria-hidden="true">🍽</span>
+              <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">SCMS Admin</span>
+            </div>
+            <kbd className="hidden rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden lg:inline">
+              ⌘K
+            </kbd>
           </div>
-          <p className="truncate px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{slug}</p>
+          <p className="truncate px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{tenant?.name ?? slug}</p>
         </SidebarHeader>
 
         <SidebarContent>
@@ -194,6 +217,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 overflow-y-auto bg-muted/30">{children}</main>
       </SidebarInset>
+
+      <CommandPalette items={paletteItems} quickActions={paletteQuickActions} />
     </SidebarProvider>
   )
 }

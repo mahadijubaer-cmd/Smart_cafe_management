@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import InventoryTable from '@/components/inventory/InventoryTable'
+import PageHeader from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -66,7 +67,7 @@ function AddItemModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
           <DialogTitle>Add Inventory Item</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form method="post" onSubmit={handleSubmit}>
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field className="sm:col-span-2">
@@ -171,37 +172,35 @@ export default function InventoryPage() {
 
       <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-                Inventory
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">Stock Management</h1>
-              <p className="mt-2 text-sm text-muted-foreground">Track all ingredients, packaging, and supplies.</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" asChild>
-                <Link href={`/${slug}/inventory/purchase-orders`} className="gap-2">
-                  <ClipboardList data-icon="inline-start" />
-                  Purchase Orders
-                </Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/${slug}/inventory/movements`} className="gap-2">
-                  <Package data-icon="inline-start" />
-                  Movements
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                className="gap-2"
-                onClick={() => setShowAdd(true)}
-              >
-                <Plus data-icon="inline-start" />
-                Add Item
-              </Button>
-            </div>
-          </div>
+          <PageHeader
+            eyebrow="Inventory"
+            title="Stock Management"
+            description="Track all ingredients, packaging, and supplies."
+            action={
+              <div className="flex items-center gap-3">
+                <Button variant="outline" asChild>
+                  <Link href={`/${slug}/inventory/purchase-orders`} className="gap-2">
+                    <ClipboardList data-icon="inline-start" />
+                    Purchase Orders
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/${slug}/inventory/movements`} className="gap-2">
+                    <Package data-icon="inline-start" />
+                    Movements
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={() => setShowAdd(true)}
+                >
+                  <Plus data-icon="inline-start" />
+                  Add Item
+                </Button>
+              </div>
+            }
+          />
 
           {lowStock.length > 0 ? (
             <Card className="border-destructive/30 bg-destructive/5">

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.limiter import limiter
 from app.core.redis import get_redis, close_redis
+from app.config.email import verify_mail_config
 from app.middleware.tenant import TenantContextMiddleware
 from app.routers import auth, menu, orders, tables, cleaners, payments, analytics, websocket
 from app.routers import tenants, otp, inventory, qr, memo, receipts, food_court
@@ -42,6 +44,9 @@ async def lifespan(app: FastAPI):
     logger.info("Connecting to Redis...")
     await get_redis()
     logger.info("Redis ready.")
+
+    logger.info("Checking SMTP configuration...")
+    await asyncio.to_thread(verify_mail_config)
 
     yield
 

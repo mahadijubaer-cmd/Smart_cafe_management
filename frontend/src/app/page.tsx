@@ -11,16 +11,23 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#1A4D2E] px-6 py-16 text-center text-white">
-      <h1 className="text-5xl font-black tracking-tight">Smart Cafe Management</h1>
-      <p className="mt-3 text-lg text-white/70">
+      <h1 className="motion-safe:animate-fade-up text-5xl font-black tracking-tight">Smart Cafe Management</h1>
+      <p
+        className="motion-safe:animate-fade-up mt-3 text-lg text-white/70"
+        style={{ animationDelay: '80ms' }}
+      >
         BRAC University CSE400 — Final Year Thesis
       </p>
 
       {/* RFC-007: segment landing — cafeteria (registered accounts) vs restaurant (guest QR ordering) */}
       <div className="mt-12 grid w-full max-w-3xl gap-6 sm:grid-cols-2">
-        <Link href="/discover?segment=cafeteria" className="group block">
-          <Card className="flex flex-col items-start gap-3 rounded-2xl border-white/20 bg-white/5 p-8 text-left shadow-none transition hover:-translate-y-0.5 hover:bg-white/10">
-            <span className="text-3xl">🍽️</span>
+        <Link
+          href="/discover?segment=cafeteria"
+          className="motion-safe:animate-fade-up group block"
+          style={{ animationDelay: '160ms' }}
+        >
+          <Card className="flex flex-col items-start gap-3 rounded-2xl border-white/20 bg-white/5 p-8 text-left shadow-none transition duration-300 hover:-translate-y-1 hover:bg-white/10 hover:shadow-xl hover:shadow-black/20">
+            <span className="text-3xl transition-transform duration-300 group-hover:scale-110">🍽️</span>
             <span className="text-xl font-bold text-white">Cafeteria</span>
             <span className="text-sm text-white/60">
               For corporate and academic communities. Log in with your account to order and pay from
@@ -29,9 +36,13 @@ export default function Home() {
           </Card>
         </Link>
 
-        <Link href="/discover?segment=restaurant" className="group block">
-          <Card className="flex flex-col items-start gap-3 rounded-2xl border-white/20 bg-white/5 p-8 text-left shadow-none transition hover:-translate-y-0.5 hover:bg-white/10">
-            <span className="text-3xl">🍔</span>
+        <Link
+          href="/discover?segment=restaurant"
+          className="motion-safe:animate-fade-up group block"
+          style={{ animationDelay: '240ms' }}
+        >
+          <Card className="flex flex-col items-start gap-3 rounded-2xl border-white/20 bg-white/5 p-8 text-left shadow-none transition duration-300 hover:-translate-y-1 hover:bg-white/10 hover:shadow-xl hover:shadow-black/20">
+            <span className="text-3xl transition-transform duration-300 group-hover:scale-110">🍔</span>
             <span className="text-xl font-bold text-white">Restaurant</span>
             <span className="text-sm text-white/60">
               Independent restaurants, franchises &amp; food courts. No account needed — scan the
@@ -41,18 +52,21 @@ export default function Home() {
         </Link>
       </div>
 
-      <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+      <div
+        className="motion-safe:animate-fade-up mt-10 flex flex-col gap-4 sm:flex-row"
+        style={{ animationDelay: '320ms' }}
+      >
         {hasHydrated && tenantSlug ? (
-          <Button asChild size="lg" className="rounded-2xl bg-white text-[#1A4D2E] hover:bg-white/90">
+          <Button asChild size="lg" className="rounded-2xl bg-white text-[#1A4D2E] transition-transform hover:-translate-y-0.5 hover:bg-white/90">
             <Link href={`/${tenantSlug}/login`}>Continue to {tenantSlug}</Link>
           </Button>
         ) : null}
 
-        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
+        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10 hover:text-white">
           <Link href="/discover">Find your organisation</Link>
         </Button>
 
-        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
+        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10 hover:text-white">
           <Link href="/register-organization">Register your organisation</Link>
         </Button>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { BarChart3, ShoppingBag, TrendingUp, Users } from 'lucide-react'
+import PageHeader from '@/components/layout/PageHeader'
 import {
   Area,
   AreaChart,
@@ -98,8 +99,8 @@ function SummaryCard({
     <Card>
       <CardContent className="flex items-start justify-between gap-3 p-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+          <p className="mt-2 text-3xl font-black tracking-tight text-foreground">{value}</p>
         </div>
         <div className="rounded-xl bg-primary/10 p-2.5 text-primary">{icon}</div>
       </CardContent>
@@ -111,7 +112,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-700">{title}</CardTitle>
+        <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -181,24 +182,21 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header + period selector */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">Analytics</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Performance overview · {PERIOD_LABELS[period]}
-          </p>
-        </div>
-        <Tabs value={period} onValueChange={(value) => setPeriod(value as Period)}>
-          <TabsList>
-            {(['today', 'week', 'month'] as Period[]).map((p) => (
-              <TabsTrigger key={p} value={p}>
-                {PERIOD_LABELS[p]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+      <PageHeader
+        title="Analytics"
+        description={`Performance overview · ${PERIOD_LABELS[period]}`}
+        action={
+          <Tabs value={period} onValueChange={(value) => setPeriod(value as Period)}>
+            <TabsList>
+              {(['today', 'week', 'month'] as Period[]).map((p) => (
+                <TabsTrigger key={p} value={p}>
+                  {PERIOD_LABELS[p]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        }
+      />
 
       {/* Row 1: Summary cards */}
       {loading ? (
@@ -206,7 +204,7 @@ export default function AnalyticsPage() {
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28" />)}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="motion-safe:animate-fade-up grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             icon={<ShoppingBag className="h-5 w-5" />}
             label="Total Orders"
@@ -253,7 +251,7 @@ export default function AnalyticsPage() {
           {loading ? (
             <Skeleton className="h-64" />
           ) : revenue.length === 0 ? (
-            <div className="flex h-48 items-center justify-center text-sm text-slate-500">
+            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
               No revenue data for this period.
             </div>
           ) : (
@@ -265,16 +263,16 @@ export default function AnalyticsPage() {
                     <stop offset="95%" stopColor="var(--color-primary, #1A4D2E)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v: string) => v.slice(5)}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v: number) => `৳${(v / 1000).toFixed(0)}k`}
@@ -283,10 +281,10 @@ export default function AnalyticsPage() {
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null
                     return (
-                      <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-lg text-xs">
-                        <p className="font-semibold text-slate-700">{label}</p>
+                      <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-lg text-xs">
+                        <p className="font-semibold text-muted-foreground">{label}</p>
                         <p className="text-primary">{formatCurrency(Number(payload[0]?.value))}</p>
-                        <p className="text-slate-500">{payload[1]?.value} orders</p>
+                        <p className="text-muted-foreground">{payload[1]?.value} orders</p>
                       </div>
                     )
                   }}
@@ -301,7 +299,7 @@ export default function AnalyticsPage() {
                 <Area
                   type="monotone"
                   dataKey="order_count"
-                  stroke="#94a3b8"
+                  stroke="var(--muted-foreground)"
                   strokeWidth={1.5}
                   fill="none"
                   strokeDasharray="4 2"
@@ -324,14 +322,14 @@ export default function AnalyticsPage() {
         <SectionCard title="Inventory Value">
           <div className="flex flex-wrap gap-6">
             <div>
-              <p className="text-xs text-slate-500">Total Value</p>
-              <p className="mt-1 text-2xl font-black text-slate-900">
+              <p className="text-xs text-muted-foreground">Total Value</p>
+              <p className="mt-1 text-2xl font-black text-foreground">
                 {formatCurrency(inventoryValue.total_inventory_value)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Tracked Items</p>
-              <p className="mt-1 text-2xl font-black text-slate-900">
+              <p className="text-xs text-muted-foreground">Tracked Items</p>
+              <p className="mt-1 text-2xl font-black text-foreground">
                 {inventoryValue.item_count.toLocaleString()}
               </p>
             </div>
@@ -349,11 +347,11 @@ export default function AnalyticsPage() {
                 <TableBody>
                   {inventoryValue.outlets.map((o) => (
                     <TableRow key={o.outlet_tenant_id}>
-                      <TableCell className="font-medium text-slate-800">{o.outlet_name}</TableCell>
+                      <TableCell className="font-medium text-foreground">{o.outlet_name}</TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatCurrency(o.total_inventory_value)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums text-slate-500">{o.item_count}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{o.item_count}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

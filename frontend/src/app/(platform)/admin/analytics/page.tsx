@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts'
 import apiClient from '@/lib/api'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -75,45 +77,53 @@ export default function PlatformAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col p-6 gap-4">
-        <Skeleton className="h-6 w-48" />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
-          ))}
+      <ProtectedRoute allowedRoles={['platform_admin']}>
+        <div className="flex flex-col p-6 gap-4">
+          <Skeleton className="h-6 w-48" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-2xl" />
+            ))}
+          </div>
         </div>
-      </div>
+      </ProtectedRoute>
     )
   }
 
   return (
-    <div className="flex flex-col p-6 gap-8">
-      <h1 className="text-2xl font-black text-slate-900">Platform Analytics</h1>
+    <ProtectedRoute allowedRoles={['platform_admin']}>
+      <div className="flex flex-col gap-8 p-6">
+        <PageHeader
+          eyebrow="Platform Admin"
+          title="Platform Analytics"
+          description="Cross-tenant revenue, orders, and activity overview."
+          breadcrumbs={[{ label: 'Platform' }, { label: 'Analytics' }]}
+        />
 
       {/* ✅ [Phase 24 — RFC-009] Genuine cross-tenant-type overview — every TenantType, not just
           franchise outlets. Renders independently of the (super_admin-only) outlet table below. */}
       {overview ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-bold text-slate-700">Platform Overview (all tenant types)</CardTitle>
+            <CardTitle className="text-sm font-bold text-muted-foreground">Platform Overview (all tenant types)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-500">Active Tenants</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">{overview.tenants_by_status.active}</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-xs font-semibold text-muted-foreground">Active Tenants</p>
+                <p className="mt-1 text-2xl font-black text-foreground">{overview.tenants_by_status.active}</p>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-500">Suspended Tenants</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">{overview.tenants_by_status.suspended}</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-xs font-semibold text-muted-foreground">Suspended Tenants</p>
+                <p className="mt-1 text-2xl font-black text-foreground">{overview.tenants_by_status.suspended}</p>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-500">Orders (30d, all tenants)</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">{overview.orders_last_30_days.total_orders.toLocaleString()}</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-xs font-semibold text-muted-foreground">Orders (30d, all tenants)</p>
+                <p className="mt-1 text-2xl font-black text-foreground">{overview.orders_last_30_days.total_orders.toLocaleString()}</p>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-500">Revenue ৳ (30d, all tenants)</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">{Number(overview.orders_last_30_days.total_revenue).toFixed(0)}</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-xs font-semibold text-muted-foreground">Revenue ৳ (30d, all tenants)</p>
+                <p className="mt-1 text-2xl font-black text-foreground">{Number(overview.orders_last_30_days.total_revenue).toFixed(0)}</p>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -128,7 +138,7 @@ export default function PlatformAnalyticsPage() {
       ) : null}
 
       {/* Summary cards (franchise-outlet comparison, super_admin-only endpoint) */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="motion-safe:animate-fade-up grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
           { label: 'Outlets Compared', value: totalTenants },
           { label: 'Active Outlets', value: activeTenants },
@@ -136,8 +146,8 @@ export default function PlatformAnalyticsPage() {
           { label: 'Outlet Revenue (৳)', value: totalRevenue.toFixed(0) },
         ].map(({ label, value }) => (
           <Card key={label} className="p-5 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
+            <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+            <p className="mt-1 text-2xl font-black text-foreground">{value}</p>
           </Card>
         ))}
       </div>
@@ -146,23 +156,23 @@ export default function PlatformAnalyticsPage() {
       {chartData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-bold text-slate-700">
+            <CardTitle className="text-sm font-bold text-muted-foreground">
               Revenue by Tenant (Top {chartData.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                   angle={-35}
                   textAnchor="end"
                   interval={0}
                 />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                <Tooltip formatter={(v: number) => [`৳${v.toFixed(0)}`, 'Revenue']} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                <Tooltip formatter={(v: unknown) => [`৳${Number(Array.isArray(v) ? v[0] : v ?? 0).toFixed(0)}`, 'Revenue']} />
                 <Bar dataKey="revenue" fill="var(--color-primary, #1A4D2E)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -173,7 +183,7 @@ export default function PlatformAnalyticsPage() {
       {/* Tenant table */}
       <Card className="overflow-hidden">
         <CardHeader>
-          <CardTitle className="text-sm font-bold text-slate-700">All Tenants</CardTitle>
+          <CardTitle className="text-sm font-bold text-muted-foreground">All Tenants</CardTitle>
         </CardHeader>
         <Table>
           <TableHeader>
@@ -188,12 +198,12 @@ export default function PlatformAnalyticsPage() {
           <TableBody>
             {stats.map((s) => (
               <TableRow key={s.tenant_id}>
-                <TableCell className="font-medium text-slate-900">{s.tenant_name}</TableCell>
-                <TableCell className="capitalize text-slate-600">
+                <TableCell className="font-medium text-foreground">{s.tenant_name}</TableCell>
+                <TableCell className="capitalize text-muted-foreground">
                   {s.tenant_type.replace(/_/g, ' ')}
                 </TableCell>
-                <TableCell className="text-right text-slate-700">{s.order_count ?? 0}</TableCell>
-                <TableCell className="text-right font-semibold text-slate-900">
+                <TableCell className="text-right text-muted-foreground">{s.order_count ?? 0}</TableCell>
+                <TableCell className="text-right font-semibold text-foreground">
                   {Number(s.revenue ?? 0).toFixed(0)}
                 </TableCell>
                 <TableCell>
@@ -206,6 +216,7 @@ export default function PlatformAnalyticsPage() {
           </TableBody>
         </Table>
       </Card>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

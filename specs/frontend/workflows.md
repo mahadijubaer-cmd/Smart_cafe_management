@@ -1,7 +1,7 @@
 # Frontend Workflows
 
 **Source of truth for all user journeys (WF-1 through WF-9)**  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-11
 
 ---
 
@@ -82,6 +82,14 @@ STEP 3: Admin 2FA (frontend-only gate)
 | `cleaner` | /{slug}/cleaner/tables |
 | `server` | /{slug}/staff/orders |
 | `student`, `customer` | /{slug}/menu |
+
+**Customer navigation (unified 2026-07-12, UIX-1 — see ADR-010):** every customer-facing surface
+uses the same canonical 5-route set — **Menu, Orders, Track, Wallet, Profile** — for its own nav
+affordances: `Navbar.tsx`'s desktop pill row, its mobile sheet, and `(customer)/layout.tsx`'s bottom
+tab bar (a 5-column grid as of this change). Previously the desktop pills and the bottom tab bar
+listed two different, only-partially-overlapping sets (desktop was missing Wallet/Profile as nav
+items; mobile was missing Track). Any new customer page added to this rotation must appear in all
+three surfaces, not just one.
 
 ---
 
@@ -304,25 +312,32 @@ STEP 3: Admin 2FA (frontend-only gate)
 
 ---
 
-## WF-9: Password Reset ❌ [Phase 19 — Not Yet Implemented]
+## WF-9: Password Reset ✅ [Implemented]
 
-**Status:** Planned only. No endpoints exist yet.
+**Actor:** Any user with an account (customer, student, staff, admin)
+**Start:** `/{tenant_slug}/forgot-password`
+
+Fully implemented, OTP-based reset flow. Frontend page:
+`frontend/src/app/[tenant_slug]/(auth)/forgot-password/page.tsx`.
 
 ```
-Planned flow:
-1. User clicks "Forgot Password" on login page
-2. Frontend calls POST /auth/forgot-password (❌ not built)
-   Body: { email }
+1. User clicks "Forgot Password" on the login page → navigates to /{tenant_slug}/forgot-password
+2. User enters email; frontend calls POST /auth/forgot-password
+   Body: { email, tenant_slug }
+   ← Always returns 200 with a generic message — never reveals whether the account exists.
 
-3. Backend sends OTP with purpose: "password_reset"
-   Redis key: otp:password_reset:{email}
+3. Backend (if the email/tenant_slug matches an active user) generates a "password_reset"-purpose
+   OTP and emails it (best-effort; failure is swallowed, response is unaffected).
 
-4. User enters OTP + new password
-5. Frontend calls POST /auth/reset-password (❌ not built)
-   Body: { email, otp_code, new_password }
+4. User enters the 6-digit OTP + new password on the same page.
+5. Frontend calls POST /auth/reset-password
+   Body: { email, tenant_slug, otp_code, new_password }
+   ← Backend validates the OTP, then validates new_password complexity
+     (uppercase + digit + special char + min 8 chars) before accepting it.
+
+6. On success: { "message": "Password updated. Please log in." }
+7. Frontend redirects to /{tenant_slug}/login
 ```
-
-**Do NOT implement this flow until Phase 19 spec is approved and code is written.**
 
 ---
 
@@ -334,12 +349,21 @@ Planned flow:
 Step 0 — Entry
   From landing page / customer login / customer register:
   click "Register your organization" → /register-organization
+  OR (added 2026-07-11) from /discover?segment=cafeteria|restaurant, click the
+  "Register your {cafeteria|restaurant}" CTA → /register-organization?segment=…
 
 Step 1 — Choose category
   Radio grid of self-serve tenant types (generic label + description):
     Independent Restaurant · Corporate Cafeteria · Academic Cafeteria ·
     Franchise Brand · Food Court
   (franchise_outlet / food_court_vendor are NOT offered — BR-ORG-1)
+  If entered via ?segment=cafeteria: grid is pre-filtered to just
+    Corporate Cafeteria · Academic Cafeteria
+  If entered via ?segment=restaurant: grid is pre-filtered to just
+    Independent Restaurant · Franchise Brand · Food Court
+  (filter is client-side UX only, via OrgCategorySelector's segmentFilter prop +
+  getSegment() — POST /tenants/register still independently validates BR-ORG-1
+  server-side regardless of which types the UI showed)
   → Continue
 
 Step 2 — Organization details

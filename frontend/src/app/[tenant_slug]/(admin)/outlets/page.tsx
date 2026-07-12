@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -102,22 +103,17 @@ export default function OutletsPage() {
   return (
     <ProtectedRoute allowedRoles={['super_admin', 'tenant_admin', 'platform_admin']}>
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-              Franchise Brand
-            </p>
-            <h1 className="text-3xl font-black tracking-tight text-foreground">Outlets</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Provision new branches for your brand. Each outlet is its own workspace with its own
-              menu, tables, and QR link.
-            </p>
-          </div>
-          <Button type="button" onClick={() => setShowForm((v) => !v)}>
-            <Plus data-icon="inline-start" />
-            {showForm ? 'Hide Form' : 'Add Outlet'}
-          </Button>
-        </div>
+        <PageHeader
+          eyebrow="Franchise Brand"
+          title="Outlets"
+          description="Provision new branches for your brand. Each outlet is its own workspace with its own menu, tables, and QR link."
+          action={
+            <Button type="button" onClick={() => setShowForm((v) => !v)}>
+              <Plus data-icon="inline-start" />
+              {showForm ? 'Hide Form' : 'Add Outlet'}
+            </Button>
+          }
+        />
 
         {showForm ? (
           <Card>
@@ -125,7 +121,7 @@ export default function OutletsPage() {
               <CardTitle>New Outlet</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCreate} className="flex flex-col gap-4">
+              <form method="post" onSubmit={handleCreate} className="flex flex-col gap-4">
                 <FieldGroup className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="o-name">Name *</FieldLabel>
@@ -204,7 +200,7 @@ export default function OutletsPage() {
                 </EmptyHeader>
               </Empty>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="motion-safe:animate-fade-up grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {outlets.map((outlet) => (
                   <OutletCard key={outlet.tenant_id} outlet={outlet} />
                 ))}

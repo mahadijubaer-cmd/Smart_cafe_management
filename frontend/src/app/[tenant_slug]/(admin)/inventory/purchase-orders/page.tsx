@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, CheckCircle, Clock, Package } from 'lucide-react'
+import { CheckCircle, Clock, Package } from 'lucide-react'
 import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import PurchaseOrderForm from '@/components/inventory/PurchaseOrderForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -74,22 +74,19 @@ export default function PurchaseOrdersPage() {
     <ProtectedRoute allowedRoles={['tenant_admin', 'outlet_admin', 'super_admin', 'platform_admin', 'admin']}>
       <main className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <Link href={`/${slug}/inventory`} className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground">
-                <ArrowLeft data-icon="inline-start" />
-                Back to Inventory
-              </Link>
-              <h1 className="text-3xl font-black tracking-tight text-foreground">Purchase Orders</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Track supplier orders and receive stock.</p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => setShowForm((v) => !v)}
-            >
-              {showForm ? 'Hide Form' : 'New Purchase Order'}
-            </Button>
-          </div>
+          <PageHeader
+            title="Purchase Orders"
+            description="Track supplier orders and receive stock."
+            breadcrumbs={[
+              { label: 'Inventory', href: `/${slug}/inventory` },
+              { label: 'Purchase Orders' },
+            ]}
+            action={
+              <Button type="button" onClick={() => setShowForm((v) => !v)}>
+                {showForm ? 'Hide Form' : 'New Purchase Order'}
+              </Button>
+            }
+          />
 
           {showForm ? (
             <PurchaseOrderForm inventoryItems={inventoryItems} onSuccess={() => { setShowForm(false); void loadData() }} />

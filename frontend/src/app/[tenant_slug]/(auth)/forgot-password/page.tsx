@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="flex min-h-[calc(100vh-3rem)] items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="motion-safe:animate-scale-in w-full max-w-md">
         <CardContent className="pt-6">
           {/* Step indicators */}
           <div className="mb-8 flex items-center gap-2">
@@ -147,12 +147,12 @@ export default function ForgotPasswordPage() {
           </div>
 
           {step === 'email' && (
-            <>
+            <div key="email" className="motion-safe:animate-fade-up">
               <CardHeader className="px-0 pt-0">
                 <CardTitle>Forgot your password?</CardTitle>
                 <CardDescription>Enter your email and we&apos;ll send you a reset code.</CardDescription>
               </CardHeader>
-              <form onSubmit={handleSendOtp} className="mt-6">
+              <form method="post" onSubmit={handleSendOtp} className="mt-6">
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="email">Email address</FieldLabel>
@@ -166,7 +166,7 @@ export default function ForgotPasswordPage() {
                       placeholder="you@example.com"
                     />
                   </Field>
-                  <Button type="submit" disabled={submitting || !email.trim()} className="w-full">
+                  <Button type="submit" disabled={submitting || !email.trim()} className="w-full transition-transform hover:-translate-y-0.5">
                     {submitting ? 'Sending…' : 'Send reset code'}
                   </Button>
                 </FieldGroup>
@@ -177,11 +177,11 @@ export default function ForgotPasswordPage() {
                   Sign in
                 </a>
               </p>
-            </>
+            </div>
           )}
 
           {step === 'otp' && (
-            <>
+            <div key="otp" className="motion-safe:animate-fade-up">
               <CardHeader className="px-0 pt-0">
                 <CardTitle>Enter the code</CardTitle>
                 <CardDescription>
@@ -200,16 +200,16 @@ export default function ForgotPasswordPage() {
                   ← Change email
                 </button>
               </p>
-            </>
+            </div>
           )}
 
           {step === 'newPassword' && (
-            <>
+            <div key="newPassword" className="motion-safe:animate-fade-up">
               <CardHeader className="px-0 pt-0">
                 <CardTitle>Set new password</CardTitle>
                 <CardDescription>Choose a strong password for your account.</CardDescription>
               </CardHeader>
-              <form onSubmit={handleReset} className="mt-6">
+              <form method="post" onSubmit={handleReset} className="mt-6">
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="new_password">New password</FieldLabel>
@@ -256,13 +256,13 @@ export default function ForgotPasswordPage() {
                   <Button
                     type="submit"
                     disabled={submitting || !newPassword || newPassword !== confirmPassword}
-                    className="w-full"
+                    className="w-full transition-transform hover:-translate-y-0.5"
                   >
                     {submitting ? 'Updating…' : 'Update password'}
                   </Button>
                 </FieldGroup>
               </form>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>

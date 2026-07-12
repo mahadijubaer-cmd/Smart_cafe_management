@@ -5,6 +5,7 @@ import { Loader2, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import PageHeader from '@/components/layout/PageHeader'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -132,12 +133,12 @@ export default function StaffPosPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       <div>
-        <h1 className="text-2xl font-black text-slate-900">POS — New Order</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Take an order for a walk-in customer. No account needed — pay at the counter.
-        </p>
+        <PageHeader
+          title="POS — New Order"
+          description="Take an order for a walk-in customer. No account needed — pay at the counter."
+        />
 
-        <div className="mt-4 flex gap-2 overflow-x-auto border-b border-slate-200 pb-3">
+        <div className="mt-4 flex gap-2 overflow-x-auto border-b border-border pb-3">
           {categories.map((cat) => (
             <Button
               key={cat.category_id}
@@ -156,14 +157,14 @@ export default function StaffPosPage() {
           {visibleItems.map((item) => {
             const line = cart.find((l) => l.item.item_id === item.item_id)
             return (
-              <div key={item.item_id} className="rounded-2xl border border-slate-200 bg-white p-3">
+              <div key={item.item_id} className="rounded-2xl border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-slate-900">{item.name}</p>
+                  <p className="font-semibold text-foreground">{item.name}</p>
                   <p className="font-bold text-primary">{formatCurrency(Number(item.price))}</p>
                 </div>
                 <div className="mt-3 flex justify-end">
                   {line ? (
-                    <div className="flex h-8 items-center gap-1 overflow-hidden rounded-full border border-slate-200">
+                    <div className="flex h-8 items-center gap-1 overflow-hidden rounded-full border border-border">
                       <Button
                         type="button"
                         size="icon"
@@ -202,12 +203,12 @@ export default function StaffPosPage() {
         </div>
       </div>
 
-      <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="font-bold text-slate-900">Order summary</h2>
+      <aside className="h-fit rounded-2xl border border-border bg-card p-5">
+        <h2 className="font-bold text-foreground">Order summary</h2>
 
         <div className="mt-3 space-y-2">
           {cart.length === 0 ? (
-            <p className="text-sm text-slate-400">No items yet</p>
+            <p className="text-sm text-muted-foreground">No items yet</p>
           ) : (
             cart.map((line) => (
               <div key={line.item.item_id} className="flex justify-between text-sm">
@@ -218,14 +219,14 @@ export default function StaffPosPage() {
           )}
         </div>
 
-        <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 font-semibold">
+        <div className="mt-3 flex justify-between border-t border-border pt-3 font-semibold">
           <span>Total</span>
           <span>{formatCurrency(total)}</span>
         </div>
 
         <FieldGroup className="mt-4 gap-3">
           <Field>
-            <FieldLabel htmlFor="pos-table" className="text-xs font-semibold uppercase text-slate-500">
+            <FieldLabel htmlFor="pos-table" className="text-xs font-semibold uppercase text-muted-foreground">
               Table (optional)
             </FieldLabel>
             <Select value={tableId || 'none'} onValueChange={(value) => setTableId(value === 'none' ? '' : value)}>
@@ -244,14 +245,14 @@ export default function StaffPosPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="pos-guest-name" className="text-xs font-semibold uppercase text-slate-500">
+            <FieldLabel htmlFor="pos-guest-name" className="text-xs font-semibold uppercase text-muted-foreground">
               Customer name (optional)
             </FieldLabel>
             <Input id="pos-guest-name" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="pos-notes" className="text-xs font-semibold uppercase text-slate-500">
+            <FieldLabel htmlFor="pos-notes" className="text-xs font-semibold uppercase text-muted-foreground">
               Notes
             </FieldLabel>
             <Input id="pos-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { LogOut, Menu, ShoppingCart, User, Wallet } from 'lucide-react'
 
 import { useStore } from '@/store/useStore'
+import { useTenantInfo } from '@/hooks/useTenantInfo'
 import NotificationBell from '@/components/layout/NotificationBell'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -65,11 +66,17 @@ export default function Navbar() {
   const [previousCartCount, setPreviousCartCount] = useState(cartCount())
 
   const slug = tenantSlug ?? ''
+  const { tenant } = useTenantInfo(slug)
+  const orgName = tenant?.name ?? 'Cafe'
 
+  // Same canonical route set as the mobile bottom tab bar (Menu/Orders/Track/Wallet/Profile) —
+  // kept in sync so desktop and mobile never diverge (UIX-1).
   const navItems: NavItem[] = useMemo(() => [
     { label: 'Menu', href: `/${slug}/menu` },
     { label: 'My Orders', href: `/${slug}/order` },
     { label: 'Track Order', href: `/${slug}/track` },
+    { label: 'Wallet', href: `/${slug}/wallet` },
+    { label: 'Profile', href: `/${slug}/profile` },
   ], [slug])
 
   const itemCount = useMemo(() => cartCount(), [cartCount])
@@ -111,7 +118,7 @@ export default function Navbar() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2 text-primary">
                   <span className="text-2xl" aria-hidden="true">🍽</span>
-                  BRACU Cafe
+                  {orgName}
                 </SheetTitle>
               </SheetHeader>
 
@@ -125,20 +132,6 @@ export default function Navbar() {
                 <DropdownMenuSeparator className="mx-0" />
 
                 <div className="flex flex-col gap-2">
-                  <Link
-                    href={`/${slug}/wallet`}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-full px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
-                  >
-                    Wallet · ৳ {Number(walletBalance).toFixed(0)}
-                  </Link>
-                  <Link
-                    href={`/${slug}/profile`}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent"
-                  >
-                    Profile
-                  </Link>
                   <Button variant="ghost" className="justify-start rounded-full text-destructive hover:text-destructive" onClick={handleLogout}>
                     <LogOut data-icon="inline-start" />
                     Logout
@@ -150,7 +143,7 @@ export default function Navbar() {
 
           <Link href={`/${slug}/menu`} className="flex items-center gap-2 text-primary transition hover:opacity-90">
             <span className="text-2xl" aria-hidden="true">🍽</span>
-            <span className="text-lg font-bold tracking-tight sm:text-xl">BRACU Cafe</span>
+            <span className="text-lg font-bold tracking-tight sm:text-xl">{orgName}</span>
           </Link>
         </div>
 

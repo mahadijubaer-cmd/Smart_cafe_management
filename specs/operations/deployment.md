@@ -1,6 +1,25 @@
 # Deployment & Configuration
 
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-11
+
+---
+
+## `.env` changes require a container recreate, not just a restart
+
+`docker-compose.yml`'s `env_file: .env` is applied only when a container is **created** — the
+values are baked into that container's environment at creation time. `docker compose restart
+<service>` restarts the process inside the *existing* container and does **not** re-read `.env`.
+After editing `.env`:
+```
+docker compose up -d --force-recreate <service>
+```
+If `requirements.txt` also changed (new/updated Python dependency), rebuild the image first:
+```
+docker compose build <service> && docker compose up -d --force-recreate <service>
+```
+A plain `docker compose restart` will silently keep running on the old environment — this cost a
+debugging cycle while wiring up ADR-007 (Brevo), where `BREVO_API_KEY` kept appearing unset in logs
+despite being present in `.env`, because only `restart` had been run.
 
 ---
 
@@ -26,8 +45,39 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 | `MAIL_STARTTLS` | bool | `true` | — |
 | `MAIL_SSL_TLS` | bool | `false` | — |
 | `USE_CREDENTIALS` | bool | `true` | — |
+| `BREVO_API_KEY` | str | — | Brevo transactional email API key (`xkeysib-...`). See ADR-007 — takes priority over SMTP when set. |
 
 > `SECRET_KEY` must be set in production — never use a weak key. Generate with: `openssl rand -hex 32`
+
+> **Brevo (ADR-007):** Setting `BREVO_API_KEY` switches `send_otp_email()`/`send_invite_email()` to
+> Brevo's HTTPS API instead of SMTP — `Settings.mail_provider` resolves to `brevo` whenever this key
+> is non-empty, regardless of whether `MAIL_USERNAME`/`MAIL_PASSWORD` are also set. **Brevo requires
+> the `MAIL_FROM` address to be a verified sender in that Brevo account's dashboard** (Senders &
+> IPs → Senders) — an unverified `MAIL_FROM` will make every send fail with a 400 from Brevo's API,
+> visible in the startup `verify_mail_config()` check and in per-request logs, same as the SMTP
+> failure mode in ADR-005. The installed package is `brevo-python` (PyPI name) but imports as
+> `brevo` (a Fern-generated v5.x SDK — not the older `sib_api_v3_sdk` some Brevo docs still
+> reference). Note: installing it bumped `pydantic` past the version pinned in
+> `backend/requirements.txt` (2.5.0 → 2.13.4 resolved) as a transitive dependency; the app imports
+> fine on the newer version but the pin itself hasn't been updated to match yet.
+
+> **`mail_enabled` trap (see ADR-005):** `Settings.mail_enabled` (`backend/app/core/config.py`) is
+> `bool(MAIL_USERNAME and MAIL_PASSWORD)` — it only checks that both are **non-empty strings**, not
+> that they're real, working credentials. The shipped `.env.example` (and any `.env` copied from it
+> without editing) ships **non-empty placeholder values**
+> (`MAIL_USERNAME=your_email@gmail.com` / `MAIL_PASSWORD=your_app_password`). Leaving those in place
+> makes `mail_enabled` evaluate `True`, so the app skips its "log the OTP instead of emailing it" dev
+> fallback and instead attempts a real SMTP send that fails Gmail authentication — silently, because
+> `POST /otp/send` always returns `200` by design (BR: anti user-enumeration) regardless of whether
+> the email actually left the server. **You must replace both placeholder values with a real SMTP
+> account** (a Gmail account + [App Password](https://myaccount.google.com/apppasswords), or a
+> [Mailtrap](https://mailtrap.io) sandbox for local dev — see the commented-out `MAIL_SERVER`/
+> `MAIL_PORT` alternative in `.env.example`) before any OTP flow (registration email verification,
+> admin login 2FA, password reset) will actually deliver email. As of Phase 25, the API also runs a
+> one-time SMTP connectivity+auth check at startup (`verify_mail_config()` in
+> `backend/app/config/email.py`, called from `main.py`'s `lifespan`) that logs a clear `ERROR` line
+> if `mail_enabled` is `True` but the credentials don't actually work — check backend startup logs
+> if OTP emails aren't arriving.
 
 ### Frontend (`frontend/.env.local`)
 

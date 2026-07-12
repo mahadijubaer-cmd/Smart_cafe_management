@@ -9,6 +9,7 @@ import BrandColorPicker from '@/components/admin/BrandColorPicker'
 import LogoUploader from '@/components/admin/LogoUploader'
 import DomainRestrictionInput from '@/components/admin/DomainRestrictionInput'
 import OperationsToggle from '@/components/admin/OperationsToggle'
+import PageHeader from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -96,8 +97,9 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <h1 className="mb-1 text-2xl font-black text-foreground">Settings</h1>
-      <p className="mb-8 text-sm text-muted-foreground">{slug}</p>
+      <div className="mb-8">
+        <PageHeader title="Settings" description={slug} />
+      </div>
 
       {/* Tab bar */}
       <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="mb-8">

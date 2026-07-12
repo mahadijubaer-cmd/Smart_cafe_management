@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import apiClient from '@/lib/api'
 import VendorMenuTabs from '@/components/food-court/VendorMenuTabs'
 import type { VendorSummary } from '@/components/food-court/VendorTile'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -49,8 +50,8 @@ export default function FoodCourtMenuPage() {
       : menu.filter((s) => s.vendor_id === selectedVendorId)
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-black text-foreground">Unified Menu</h1>
+    <div className="motion-safe:animate-fade-up space-y-5">
+      <PageHeader title="Unified Menu" />
 
       <VendorMenuTabs
         vendors={vendors}

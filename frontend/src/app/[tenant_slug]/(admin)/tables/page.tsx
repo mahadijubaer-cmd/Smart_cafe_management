@@ -8,6 +8,7 @@ import type { TableMap } from '@/types'
 import FloorPlanEditor from '@/components/admin/FloorPlanEditor'
 import TableDetailPanel from '@/components/admin/TableDetailPanel'
 import ZoneFilter from '@/components/admin/ZoneFilter'
+import PageHeader from '@/components/layout/PageHeader'
 import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -77,29 +78,24 @@ export default function TablesPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">
-            Tables &amp; Floor Plan
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {tables.length} table{tables.length !== 1 ? 's' : ''} &middot; Live WebSocket updates
-          </p>
-        </div>
-        <Tabs value={mode} onValueChange={(v) => setMode(v as ViewMode)}>
-          <TabsList>
-            <TabsTrigger value="live">
-              <Map data-icon="inline-start" className="size-4" />
-              Live View
-            </TabsTrigger>
-            <TabsTrigger value="editor">
-              <Layout data-icon="inline-start" className="size-4" />
-              Edit Layout
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <PageHeader
+        title="Tables & Floor Plan"
+        description={`${tables.length} table${tables.length !== 1 ? 's' : ''} · Live WebSocket updates`}
+        action={
+          <Tabs value={mode} onValueChange={(v) => setMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="live">
+                <Map data-icon="inline-start" className="size-4" />
+                Live View
+              </TabsTrigger>
+              <TabsTrigger value="editor">
+                <Layout data-icon="inline-start" className="size-4" />
+                Edit Layout
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      />
 
       {loading ? (
         <div className="flex flex-col gap-4">
@@ -119,6 +115,7 @@ export default function TablesPage() {
           {/* Live table map — clicking a table opens the detail panel */}
           <LiveTableGrid
             tables={filteredTables}
+            selectedTableId={selectedTableId}
             onTableClick={(id) => setSelectedTableId(id)}
           />
           <TableDetailPanel
@@ -159,9 +156,11 @@ const statusStyles: Record<TableMap['status'], string> = {
 
 function LiveTableGrid({
   tables,
+  selectedTableId,
   onTableClick,
 }: {
   tables: TableMap[]
+  selectedTableId: number | null
   onTableClick: (id: number) => void
 }) {
   const maxRow = Math.max(...tables.map((t) => t.position_y), 0) + 1
@@ -190,8 +189,9 @@ function LiveTableGrid({
             type="button"
             onClick={() => onTableClick(table.table_id)}
             className={cn(
-              'relative flex flex-col items-center justify-center rounded-2xl p-3 text-xs font-semibold transition hover:opacity-90 hover:ring-2 hover:ring-ring',
-              statusStyles[table.status as TableMap['status']] ?? 'bg-muted text-muted-foreground'
+              'relative flex flex-col items-center justify-center rounded-2xl p-3 text-xs font-semibold transition hover:-translate-y-0.5 hover:opacity-90 hover:ring-2 hover:ring-ring',
+              statusStyles[table.status as TableMap['status']] ?? 'bg-muted text-muted-foreground',
+              table.table_id === selectedTableId && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
             )}
             style={{
               gridColumn: (table.position_x ?? 0) + 1,

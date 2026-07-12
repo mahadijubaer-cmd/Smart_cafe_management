@@ -14,15 +14,19 @@ export default function CleanerLayout({ children }: { children: ReactNode }) {
   const slug = params.tenant_slug
   const token = useStore((state) => state.token)
   const clearAuth = useStore((state) => state.clearAuth)
+  const hasHydrated = useStore((state) => state.hasHydrated)
 
   useEffect(() => {
+    if (!hasHydrated) return
     if (!token) router.replace(`/${slug}/login`)
-  }, [router, slug, token])
+  }, [hasHydrated, router, slug, token])
 
   const handleLogout = () => {
     clearAuth()
     router.push(`/${slug}/login`)
   }
+
+  if (!hasHydrated) return null
 
   return (
     <div className="min-h-screen bg-muted/30">

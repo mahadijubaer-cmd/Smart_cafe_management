@@ -39,14 +39,14 @@ function StepIndicator({ step, activeStep }: { step: OrderStep; activeStep: Orde
     <button
       type="button"
       disabled={step > activeStep + 1}
-      className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${isActive ? 'border-primary bg-primary/10 shadow-sm' : 'border-black/10 bg-white'} ${step > activeStep + 1 ? 'cursor-not-allowed opacity-60' : ''}`}
+      className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${isActive ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card'} ${step > activeStep + 1 ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${isCompleted || isActive ? 'bg-primary text-primary-foreground' : 'bg-slate-200 text-slate-600'}`}>
+      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${isCompleted || isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Step {step}</p>
-        <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Step {step}</p>
+        <p className="text-sm font-semibold text-foreground">{meta.label}</p>
       </div>
     </button>
   )
@@ -63,34 +63,34 @@ function CartReview({ cart, onUpdateQuantity, onRemoveItem }: { cart: CartItem[]
       </CardHeader>
       <CardContent className="space-y-4">
         {cart.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-dashed border-black/10 bg-slate-50 p-6 text-center">
-            <p className="text-sm font-semibold text-slate-900">Your cart is empty.</p>
-            <p className="mt-1 text-sm text-slate-500">Add menu items first, then return here to continue checkout.</p>
+          <div className="rounded-[1.75rem] border border-dashed border-border bg-muted p-6 text-center">
+            <p className="text-sm font-semibold text-foreground">Your cart is empty.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Add menu items first, then return here to continue checkout.</p>
           </div>
         ) : (
           cart.map((item) => (
-            <div key={item.item.item_id} className="rounded-[1.75rem] border border-black/10 bg-white p-4 shadow-sm transition hover:shadow-md">
+            <div key={item.item.item_id} className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm transition hover:shadow-md">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="font-semibold text-slate-900">{item.item.name}</p>
-                  <p className="text-sm text-slate-500">{formatBdt(item.item.price)} each</p>
+                  <p className="font-semibold text-foreground">{item.item.name}</p>
+                  <p className="text-sm text-muted-foreground">{formatBdt(item.item.price)} each</p>
                 </div>
                 <p className="font-semibold text-primary">{formatBdt(item.item.price * item.quantity)}</p>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex items-center rounded-2xl border border-black/10 bg-slate-50 p-1">
+                <div className="inline-flex items-center rounded-2xl border border-border bg-muted p-1">
                   <button
                     type="button"
-                    className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
+                    className="rounded-xl px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-card"
                     onClick={() => onUpdateQuantity(item.item.item_id, item.quantity - 1)}
                   >
                     -
                   </button>
-                  <span className="min-w-10 px-3 text-center text-sm font-bold text-slate-900">{item.quantity}</span>
+                  <span className="min-w-10 px-3 text-center text-sm font-bold text-foreground">{item.quantity}</span>
                   <button
                     type="button"
-                    className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
+                    className="rounded-xl px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-card"
                     onClick={() => onUpdateQuantity(item.item.item_id, item.quantity + 1)}
                   >
                     +
@@ -138,7 +138,7 @@ function SummaryCard({
           Checkout snapshot
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm text-slate-700">
+      <CardContent className="space-y-4 text-sm text-muted-foreground">
         <div className="grid grid-cols-2 gap-3">
           <Metric label="Items" value={cart.reduce((count, entry) => count + entry.quantity, 0)} />
           <Metric label="Prep time" value={`${prepMinutes} min`} />
@@ -146,14 +146,14 @@ function SummaryCard({
           <Metric label="Rewards" value={rewardPoints.toLocaleString('en-BD')} />
         </div>
 
-        <div className="space-y-2 rounded-2xl bg-slate-50 p-4">
+        <div className="space-y-2 rounded-2xl bg-muted p-4">
           <Row label="Subtotal" value={formatBdt(subtotal)} />
           <Row label="Discount" value={`- ${formatBdt(discount)}`} />
           <Row label="Total" value={formatBdt(total)} strong />
         </div>
 
-        <div className="space-y-2 rounded-2xl border border-black/10 p-4">
-          <p className="font-semibold text-slate-900">Selected details</p>
+        <div className="space-y-2 rounded-2xl border border-border p-4">
+          <p className="font-semibold text-foreground">Selected details</p>
           <Row label="Time slot" value={selectedSlot ? selectedSlot.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Not selected'} />
           <Row label="Table" value={selectedTable ? `${selectedTable.table_number} • ${selectedTable.zone}` : 'Not selected'} />
         </div>
@@ -164,16 +164,16 @@ function SummaryCard({
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-1 font-semibold text-slate-900">{value}</p>
+    <div className="rounded-2xl bg-muted p-3">
+      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>
   )
 }
 
 function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-3 ${strong ? 'text-base font-bold text-slate-900' : ''}`}>
+    <div className={`flex items-center justify-between gap-3 ${strong ? 'text-base font-bold text-foreground' : ''}`}>
       <span>{label}</span>
       <span className="text-right">{value}</span>
     </div>
@@ -330,15 +330,15 @@ export default function StudentOrderPage() {
 
   return (
     <ProtectedRoute allowedRoles={['student', 'customer']}>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#f5f0e8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
                 Checkout
               </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Place your order</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
+              <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">Place your order</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
                 Review your cart, pick a time slot, choose a table, and confirm payment in a single guided flow.
               </p>
             </div>
@@ -346,7 +346,7 @@ export default function StudentOrderPage() {
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/30 hover:text-primary"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-muted-foreground shadow-sm transition hover:border-primary/30 hover:text-primary"
             >
               <ArrowLeft className="h-4 w-4" />
               {activeStep === 1 ? 'Leave checkout' : 'Back'}
@@ -361,6 +361,7 @@ export default function StudentOrderPage() {
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="space-y-6">
+            <div key={activeStep} className="motion-safe:animate-fade-up space-y-6">
               {activeStep === 1 ? (
                 <CartReview cart={cart} onUpdateQuantity={updateQuantity} onRemoveItem={removeFromCart} />
               ) : null}
@@ -389,7 +390,7 @@ export default function StudentOrderPage() {
                   </CardHeader>
                   <CardContent>
                     <TableGrid tables={tables} selectedTableId={selectedTableId} onSelect={setSelectedTableId} />
-                    <p className="mt-4 text-sm text-slate-600">
+                    <p className="mt-4 text-sm text-muted-foreground">
                       Available tables: {availableTables.length} of {tables.length}
                     </p>
                   </CardContent>
@@ -406,13 +407,13 @@ export default function StudentOrderPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="grid gap-4 md:grid-cols-2">
-                      <div className="rounded-2xl border border-black/10 bg-slate-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Payment method</p>
+                      <div className="rounded-2xl border border-border bg-muted p-4">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Payment method</p>
                         <div className="mt-4 space-y-3">
-                          <label className={`flex items-center justify-between gap-3 rounded-2xl border p-4 ${canUseWallet ? 'border-black/10 bg-white' : 'border-black/5 bg-slate-100 opacity-70'}`}>
+                          <label className={`flex items-center justify-between gap-3 rounded-2xl border p-4 ${canUseWallet ? 'border-border bg-card' : 'border-border bg-muted opacity-70'}`}>
                             <span>
-                              <span className="block font-semibold text-slate-900">Wallet payment</span>
-                              <span className="block text-xs text-slate-500">{canUseWallet ? 'Use your current balance' : 'Top up first or switch to simulation'}</span>
+                              <span className="block font-semibold text-foreground">Wallet payment</span>
+                              <span className="block text-xs text-muted-foreground">{canUseWallet ? 'Use your current balance' : 'Top up first or switch to simulation'}</span>
                             </span>
                             <input
                               type="radio"
@@ -424,10 +425,10 @@ export default function StudentOrderPage() {
                             />
                           </label>
 
-                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white p-4">
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
                             <span>
-                              <span className="block font-semibold text-slate-900">Simulation payment</span>
-                              <span className="block text-xs text-slate-500">Demo mode for testing the checkout flow</span>
+                              <span className="block font-semibold text-foreground">Simulation payment</span>
+                              <span className="block text-xs text-muted-foreground">Demo mode for testing the checkout flow</span>
                             </span>
                             <input
                               type="radio"
@@ -440,12 +441,12 @@ export default function StudentOrderPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-black/10 bg-slate-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Reward redemption</p>
+                      <div className="rounded-2xl border border-border bg-muted p-4">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Reward redemption</p>
                         <div className="mt-4 flex items-start justify-between gap-4">
                           <div>
-                            <p className="font-semibold text-slate-900">Redeem 100 points for BDT 10 off</p>
-                            <p className="text-xs text-slate-500">{canRedeemPoints ? 'Available for this checkout' : 'Collect at least 100 points to unlock this option'}</p>
+                            <p className="font-semibold text-foreground">Redeem 100 points for BDT 10 off</p>
+                            <p className="text-xs text-muted-foreground">{canRedeemPoints ? 'Available for this checkout' : 'Collect at least 100 points to unlock this option'}</p>
                           </div>
                           <Switch checked={redeemPoints} onCheckedChange={setRedeemPoints} disabled={!canRedeemPoints} />
                         </div>
@@ -453,7 +454,7 @@ export default function StudentOrderPage() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-900" htmlFor="special-notes">
+                      <label className="mb-2 block text-sm font-semibold text-foreground" htmlFor="special-notes">
                         Special notes
                       </label>
                       <textarea
@@ -462,12 +463,12 @@ export default function StudentOrderPage() {
                         onChange={(event) => setSpecialNotes(event.target.value)}
                         rows={4}
                         placeholder="Allergies, extra spice, packaging requests..."
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/10"
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700">
-                      <p className="font-semibold text-slate-900">Final review</p>
+                    <div className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+                      <p className="font-semibold text-foreground">Final review</p>
                       <div className="mt-3 space-y-2">
                         <Row label="Selected table" value={selectedTable ? `${selectedTable.table_number} • ${selectedTable.zone}` : 'Not selected'} />
                         <Row label="Selected slot" value={selectedSlot ? selectedSlot.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Not selected'} />
@@ -482,6 +483,7 @@ export default function StudentOrderPage() {
                   </CardContent>
                 </Card>
               ) : null}
+            </div>
 
               <div className="flex items-center justify-between gap-3">
                 <Button type="button" variant="outline" onClick={handleBack}>

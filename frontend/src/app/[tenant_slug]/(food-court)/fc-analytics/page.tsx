@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import apiClient from '@/lib/api'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -78,8 +79,8 @@ export default function FoodCourtAnalyticsPage() {
   const maxOrders = Math.max(...throughput.map((v) => v.total_orders), 1)
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-black text-foreground">Analytics</h1>
+    <div className="motion-safe:animate-fade-up space-y-8">
+      <PageHeader title="Analytics" />
 
       {loading ? (
         <div className="space-y-4">

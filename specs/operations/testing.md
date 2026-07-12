@@ -1,6 +1,6 @@
 # Testing
 
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-11
 
 ---
 
@@ -37,6 +37,9 @@ backend/
     test_analytics.py       ← Analytics endpoints
     test_food_court.py      ← Food court module
     test_ws.py              ← WebSocket connections
+    test_org_registration.py ← Organization self-registration (RFC-006)
+    test_franchise_outlets.py ← Franchise brand outlet self-service (RFC-008)
+    test_platform_admin.py  ← Platform admin control plane: audit log, impersonation, tier limits (RFC-009)
 ```
 
 ---

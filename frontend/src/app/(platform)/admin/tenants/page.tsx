@@ -9,6 +9,7 @@ import apiClient from '@/lib/api'
 import { getClaimsFromToken } from '@/lib/auth'
 import { IMPERSONATION_BACKUP_KEY } from '@/components/platform/ImpersonationBanner'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -69,7 +70,7 @@ function TenantCard({
   onDelete: (tenant: Tenant) => void
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -77,9 +78,9 @@ function TenantCard({
               className="h-8 w-8 rounded-full shrink-0"
               style={{ backgroundColor: tenant.brand_color || '#1A4D2E' }}
             />
-            <p className="font-semibold text-slate-900 truncate">{tenant.name}</p>
+            <p className="font-semibold text-foreground truncate">{tenant.name}</p>
           </div>
-          <p className="mt-1 text-xs text-slate-500 font-mono">/{tenant.slug}</p>
+          <p className="mt-1 text-xs text-muted-foreground font-mono">/{tenant.slug}</p>
         </div>
         <Badge variant={tenant.is_active ? 'default' : 'destructive'} className="shrink-0">
           {tenant.is_active ? 'Active' : 'Suspended'}
@@ -94,7 +95,7 @@ function TenantCard({
         </Badge>
         {tenant.city ? <Badge variant="secondary">{tenant.city}</Badge> : null}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
         <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => onImpersonate(tenant)}>
           <LogIn data-icon="inline-start" /> Impersonate
         </Button>
@@ -234,33 +235,28 @@ export default function TenantsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['platform_admin']}>
-      <div className="min-h-screen bg-[linear-gradient(180deg,#f2eee7_0%,#ffffff_34%,#edf5ef_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <div className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="flex flex-col mx-auto max-w-7xl gap-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-                Platform Admin
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Tenant Management</h1>
-              <p className="mt-2 text-sm text-slate-600">All tenants on the SCMS platform.</p>
-            </div>
-            <Button
-              type="button"
-              className="gap-2"
-              onClick={() => setShowForm((v) => !v)}
-            >
-              <Plus className="h-4 w-4" />
-              {showForm ? 'Hide Form' : 'Add Tenant'}
-            </Button>
-          </div>
+          <PageHeader
+            eyebrow="Platform Admin"
+            title="Tenant Management"
+            description="All tenants on the SCMS platform."
+            breadcrumbs={[{ label: 'Platform' }, { label: 'Tenants' }]}
+            action={
+              <Button type="button" className="gap-2" onClick={() => setShowForm((v) => !v)}>
+                <Plus className="h-4 w-4" />
+                {showForm ? 'Hide Form' : 'Add Tenant'}
+              </Button>
+            }
+          />
 
           {showForm ? (
-            <Card className="border-slate-200">
+            <Card className="border-border">
               <CardHeader>
                 <CardTitle>Create Tenant</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleCreate} className="flex flex-col gap-4">
+                <form method="post" onSubmit={handleCreate} className="flex flex-col gap-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="t-name">Name *</Label>
@@ -310,7 +306,7 @@ export default function TenantsPage() {
             </Card>
           ) : null}
 
-          <Card className="border-slate-200">
+          <Card className="border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="text-primary" />
@@ -323,7 +319,7 @@ export default function TenantsPage() {
                   {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
                 </div>
               ) : tenants.length === 0 ? (
-                <Empty className="border border-dashed border-slate-300 bg-slate-50">
+                <Empty className="border border-dashed border-border bg-muted">
                   <EmptyMedia variant="icon">
                     <Building2 />
                   </EmptyMedia>
@@ -331,7 +327,7 @@ export default function TenantsPage() {
                   <EmptyDescription>Add a tenant to get started.</EmptyDescription>
                 </Empty>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="motion-safe:animate-fade-up grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {tenants.map((tenant) => (
                     <TenantCard
                       key={tenant.tenant_id}

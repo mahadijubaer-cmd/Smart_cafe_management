@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/store/useStore'
 import apiClient from '@/lib/api'
 import VendorTile, { type VendorSummary } from '@/components/food-court/VendorTile'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -103,8 +104,8 @@ export default function FoodCourtDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-black text-foreground">Food Court Dashboard</h1>
+    <div className="motion-safe:animate-fade-up space-y-6">
+      <PageHeader title="Food Court Dashboard" />
 
       {/* Table occupancy summary */}
       {totalTables > 0 && (

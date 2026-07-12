@@ -85,7 +85,7 @@ export default function PurchaseOrderForm({ inventoryItems, onSuccess }: Props) 
         <CardTitle className="text-lg">New Purchase Order</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit}>
+        <form method="post" onSubmit={handleSubmit}>
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>

@@ -1,6 +1,6 @@
 # Database Schema
 
-**Last verified against code:** 2026-06-30  
+**Last verified against code:** 2026-07-11  
 **Database:** PostgreSQL 15  
 **ORM:** SQLAlchemy 2.0 async
 
@@ -479,19 +479,18 @@ CREATE TABLE receipt_logs (
 
 ```sql
 CREATE TABLE notifications (
-    notification_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    notif_id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id       UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    user_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    type            VARCHAR(50) NOT NULL,
-    title           VARCHAR(150) NOT NULL,
-    body            TEXT,
+    user_id         UUID NOT NULL REFERENCES users(user_id),
+    type            VARCHAR(80) NOT NULL,
+    message         TEXT NOT NULL,
     is_read         BOOLEAN NOT NULL DEFAULT FALSE,
-    reference_id    UUID,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-**Valid types:** `order_update | low_stock | assignment | system`
+There is a single `message: TEXT` column — no separate `title`/`body` split, and no `reference_id`
+column. The `user_id` foreign key has no `ON DELETE CASCADE` (unlike `tenant_id`).
 
 ---
 

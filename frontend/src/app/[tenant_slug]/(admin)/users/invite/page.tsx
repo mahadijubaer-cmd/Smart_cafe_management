@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Send, UserPlus, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import apiClient from '@/lib/api'
+import PageHeader from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -99,15 +99,14 @@ export default function InvitePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-black text-foreground">Invite Staff</h1>
-        <Link
-          href={`/${params.tenant_slug}/users`}
-          className="text-sm font-semibold text-primary hover:underline"
-        >
-          ← Back to Users
-        </Link>
-      </div>
+      <PageHeader
+        title="Invite Staff"
+        description="Invite staff, cleaners, servers, or outlet admins by email."
+        breadcrumbs={[
+          { label: 'Users', href: `/${params.tenant_slug}/users` },
+          { label: 'Invite' },
+        ]}
+      />
 
       <Card>
         <CardHeader>
@@ -117,7 +116,7 @@ export default function InvitePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSend}>
+          <form method="post" onSubmit={handleSend}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="email">Email address</FieldLabel>

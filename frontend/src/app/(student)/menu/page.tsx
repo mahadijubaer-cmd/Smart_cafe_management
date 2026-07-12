@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
+import { useTenantInfo } from '@/hooks/useTenantInfo'
 import type { Category, MenuItem } from '@/types'
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'prep-asc'
@@ -40,7 +41,7 @@ function MenuSkeleton() {
   return (
     <div className="grid gap-4 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:px-8">
       {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div key={index} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <Skeleton className="h-40 rounded-none" />
           <div className="space-y-3 p-4 sm:p-5">
             <div className="flex items-center justify-between">
@@ -62,7 +63,7 @@ function MenuSkeleton() {
 
 function EmptyState({ search, onClear }: { search: string; onClear: () => void }) {
   return (
-    <Empty className="mx-4 border border-dashed border-gray-300 bg-white shadow-sm lg:mx-8">
+    <Empty className="mx-4 border border-dashed border-border bg-card shadow-sm lg:mx-8">
       <EmptyMedia variant="icon" className="text-5xl">🍽</EmptyMedia>
       <EmptyTitle>No items found for &apos;{search}&apos;</EmptyTitle>
       <EmptyDescription>Try a different keyword, switch category, or clear the search.</EmptyDescription>
@@ -93,6 +94,8 @@ export default function StudentMenuPage() {
   const addToCart = useStore((state) => state.addToCart)
   const cartCount = useStore((state) => state.cartCount)
   const openCart = useStore((state) => state.openCart)
+  const tenantSlug = useStore((state) => state.tenantSlug)
+  const { tenant } = useTenantInfo(tenantSlug ?? '')
   const [categories, setCategories] = useState<Category[]>([])
   const [allItems, setAllItems] = useState<MenuItem[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<number>(0)
@@ -227,11 +230,11 @@ export default function StudentMenuPage() {
 
   return (
     <ProtectedRoute allowedRoles={["student", "customer"]}>
-      <main className="min-h-screen bg-[#F5F0E8]">
+      <main className="min-h-screen bg-background">
         <section className="relative h-32 overflow-hidden bg-gradient-to-r from-[#1A4D2E] to-[#2D6A4F] px-4 py-6 text-white lg:h-40 lg:px-8">
           <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-6">
             <div className="max-w-2xl space-y-2">
-              <h1 className="text-3xl font-black tracking-tight lg:text-5xl">🍽 BRACU Cafe Menu</h1>
+              <h1 className="text-3xl font-black tracking-tight lg:text-5xl">🍽 {tenant?.name ?? 'Cafe'} Menu</h1>
               <p className="text-sm text-white/90 lg:text-base">Fresh food, fast service — {todayLabel}</p>
             </div>
 
@@ -249,18 +252,18 @@ export default function StudentMenuPage() {
           </div>
         </section>
 
-        <div className="sticky top-16 z-30 border-b border-white/40 bg-[#F5F0E8]/95 backdrop-blur">
+        <div className="sticky top-16 z-30 border-b border-white/40 bg-background/95 backdrop-blur">
           <div className="mx-auto max-w-7xl space-y-4 px-4 py-3 lg:px-8">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
               <label className="relative block">
                 <span className="sr-only">Search items</span>
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="search"
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   placeholder="Search items... (e.g. Biryani, Cha)"
-                  className="w-full rounded-2xl border border-black/10 bg-white py-3 pl-11 pr-10 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-2xl border border-border bg-card py-3 pl-11 pr-10 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
                 {searchInput ? (
                   <Button
@@ -276,10 +279,10 @@ export default function StudentMenuPage() {
                 ) : null}
               </label>
 
-              <div className="flex items-center justify-between rounded-2xl border border-black/10 bg-white px-4 py-3">
+              <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Available Only</p>
-                  <p className="text-sm text-gray-600">Show items ready to order</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Available Only</p>
+                  <p className="text-sm text-muted-foreground">Show items ready to order</p>
                 </div>
                 <Switch checked={availableOnly} onCheckedChange={setAvailableOnly} />
               </div>
@@ -379,16 +382,18 @@ export default function StudentMenuPage() {
             }
           }
 
-          .hero-food-strip {
-            animation: food-strip-float 2.6s ease-in-out infinite;
-          }
+          @media (prefers-reduced-motion: no-preference) {
+            .hero-food-strip {
+              animation: food-strip-float 2.6s ease-in-out infinite;
+            }
 
-          .cart-fab-bounce {
-            animation: cart-fab-bounce 260ms ease-out;
-          }
+            .cart-fab-bounce {
+              animation: cart-fab-bounce 260ms ease-out;
+            }
 
-          .menu-item-enter {
-            animation: menu-item-enter 200ms ease-out both;
+            .menu-item-enter {
+              animation: menu-item-enter 200ms ease-out both;
+            }
           }
         `}</style>
       </main>

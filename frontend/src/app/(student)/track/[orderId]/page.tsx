@@ -6,6 +6,7 @@ import { BellRing, Check, CheckCheck, Circle, Clock3, Coffee, Loader2, PackageCh
 import { toast } from 'sonner'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -171,7 +172,7 @@ function TimelineIcon({
   }
 
   return (
-    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-slate-400">
+    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-border bg-card text-muted-foreground">
       <Circle className="h-4 w-4 fill-current" />
     </span>
   )
@@ -192,16 +193,16 @@ function TimelineStepCard({
   const isComplete = statusRank[orderStatus] > statusRank[step.key as Order['status']]
 
   return (
-    <div className={`rounded-3xl border bg-white p-4 text-center shadow-sm transition ${isCurrent ? 'border-emerald-300 shadow-emerald-100' : 'border-black/10'}`}>
+    <div className={`rounded-3xl border bg-card p-4 text-center shadow-sm transition ${isCurrent ? 'border-emerald-300 shadow-emerald-100' : 'border-border'}`}>
       <div className="flex justify-center">
         <TimelineIcon step={step} status={orderStatus} isActive={isCurrent} celebrate={celebrate && step.key === 'confirmed'} />
       </div>
       <div className="mt-3 space-y-1">
-        <div className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-900">
+        <div className="flex items-center justify-center gap-2 text-sm font-semibold text-foreground">
           <step.icon className="h-4 w-4" />
           <span>{step.label}</span>
         </div>
-        <p className={`text-xs uppercase tracking-[0.18em] ${isCurrent ? 'text-emerald-700' : isComplete ? 'text-slate-500' : 'text-slate-400'}`}>
+        <p className={`text-xs uppercase tracking-[0.18em] ${isCurrent ? 'text-emerald-700' : isComplete ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
           {timestamp ? formatClock(timestamp) : isComplete ? 'Reached' : 'Upcoming'}
         </p>
       </div>
@@ -214,6 +215,7 @@ export default function StudentTrackOrderPage() {
   const router = useRouter()
   const user = useStore((state) => state.user)
   const token = useStore((state) => state.token)
+  const tenantSlug = useStore((state) => state.tenantSlug)
 
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
@@ -323,7 +325,7 @@ export default function StudentTrackOrderPage() {
     try {
       await apiClient.patch(`/orders/${order.order_id}/complete`)
       toast.success('Thanks! Table will be cleaned shortly. 🧹')
-      router.push('/menu')
+      router.push(`/${tenantSlug}/menu`)
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Unable to mark the meal as done')
     } finally {
@@ -335,43 +337,40 @@ export default function StudentTrackOrderPage() {
 
   return (
     <ProtectedRoute allowedRoles={['student', 'customer']}>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#f5f0e8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 inline-flex rounded-full bg-[#1A4D2E]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#1A4D2E]">
-                Track order
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Order progress</h1>
-              <p className="mt-2 text-sm text-slate-600">Live updates, kitchen progress, and pickup details for order #{params.orderId.slice(0, 8).toUpperCase()}.</p>
-            </div>
+          <PageHeader
+            eyebrow="Track order"
+            title="Order progress"
+            description={`Live updates, kitchen progress, and pickup details for order #${params.orderId.slice(0, 8).toUpperCase()}.`}
+            action={
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      connectionState === 'connected' ? 'bg-emerald-500' : connectionState === 'reconnecting' ? 'bg-amber-400' : 'bg-rose-500'
+                    }`}
+                  />
+                  <span>{connectionState === 'connected' ? 'Connected' : connectionState === 'reconnecting' ? 'Reconnecting' : 'Disconnected'}</span>
+                </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    connectionState === 'connected' ? 'bg-emerald-500' : connectionState === 'reconnecting' ? 'bg-amber-400' : 'bg-rose-500'
-                  }`}
-                />
-                <span>{connectionState === 'connected' ? 'Connected' : connectionState === 'reconnecting' ? 'Reconnecting' : 'Disconnected'}</span>
+                <Button type="button" variant="outline" onClick={() => router.push(`/${tenantSlug}/menu`)}>
+                  Back to Menu
+                </Button>
               </div>
-
-              <Button type="button" variant="outline" onClick={() => router.push('/menu')}>
-                Back to Menu
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {loading ? (
             <Card>
-              <CardContent className="p-8 text-center text-sm text-slate-500">
-                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[#1A4D2E]" />
+              <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-primary" />
                 Loading order details...
               </CardContent>
             </Card>
           ) : loadError ? (
             <Card>
-              <CardContent className="p-8 text-center text-sm text-slate-500">{loadError}</CardContent>
+              <CardContent className="p-8 text-center text-sm text-muted-foreground">{loadError}</CardContent>
             </Card>
           ) : order ? (
             <div className="space-y-6">
@@ -381,16 +380,16 @@ export default function StudentTrackOrderPage() {
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                         <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 shadow-sm ${confirmedBounce ? 'animate-bounce' : ''}`}>
-                          {status === 'ready' ? <Sparkles className="h-7 w-7 text-emerald-600" /> : status === 'confirmed' ? <CheckCheck className="h-7 w-7 text-blue-600" /> : status === 'preparing' ? <UtensilsCrossed className="h-7 w-7 text-orange-600" /> : status === 'delivered' ? <PackageCheck className="h-7 w-7 text-slate-600" /> : <Clock3 className="h-7 w-7 text-yellow-600" />}
+                          {status === 'ready' ? <Sparkles className="h-7 w-7 text-emerald-600" /> : status === 'confirmed' ? <CheckCheck className="h-7 w-7 text-blue-600" /> : status === 'preparing' ? <UtensilsCrossed className="h-7 w-7 text-orange-600" /> : status === 'delivered' ? <PackageCheck className="h-7 w-7 text-muted-foreground" /> : <Clock3 className="h-7 w-7 text-yellow-600" />}
                         </div>
 
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Current status</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Current status</p>
                           <h2 className="mt-1 text-3xl font-black md:text-4xl">{statusMessages[status]}</h2>
                         </div>
                       </div>
 
-                      <div className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                         <InfoChip label="Order ID" value={order.order_id.slice(0, 8).toUpperCase()} />
                         <InfoChip label="Table" value={order.table_number || order.table_id ? String(order.table_number || order.table_id) : 'Takeaway'} />
                         <InfoChip label="Time slot" value={formatTimeRange(order.time_slot)} />
@@ -399,14 +398,14 @@ export default function StudentTrackOrderPage() {
                     </div>
 
                     <div className="min-w-[16rem] rounded-3xl border border-white/50 bg-white/70 p-4 shadow-sm backdrop-blur">
-                      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                         <span>Live signal</span>
                         <span className={`rounded-full px-2 py-1 text-[10px] tracking-[0.2em] ${connectionState === 'connected' ? 'bg-emerald-100 text-emerald-700' : connectionState === 'reconnecting' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
                           {connectionState}
                         </span>
                       </div>
 
-                      <div className="mt-4 space-y-3 text-sm text-slate-700">
+                      <div className="mt-4 space-y-3 text-sm text-muted-foreground">
                         <Row label="Placed" value={formatDateTime(order.created_at)} />
                         <Row label="Last update" value={formatDateTime(order.updated_at)} />
                         <Row label="Payment" value={order.payment_status} />
@@ -430,7 +429,7 @@ export default function StudentTrackOrderPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl">
-                      <PartyPopper className="h-5 w-5 text-[#1A4D2E]" />
+                      <PartyPopper className="h-5 w-5 text-primary" />
                       Progress timeline
                     </CardTitle>
                   </CardHeader>
@@ -446,12 +445,12 @@ export default function StudentTrackOrderPage() {
                 <Card className="h-fit">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl">
-                      <CheckCheck className="h-5 w-5 text-[#1A4D2E]" />
+                      <CheckCheck className="h-5 w-5 text-primary" />
                       Order details
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2 rounded-2xl border border-black/10 bg-slate-50 p-4 text-sm text-slate-700">
+                    <div className="space-y-2 rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
                       <Row label="Table" value={order.table_number || (order.table_id ? String(order.table_id) : 'Takeaway')} />
                       <Row label="Time slot" value={formatTimeRange(order.time_slot)} />
                       <Row label="Ordered at" value={formatDateTime(order.created_at)} />
@@ -462,26 +461,26 @@ export default function StudentTrackOrderPage() {
                         const subtotal = Number(item.subtotal ?? Number(item.unit_price) * item.quantity)
 
                         return (
-                          <div key={item.order_item_id} className="rounded-2xl border border-black/10 p-4 text-sm">
+                          <div key={item.order_item_id} className="rounded-2xl border border-border p-4 text-sm">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <p className="font-semibold text-slate-900">{item.menu_item?.name || item.item_id}</p>
-                                <p className="text-xs text-slate-500">Qty {item.quantity} × {formatCurrency(Number(item.unit_price))}</p>
+                                <p className="font-semibold text-foreground">{item.menu_item?.name || item.item_id}</p>
+                                <p className="text-xs text-muted-foreground">Qty {item.quantity} × {formatCurrency(Number(item.unit_price))}</p>
                               </div>
-                              <span className="font-semibold text-slate-900">{formatCurrency(subtotal)}</span>
+                              <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
                             </div>
                           </div>
                         )
                       })}
                     </div>
 
-                    <div className="rounded-2xl bg-[#1A4D2E]/5 p-4 text-sm text-slate-700">
+                    <div className="rounded-2xl bg-primary/5 p-4 text-sm text-muted-foreground">
                       <Row label="Subtotal" value={formatCurrency(itemsSubtotal)} />
                       <Row label="Discount" value={`- ${formatCurrency(Number(order.discount_amount))}`} />
                       <Row label="Total" value={formatCurrency(Number(order.total_amount))} strong />
                     </div>
 
-                    <p className="text-xs text-slate-500">Payment status: <span className="font-semibold text-slate-900">{order.payment_status}</span></p>
+                    <p className="text-xs text-muted-foreground">Payment status: <span className="font-semibold text-foreground">{order.payment_status}</span></p>
 
                     {status === 'confirmed' ? (
                       <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
@@ -495,7 +494,7 @@ export default function StudentTrackOrderPage() {
                     ) : null}
 
                     {status === 'delivered' ? (
-                      <Button className="w-full bg-[#1A4D2E] text-white hover:bg-[#163f25]" type="button" onClick={handleMarkDone} disabled={completeLoading}>
+                      <Button className="w-full bg-primary text-white hover:bg-primary/90" type="button" onClick={handleMarkDone} disabled={completeLoading}>
                         {completeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         Mark Meal Done ✓
                       </Button>
@@ -506,7 +505,7 @@ export default function StudentTrackOrderPage() {
             </div>
           ) : (
             <Card>
-              <CardContent className="p-8 text-center text-sm text-slate-500">Order not found.</CardContent>
+              <CardContent className="p-8 text-center text-sm text-muted-foreground">Order not found.</CardContent>
             </Card>
           )}
         </div>
@@ -517,7 +516,7 @@ export default function StudentTrackOrderPage() {
 
 function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-3 ${strong ? 'font-bold text-slate-900' : ''}`}>
+    <div className={`flex items-center justify-between gap-3 ${strong ? 'font-bold text-foreground' : ''}`}>
       <span>{label}</span>
       <span className="text-right">{value}</span>
     </div>
@@ -527,8 +526,8 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
 function InfoChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">{label}</p>
-      <p className="mt-1 font-semibold text-slate-900">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>
   )
 }

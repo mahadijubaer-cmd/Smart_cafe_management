@@ -13,7 +13,7 @@ export default function TenantCard({ tenant }: TenantCardProps) {
   return (
     <Link
       href={`/${tenant.slug}/login`}
-      className="group flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="group flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       <div className="flex items-center gap-3">
         {tenant.logo_url ? (
@@ -21,11 +21,11 @@ export default function TenantCard({ tenant }: TenantCardProps) {
           <img
             src={tenant.logo_url}
             alt={`${tenant.name} logo`}
-            className="h-11 w-11 rounded-xl object-cover"
+            className="h-11 w-11 rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white transition-transform duration-300 group-hover:scale-105"
             style={{ backgroundColor: tenant.brand_color }}
           >
             {tenant.name.charAt(0).toUpperCase()}

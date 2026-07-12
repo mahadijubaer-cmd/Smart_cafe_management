@@ -1,7 +1,7 @@
 # Module: Food Court
 
 **Router:** `backend/app/routers/food_court.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-11
 
 ---
 
@@ -35,12 +35,14 @@ A `food_court_vendor` admin (who has a vendor JWT, not a food court JWT) cannot 
     "tenant_id": "3fa85f64-...",
     "name": "Burger Joint",
     "slug": "unimart-burger",
-    "is_active": true
+    "subscription_tier": "starter",
+    "logo_url": null
   }
 ]
 ```
 
-Returns all `food_court_vendor` tenants where `parent_tenant_id = ctx.tenant_id`.
+Returns all *active* `food_court_vendor` tenants where `parent_tenant_id = ctx.tenant_id`
+(`is_active = true` is filtered server-side but not included in the response body itself).
 
 ---
 
@@ -100,9 +102,8 @@ Uses `accessible_tenant_ids()` — returns food court parent + all vendor tenant
 
 **Business logic:**
 - Order `status` must be `ready` (FC-5)
-- `400 "Order is not ready for delivery"` otherwise
+- `400 "Order must be 'ready' to deliver; current status: {order.status}"` otherwise
 - Sets `order.status = delivered`
-- Publishes `ORDER_DELIVERED` WebSocket event
 
 **Response `200`:** `{ "order_id": "...", "status": "delivered" }`
 
@@ -130,11 +131,13 @@ Uses `accessible_tenant_ids()` — returns food court parent + all vendor tenant
     "occupied": 5,
     "cleaning": 1
   },
-  "vendor_order_counts": [
-    { "vendor_id": "...", "vendor_name": "Burger Joint", "order_count": 18 }
+  "vendor_throughput": [
+    { "vendor_id": "...", "vendor_name": "Burger Joint", "total_orders": 18 }
   ]
 }
 ```
+
+`vendor_throughput` counts all-time orders per vendor (no status filter, no time window).
 
 ---
 
@@ -142,7 +145,7 @@ Uses `accessible_tenant_ids()` — returns food court parent + all vendor tenant
 
 **Auth:** Required | **Roles:** `food_court_admin` only
 
-**Query params:** `?period=today` — valid: `today | week | month`
+No query params — this endpoint is all-time only (there is no `?period=` filter in the code).
 
 **Response `200`:**
 
@@ -151,11 +154,14 @@ Uses `accessible_tenant_ids()` — returns food court parent + all vendor tenant
   {
     "vendor_id": "3fa85f64-...",
     "vendor_name": "Burger Joint",
-    "total_revenue": 4200.0,
-    "order_count": 35
+    "total_revenue": "4200.00",
+    "delivered_order_count": 35
   }
 ]
 ```
+
+`total_revenue` is a string (from `Decimal`). Only `delivered` orders count toward revenue and the
+count.
 
 ---
 
@@ -175,7 +181,7 @@ Users with `role = server | cleaner` at a food court have `tenant_id = food_cour
 
 ### FC-5: Server Can Only Deliver "Ready" Orders
 `PATCH /food-court/orders/{id}/deliver` requires `order.status = ready`.  
-Error: `400 "Order is not ready for delivery"`
+Error: `400 "Order must be 'ready' to deliver; current status: {order.status}"`
 
 ### FC-6: Unified Menu Excludes Parent Items
 `GET /food-court/menu` queries `tenant_id IN (vendor_ids only)` — the food court parent's `tenant_id` is excluded. The parent food court has no menu items.

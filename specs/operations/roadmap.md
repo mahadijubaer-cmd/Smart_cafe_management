@@ -290,7 +290,7 @@ outlet from `/outlets` without any platform-admin involvement; cross-brand isola
 ### Phase 24 — Platform Admin Control Plane
 **RFC:** [RFC-009](../decisions/rfcs/RFC-009-platform-admin-control-plane.md)
 **Priority:** P1
-**Status:** 🚧 In progress (2026-07-08)
+**Status:** ✅ Implemented (2026-07-08)
 
 A review of the `platform_admin` role found it incomplete for genuine cross-platform control: its
 three management pages existed but were unreachable from any nav, there was no audit trail of its
@@ -325,6 +325,30 @@ all reachable from nav.
 
 ---
 
+## Frontend Track — UI/UX Modernization (UIX-1…6)
+
+**RFC/ADR:** [ADR-010](../decisions/adrs/ADR-010-uiux-modernization-program.md)
+**Note:** this is a frontend-only track, numbered UIX-1…6 deliberately separate from the backend
+Phase 1–24 numbering above — it does not correspond to a single backend-driven phase, and stages
+land across multiple sessions.
+
+| Stage | Scope | Status |
+|---|---|---|
+| UIX-1 | Navigation foundation & bug fixes: food-court sidebar broken links, `(platform)/admin` layout + guard gap, unified customer nav (top/bottom), staff nav polish, `PageHeader` + breadcrumbs | ✅ Implemented (2026-07-12) |
+| UIX-2 | Dark mode: `.dark` token block, `next-themes` provider + toggle in `SiteHeader` | ✅ Implemented (2026-07-12) |
+| UIX-3 | Ctrl+K command palette (admin tiers only — `tenant_admin`/`outlet_admin`/`super_admin`/`food_court_admin`/`platform_admin`), via `cmdk` | ✅ Implemented (2026-07-12) |
+| UIX-4 | Customer section polish (menu/order/wallet/profile/track): motion vocabulary, token sweep, `PageHeader` adoption | ✅ Implemented (2026-07-12) |
+| UIX-5 | Admin section polish (17 pages): `PageHeader`/breadcrumbs everywhere, skeleton→content fade-up, `pagination.tsx` adoption, dark-safe sweep | ✅ Implemented (2026-07-12) |
+| UIX-6 | Staff/food-court/platform polish + dark-safe sweep for those sections | ✅ Implemented (2026-07-12) |
+
+**Design-language constraints (all stages):** semantic Tailwind tokens only (no hardcoded hex — this
+is also the dark-mode prerequisite); reuse the existing motion vocabulary (`animate-fade-up`,
+`animate-scale-in`, `key={step}` remounts, `hover:-translate-y-0.5`) rather than inventing new motion
+per page; no route/URL changes anywhere in the program; no new heavy dependencies (`cmdk`,
+`next-themes`, Radix, `tailwindcss-animate` are all already installed). Full rationale in ADR-010.
+
+---
+
 ## Priority Matrix
 
 | Feature | User Impact | Effort | Priority |
@@ -342,3 +366,4 @@ all reachable from nav.
 | Notification inbox | Medium | Medium | P2 |
 | Platform analytics + subscriptions | Low | Medium | P3 |
 | Segment split + guest QR ordering (public surface) | Very High (restaurant segment) | High | P1 |
+| UI/UX modernization (UIX-1…6: nav fixes, dark mode, command palette, per-section polish) | High | High | P1 |

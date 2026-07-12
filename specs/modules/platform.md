@@ -2,7 +2,7 @@
 
 **Router:** `backend/app/routers/platform.py`
 **Related:** `backend/app/services/audit_service.py`, `backend/app/core/tier_limits.py`
-**Last verified:** 2026-07-08
+**Last verified:** 2026-07-11
 **RFC:** `decisions/rfcs/RFC-009-platform-admin-control-plane.md`
 
 ---
@@ -191,5 +191,5 @@ The resource is **not** created; no partial state is left behind.
 
 ## `AuditAction` values
 
-`tenant_created` · `tenant_updated` · `tenant_tier_changed` · `tenant_activated` ·
+`tenant_created` · `tenant_tier_changed` · `tenant_activated` ·
 `tenant_suspended` · `tenant_deleted` · `impersonation_started`

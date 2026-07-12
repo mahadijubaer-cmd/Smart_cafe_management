@@ -66,7 +66,7 @@ export default function RegisterPage() {
               <CardDescription>Register as a student, staff member, or cleaner.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+              <form method="post" className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Full name</Label>
                   <Input id="full_name" placeholder="Your full name" {...register('full_name')} />

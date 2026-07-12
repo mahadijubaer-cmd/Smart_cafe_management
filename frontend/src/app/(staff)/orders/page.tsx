@@ -5,6 +5,7 @@ import { Inbox } from 'lucide-react'
 
 import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PageHeader from '@/components/layout/PageHeader'
 import useWebSocket from '@/hooks/useWebSocket'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,7 +33,7 @@ const statusStyles: Record<Order['status'], string> = {
   confirmed: 'border-sky-300 bg-sky-50',
   preparing: 'border-violet-300 bg-violet-50',
   ready: 'border-emerald-300 bg-emerald-50',
-  delivered: 'border-slate-200 bg-slate-50',
+  delivered: 'border-border bg-muted',
   cancelled: 'border-rose-200 bg-rose-50',
 }
 
@@ -114,14 +115,14 @@ function OrderCard({
 
   return (
     <article
-      className={`rounded-3xl border-2 bg-white p-4 shadow-sm transition duration-500 ${statusStyles[status]} ${
-        isVisible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+      className={`rounded-3xl border-2 bg-card p-4 shadow-sm motion-safe:transition motion-safe:duration-500 ${statusStyles[status]} ${
+        isVisible ? 'translate-y-0 opacity-100' : 'motion-safe:-translate-y-4 motion-safe:opacity-0'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Table {order.table_number || order.table_id || 'N/A'}</p>
-          <p className="mt-1 text-sm text-slate-500">{formatTime(order.time_slot)}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Table {order.table_number || order.table_id || 'N/A'}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{formatTime(order.time_slot)}</p>
           {order.order_source === 'guest_qr' || order.order_source === 'kiosk' ? (
             <Badge className="mt-1 w-fit bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
               Guest{order.guest_name ? ` · ${order.guest_name}` : ''}
@@ -135,10 +136,10 @@ function OrderCard({
 
       <div className="mt-4 space-y-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Items</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Items</p>
           <ul className="mt-2 space-y-2">
             {(order.items || []).map((item) => (
-              <li key={item.order_item_id} className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 text-sm text-slate-700 shadow-sm">
+              <li key={item.order_item_id} className="flex items-center justify-between rounded-2xl bg-card/80 px-3 py-2 text-sm text-muted-foreground shadow-sm">
                 <span>{item.menu_item?.name || item.item_id}</span>
                 <span className="font-semibold">x{item.quantity}</span>
               </li>
@@ -147,7 +148,7 @@ function OrderCard({
         </div>
 
         {order.special_notes ? (
-          <Badge className="bg-slate-900 text-white hover:bg-slate-900">{order.special_notes}</Badge>
+          <Badge className="bg-foreground text-background hover:bg-foreground">{order.special_notes}</Badge>
         ) : null}
       </div>
 
@@ -272,27 +273,22 @@ export default function StaffOrdersPage() {
 
   return (
     <ProtectedRoute allowedRoles={["staff", "admin"]}>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#F5F0E8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-                Staff orders
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Kitchen queue</h1>
-              <CardDescription className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-                Live order board updated through websocket events.
-              </CardDescription>
-            </div>
+          <PageHeader
+            eyebrow="Staff orders"
+            title="Kitchen queue"
+            description="Live order board updated through websocket events."
+            action={
+              <Button type="button" variant="outline" onClick={() => setSoundEnabled((current) => !current)}>
+                Sound: {soundEnabled ? 'On' : 'Off'}
+              </Button>
+            }
+          />
 
-            <Button type="button" variant="outline" onClick={() => setSoundEnabled((current) => !current)}>
-              Sound: {soundEnabled ? 'On' : 'Off'}
-            </Button>
-          </div>
-
-          <div className="grid gap-5 xl:grid-cols-3">
+          <div className="motion-safe:animate-fade-up grid gap-5 xl:grid-cols-3">
             {(Object.keys(columnConfig) as ColumnKey[]).map((columnKey) => (
-              <Card key={columnKey} className="bg-slate-50/80">
+              <Card key={columnKey} className="bg-muted/80">
                 <CardHeader>
                   <CardTitle className="text-xl">{columnConfig[columnKey].title}</CardTitle>
                   <CardDescription>{columns[columnKey].length} orders</CardDescription>
@@ -303,7 +299,7 @@ export default function StaffOrdersPage() {
                       <OrderCard key={order.order_id} order={order} onAdvance={advanceOrder} />
                     ))
                   ) : (
-                    <Empty className="border border-dashed border-slate-300 bg-white/70">
+                    <Empty className="border border-dashed border-border bg-card/70">
                       <EmptyMedia variant="icon">
                         <Inbox />
                       </EmptyMedia>

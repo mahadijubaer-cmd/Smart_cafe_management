@@ -151,7 +151,7 @@ export default function MenuItemForm({
           <DialogTitle>{isEdit ? `Edit: ${item?.name}` : 'Add Menu Item'}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-y-auto">
+        <form method="post" onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-y-auto">
           <FieldGroup className="gap-4 p-5">
             {/* Image */}
             <Field>

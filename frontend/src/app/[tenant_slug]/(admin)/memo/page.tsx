@@ -5,6 +5,7 @@ import { FileText, Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
+import PageHeader from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -89,11 +90,10 @@ export default function MemoPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <div className="mb-8 flex items-center gap-3">
-        <FileText className="text-primary" data-icon="inline-start" />
-        <div>
-          <h1 className="text-2xl font-black">Memo Generator</h1>
-          <p className="text-sm text-muted-foreground">Generate an institutional A4 PDF memorandum.</p>
+      <div className="mb-8 flex items-start gap-3">
+        <FileText className="mt-1 shrink-0 text-primary" data-icon="inline-start" />
+        <div className="flex-1">
+          <PageHeader title="Memo Generator" description="Generate an institutional A4 PDF memorandum." />
         </div>
       </div>
 

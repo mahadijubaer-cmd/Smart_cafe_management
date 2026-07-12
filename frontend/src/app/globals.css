@@ -7,6 +7,7 @@
   --color-primary: #1A4D2E;
 
   --radius: 0.75rem;
+  --background: #F5F0E8;
   --foreground: #0f172a;
   --primary-foreground: #ffffff;
   --accent-foreground: #1e293b;
@@ -23,6 +24,38 @@
   --border: rgba(0, 0, 0, 0.1);
   --input: rgba(0, 0, 0, 0.1);
   --ring: #1A4D2E;
+
+  /* Dark surface for SiteHeader/SiteFooter — same hue/saturation as --color-primary (#1A4D2E,
+     ~hsl(145 48% 21%)), lightness dropped to ~8% so it reads as "the same green, darker" instead
+     of an unrelated color (was bg-slate-950, a blue-gray with no relation to the brand hue). */
+  --header-surface: 145 45% 8%;
+}
+
+/* Dark mode (UIX-2): brand-hue-tinted (~150°) dark palette, not a generic slate — same reasoning
+   as --header-surface above. --color-primary lightens for readability against a dark background;
+   --header-surface gets its own dark variant a touch lighter than --background so header/footer
+   stay visually distinct from page content in both modes. */
+.dark {
+  color-scheme: dark;
+  --color-primary: #3ecf7e;
+  --background: #0d1210;
+  --foreground: #e7ece9;
+  --primary-foreground: #06120a;
+  --accent-foreground: #1e293b;
+  --card: #131a17;
+  --card-foreground: #e7ece9;
+  --popover: #131a17;
+  --popover-foreground: #e7ece9;
+  --secondary: #1c2521;
+  --secondary-foreground: #e7ece9;
+  --muted: #1c2521;
+  --muted-foreground: #9aa39e;
+  --destructive: #f87171;
+  --destructive-foreground: #450a0a;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #3ecf7e;
+  --header-surface: 150 30% 11%;
 }
 
 html {
@@ -32,8 +65,12 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f5f0e8;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), var(--font-body), Arial, Helvetica, sans-serif;
 }
 
 * {
