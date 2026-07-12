@@ -84,8 +84,8 @@ export default function FoodCourtLayout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b px-3 py-3">
-          <div className="flex items-center justify-between gap-2 px-2 text-primary">
-            <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 px-2 text-primary">
+            <div className="flex min-w-0 items-center gap-2">
               <ChefHat className="size-5" />
               <span className="truncate text-sm font-black group-data-[collapsible=icon]:hidden">Food Court</span>
             </div>
@@ -131,7 +131,7 @@ export default function FoodCourtLayout({ children }: { children: ReactNode }) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
+        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 md:hidden">
           <SidebarTrigger />
           <ChefHat className="size-4 text-primary" />
           <span className="text-sm font-bold">Food Court</span>

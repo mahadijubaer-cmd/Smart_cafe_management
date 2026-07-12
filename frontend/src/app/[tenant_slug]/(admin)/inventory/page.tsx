@@ -167,7 +167,7 @@ export default function InventoryPage() {
   )
 
   return (
-    <ProtectedRoute allowedRoles={['tenant_admin', 'outlet_admin', 'super_admin', 'platform_admin', 'admin']}>
+    <ProtectedRoute allowedRoles={['tenant_admin', 'outlet_admin', 'super_admin', 'platform_admin']}>
       <AddItemModal open={showAdd} onClose={() => setShowAdd(false)} onSuccess={loadItems} />
 
       <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
@@ -177,7 +177,7 @@ export default function InventoryPage() {
             title="Stock Management"
             description="Track all ingredients, packaging, and supplies."
             action={
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button variant="outline" asChild>
                   <Link href={`/${slug}/inventory/purchase-orders`} className="gap-2">
                     <ClipboardList data-icon="inline-start" />
@@ -223,7 +223,7 @@ export default function InventoryPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <CardTitle className="flex items-center gap-2">
                   <Box data-icon="inline-start" className="text-primary" />
                   All Items ({filtered.length})
@@ -232,7 +232,7 @@ export default function InventoryPage() {
                   placeholder="Search by name or SKU..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="max-w-xs"
+                  className="w-full sm:max-w-xs"
                 />
               </div>
             </CardHeader>

@@ -48,7 +48,7 @@ function StatCard({ icon, label, value, trend, suffix }: StatCardProps) {
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+            <p className="truncate text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
             <p className="mt-3 text-3xl font-black tracking-tight text-foreground md:text-4xl">
               {value}
               {suffix ? <span className="ml-1 text-lg font-semibold text-muted-foreground">{suffix}</span> : null}

@@ -10,6 +10,8 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
@@ -90,6 +92,32 @@ async def list_invites(
     ]
 
 
+@router.delete("/invite/{invite_id}", status_code=204)
+async def revoke_invite(
+    invite_id: UUID,
+    ctx: TenantContext = Depends(get_tenant_context),
+    _admin: User = Depends(require_role(*ADMIN_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke a still-pending invitation (BR-INVITE-1). Only makes sense pre-acceptance — an
+    accepted invite already has a real user account, which should be deactivated via the users
+    list instead of "un-invited" here."""
+    result = await db.execute(
+        select(StaffInvitation).where(
+            StaffInvitation.invite_id == invite_id,
+            StaffInvitation.tenant_id == ctx.tenant_id,
+        )
+    )
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    if invite.accepted_at is not None:
+        raise HTTPException(status_code=400, detail="Cannot revoke an invitation that has already been accepted")
+
+    await db.delete(invite)
+    await db.commit()
+
+
 @router.post("/invite", status_code=201)
 async def send_invite(
     body: InviteCreate,
@@ -150,6 +178,7 @@ async def send_invite(
         "email": str(body.email),
         "role": body.role.value,
         "expires_at": invite.expires_at.isoformat(),
+        "invite_link": invite_link,
     }
 
 

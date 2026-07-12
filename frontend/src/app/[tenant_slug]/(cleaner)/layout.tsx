@@ -30,19 +30,22 @@ export default function CleanerLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <nav className="flex items-center justify-between bg-primary px-6 py-3 text-primary-foreground shadow-md">
-        <Link href={`/${slug}/cleaning-queue`} className="flex items-center gap-2 text-lg font-bold tracking-tight">
-          <Sparkles className="size-5" />
-          Cleaner — Table Assignments
+      <nav className="flex items-center justify-between gap-4 bg-primary px-4 py-3 text-primary-foreground shadow-md sm:px-6">
+        <Link
+          href={`/${slug}/cleaning-queue`}
+          className="flex min-w-0 items-center gap-2 truncate text-lg font-bold tracking-tight"
+        >
+          <Sparkles className="size-5 shrink-0" />
+          <span className="truncate">Cleaner — Table Assignments</span>
         </Link>
         <Button
           variant="ghost"
           size="sm"
-          className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
+          className="shrink-0 text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
           onClick={handleLogout}
         >
           <LogOut data-icon="inline-start" />
-          Logout
+          <span className="hidden sm:inline">Logout</span>
         </Button>
       </nav>
       <main className="p-6">{children}</main>

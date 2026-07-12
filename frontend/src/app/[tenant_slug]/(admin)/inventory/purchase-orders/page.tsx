@@ -71,7 +71,7 @@ export default function PurchaseOrdersPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['tenant_admin', 'outlet_admin', 'super_admin', 'platform_admin', 'admin']}>
+    <ProtectedRoute allowedRoles={['tenant_admin', 'outlet_admin', 'super_admin', 'platform_admin']}>
       <main className="min-h-screen px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
           <PageHeader

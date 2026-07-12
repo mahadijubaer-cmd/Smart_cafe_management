@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Clock, Pencil, Plus, Settings2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import CategoryManager from '@/components/admin/CategoryManager'
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,6 +118,7 @@ export default function AdminMenuPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<MenuItem | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null)
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false)
 
   // Load categories + tenant settings on mount
   useEffect(() => {
@@ -195,6 +197,13 @@ export default function AdminMenuPage() {
 
   const selectedCategory = categories.find((c) => c.category_id === selectedCategoryId)
 
+  const handleCategoriesChange = (cats: Category[]) => {
+    setCategories(cats)
+    if (cats.length > 0 && !cats.find((c) => c.category_id === selectedCategoryId)) {
+      setSelectedCategoryId(cats[0]?.category_id ?? null)
+    }
+  }
+
   return (
     <div className="flex h-full min-h-screen">
       {/* Left: Category panel */}
@@ -203,12 +212,7 @@ export default function AdminMenuPage() {
           categories={categories}
           selectedId={selectedCategoryId}
           onSelect={setSelectedCategoryId}
-          onCategoriesChange={(cats) => {
-            setCategories(cats)
-            if (cats.length > 0 && !cats.find((c) => c.category_id === selectedCategoryId)) {
-              setSelectedCategoryId(cats[0]?.category_id ?? null)
-            }
-          }}
+          onCategoriesChange={handleCategoriesChange}
         />
       </aside>
 
@@ -231,8 +235,8 @@ export default function AdminMenuPage() {
           }
         />
 
-        {/* Mobile category selector */}
-        <div className="lg:hidden">
+        {/* Mobile category selector + full category management (create/rename/delete) */}
+        <div className="flex items-center gap-2 lg:hidden">
           <Select
             value={selectedCategoryId !== null ? String(selectedCategoryId) : undefined}
             onValueChange={(value) => setSelectedCategoryId(Number(value))}
@@ -248,6 +252,30 @@ export default function AdminMenuPage() {
               ))}
             </SelectContent>
           </Select>
+
+          <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+            <SheetTrigger asChild>
+              <Button type="button" variant="outline" size="icon" className="shrink-0" title="Manage categories">
+                <Settings2 />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 overflow-y-auto sm:max-w-xs">
+              <SheetHeader>
+                <SheetTitle>Categories</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4">
+                <CategoryManager
+                  categories={categories}
+                  selectedId={selectedCategoryId}
+                  onSelect={(id) => {
+                    setSelectedCategoryId(id)
+                    setCategorySheetOpen(false)
+                  }}
+                  onCategoriesChange={handleCategoriesChange}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Items */}

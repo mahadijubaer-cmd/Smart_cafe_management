@@ -69,8 +69,8 @@ function TicketCard({ order }: { order: GuestOrder }) {
       )}
 
       <ul className="mt-4 flex flex-col gap-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
-        {order.items.map((line) => (
-          <li key={line.order_item_id} className="flex justify-between">
+        {order.items.map((line, index) => (
+          <li key={`${line.item_id}-${index}`} className="flex justify-between">
             <span>{line.quantity}×</span>
             <span className="flex-1 px-2">{line.item_id.slice(0, 8)}</span>
             <span>{formatCurrency(Number(line.subtotal))}</span>

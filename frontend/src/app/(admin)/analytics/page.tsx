@@ -99,7 +99,7 @@ function SummaryCard({
     <Card>
       <CardContent className="flex items-start justify-between gap-3 p-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+          <p className="truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
           <p className="mt-2 text-3xl font-black tracking-tight text-foreground">{value}</p>
         </div>
         <div className="rounded-xl bg-primary/10 p-2.5 text-primary">{icon}</div>

@@ -6,6 +6,12 @@
   color-scheme: light;
   --color-primary: #1A4D2E;
 
+  /* SiteHeader is `sticky top-0` and always mounted (root layout), h-14 (56px) plus its 3px
+     accent bar = 59px. Fixed-position elements like the desktop Sidebar sit outside normal
+     document flow, so they must subtract this explicitly or they render from the true
+     viewport top and get clipped behind the header. */
+  --site-header-height: 59px;
+
   --radius: 0.75rem;
   --background: #F5F0E8;
   --foreground: #0f172a;
@@ -29,6 +35,34 @@
      ~hsl(145 48% 21%)), lightness dropped to ~8% so it reads as "the same green, darker" instead
      of an unrelated color (was bg-slate-950, a blue-gray with no relation to the brand hue). */
   --header-surface: 145 45% 8%;
+}
+
+/* Explicit light scope: some surfaces (auth/onboarding cards) are hardcoded to a light card
+   (bg-white) regardless of the active site theme. Their inputs/labels still read theme-reactive
+   vars like --background and --muted-foreground, so when the OS/browser is in dark mode those
+   vars resolve to the .dark palette even though the card itself stayed white — producing
+   dark/black input fields with barely-visible text inside an otherwise light card. Apply this
+   class to the root of such a surface to pin it to the light palette regardless of ancestor .dark. */
+.light {
+  color-scheme: light;
+  --color-primary: #1A4D2E;
+  --background: #F5F0E8;
+  --foreground: #0f172a;
+  --primary-foreground: #ffffff;
+  --accent-foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --destructive: #ef4444;
+  --destructive-foreground: #fef2f2;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: #1A4D2E;
 }
 
 /* Dark mode (UIX-2): brand-hue-tinted (~150°) dark palette, not a generic slate — same reasoning

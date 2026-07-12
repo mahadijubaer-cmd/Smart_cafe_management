@@ -121,7 +121,10 @@ export default function ActiveTableMap() {
             <LegendSwatch color="bg-blue-500" label="Cleaning" />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {/* This card sits in a half-width dashboard column, so it never actually reaches the
+              viewport widths `sm:`/`xl:` breakpoints assume — capped at 3 columns (never 5) so
+              labels like "AVAILABLE" have room to render in full instead of overflowing. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <SummaryPill label="Total" value={counts.total} />
             <SummaryPill label="Available" value={counts.available} />
             <SummaryPill label="Reserved" value={counts.reserved} />
@@ -138,7 +141,7 @@ function SummaryPill({ label, value }: { label: string; value: number }) {
   return (
     <Card>
       <CardContent className="px-4 py-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+        <p className="truncate text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="mt-1 text-lg font-bold">{value}</p>
       </CardContent>
     </Card>

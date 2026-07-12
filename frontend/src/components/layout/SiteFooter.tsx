@@ -69,6 +69,23 @@ export default function SiteFooter() {
           </div>
         )}
       </div>
+
+      <div className="border-t border-white/10">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-1 px-4 py-4 text-center sm:px-6 lg:px-8">
+          <span className="text-xs font-medium text-white/60">
+            Developed by <span className="font-semibold text-white/80">Mahadi Jubaer</span>
+          </span>
+          <span className="text-[11px] text-white/40">
+            <a href="mailto:mahadi.jubaer@g.bracu.ac.bd" className="transition-colors hover:text-white/70">
+              mahadi.jubaer@g.bracu.ac.bd
+            </a>
+            <span className="mx-1.5">·</span>
+            <a href="mailto:mahadi.jubaer@alora.cloud" className="transition-colors hover:text-white/70">
+              mahadi.jubaer@alora.cloud
+            </a>
+          </span>
+        </div>
+      </div>
     </footer>
   )
 }

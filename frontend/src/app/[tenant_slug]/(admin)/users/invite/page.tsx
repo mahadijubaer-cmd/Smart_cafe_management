@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Send, UserPlus, Mail } from 'lucide-react'
+import { Check, Copy, Send, Trash2, UserPlus, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import PageHeader from '@/components/layout/PageHeader'
@@ -28,6 +28,17 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 type InvitableRole = 'staff' | 'cleaner' | 'server' | 'outlet_admin'
 
@@ -53,6 +64,9 @@ export default function InvitePage() {
   const [sending, setSending] = useState(false)
   const [invites, setInvites] = useState<PendingInvite[]>([])
   const [loadingInvites, setLoadingInvites] = useState(true)
+  const [lastInviteLink, setLastInviteLink] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
 
   const loadInvites = async () => {
     try {
@@ -75,9 +89,11 @@ export default function InvitePage() {
     if (!email.trim()) return
     setSending(true)
     try {
-      await apiClient.post('/users/invite', { email: email.trim(), role })
+      const res = await apiClient.post('/users/invite', { email: email.trim(), role })
       toast.success(`Invitation sent to ${email.trim()}`)
       setEmail('')
+      setLastInviteLink(res.data?.invite_link ?? null)
+      setLinkCopied(false)
       await loadInvites()
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }
@@ -89,11 +105,38 @@ export default function InvitePage() {
 
   const handleResend = async (inv: PendingInvite) => {
     try {
-      await apiClient.post('/users/invite', { email: inv.email, role: inv.role })
+      const res = await apiClient.post('/users/invite', { email: inv.email, role: inv.role })
       toast.success(`Re-sent invitation to ${inv.email}`)
+      setLastInviteLink(res.data?.invite_link ?? null)
+      setLinkCopied(false)
       await loadInvites()
     } catch {
       toast.error('Failed to resend invitation.')
+    }
+  }
+
+  const handleCopyLink = async () => {
+    if (!lastInviteLink) return
+    try {
+      await navigator.clipboard.writeText(lastInviteLink)
+      setLinkCopied(true)
+      toast.success('Invite link copied.')
+    } catch {
+      toast.error('Could not copy the link — select and copy it manually.')
+    }
+  }
+
+  const handleRevoke = async (inv: PendingInvite) => {
+    setRevokingId(inv.invite_id)
+    try {
+      await apiClient.delete(`/users/invite/${inv.invite_id}`)
+      toast.success(`Revoked invitation for ${inv.email}`)
+      await loadInvites()
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } }
+      toast.error(axiosErr.response?.data?.detail ?? 'Failed to revoke invitation.')
+    } finally {
+      setRevokingId(null)
     }
   }
 
@@ -154,6 +197,26 @@ export default function InvitePage() {
         </CardContent>
       </Card>
 
+      {lastInviteLink ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Invite link (shown once)</p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground" title={lastInviteLink}>
+                {lastInviteLink}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Already emailed — copy this only as a fallback if the email doesn&apos;t arrive. It won&apos;t be shown again.
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="shrink-0 gap-2" onClick={handleCopyLink}>
+              {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {linkCopied ? 'Copied' : 'Copy link'}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {loadingInvites ? (
         <Card>
           <CardContent className="flex flex-col gap-3 p-6">
@@ -182,6 +245,7 @@ export default function InvitePage() {
                 {invites.map((inv) => {
                   const { label, variant } = inviteStatus(inv)
                   const expired = label === 'Expired'
+                  const pending = label === 'Pending'
                   return (
                     <TableRow key={inv.invite_id}>
                       <TableCell className="font-medium">{inv.email}</TableCell>
@@ -193,17 +257,49 @@ export default function InvitePage() {
                         <Badge variant={variant}>{label}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {expired && (
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            onClick={() => handleResend(inv)}
-                            className="h-auto p-0 text-xs"
-                          >
-                            Resend
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-3">
+                          {expired && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              onClick={() => handleResend(inv)}
+                              className="h-auto p-0 text-xs"
+                            >
+                              Resend
+                            </Button>
+                          )}
+                          {pending && (
+                            <AlertDialog>
+                              <AlertDialogTrigger>
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  disabled={revokingId === inv.invite_id}
+                                  className="h-auto gap-1 p-0 text-xs text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Revoke
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {inv.email} will no longer be able to use this invite link. You can send a new invitation any time.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction variant="destructive" onClick={() => handleRevoke(inv)}>
+                                    Revoke
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

@@ -172,7 +172,7 @@ export default function TenantLoginPage() {
             </p>
           </section>
 
-          <Card className="motion-safe:animate-scale-in self-center overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm">
+          <Card className="light motion-safe:animate-scale-in self-center overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm">
             {step === 'credentials' ? (
               <div key="credentials" className="motion-safe:animate-fade-up">
                 <CardHeader>

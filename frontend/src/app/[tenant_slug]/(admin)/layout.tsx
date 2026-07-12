@@ -68,7 +68,14 @@ const NAV_DEFS: NavItem[] = [
   { label: 'Orders', path: 'orders', icon: <ShoppingBag /> },
   { label: 'Tables', path: 'tables', icon: <Table2 /> },
   { label: 'Menu', path: 'menu-management', icon: <UtensilsCrossed /> },
-  { label: 'Inventory', path: 'inventory', icon: <Box /> },
+  {
+    label: 'Inventory',
+    path: 'inventory',
+    icon: <Box />,
+    // The food-court parent tenant has no inventory of its own (specs/modules/inventory.md) —
+    // /inventory/* rejects food_court_admin with 403. Hide the nav entry accordingly.
+    allowedRoles: ['platform_admin', 'super_admin', 'outlet_admin', 'tenant_admin'],
+  },
   {
     label: 'Central Inventory',
     path: 'inventory/central',
@@ -119,8 +126,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     router.push(`/${slug}/login`)
   }
 
-  const visibleNav = NAV_DEFS.filter((item) =>
-    !item.allowedTypes || (tenantType && item.allowedTypes.includes(tenantType))
+  const visibleNav = NAV_DEFS.filter(
+    (item) =>
+      (!item.allowedTypes || (tenantType && item.allowedTypes.includes(tenantType))) &&
+      (!item.allowedRoles || (role && item.allowedRoles.includes(role)))
   )
   const visiblePlatformNav = PLATFORM_NAV_DEFS.filter(
     (item) => !item.allowedRoles || (role && item.allowedRoles.includes(role))
@@ -147,16 +156,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b px-3 py-3">
-          <div className="flex items-center justify-between gap-2 px-2 text-primary">
-            <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 px-2 text-primary">
+            <div className="flex min-w-0 items-center gap-2">
               <span className="text-xl" aria-hidden="true">🍽</span>
-              <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">SCMS Admin</span>
+              <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">{tenant?.name ?? slug} Admin</span>
             </div>
             <kbd className="hidden rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden lg:inline">
               ⌘K
             </kbd>
           </div>
-          <p className="truncate px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{tenant?.name ?? slug}</p>
         </SidebarHeader>
 
         <SidebarContent>
@@ -211,9 +219,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
+        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 md:hidden">
           <SidebarTrigger />
-          <span className="text-sm font-bold text-primary">SCMS Admin</span>
+          <span className="text-sm font-bold text-primary">{tenant?.name ?? slug} Admin</span>
         </header>
         <main className="flex-1 overflow-y-auto bg-muted/30">{children}</main>
       </SidebarInset>

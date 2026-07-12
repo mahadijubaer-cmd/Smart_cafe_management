@@ -213,7 +213,7 @@ export default function TenantRegisterPage() {
       <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
         <div className="grid w-full gap-6 xl:grid-cols-[0.95fr_1.05fr] xl:gap-8">
           {/* Form panel */}
-          <Card className="motion-safe:animate-scale-in order-2 overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm lg:order-1">
+          <Card className="light motion-safe:animate-scale-in order-2 overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm lg:order-1">
             <CardContent className="pt-6">
               <StepBar current={step} invite={Boolean(inviteToken)} />
 

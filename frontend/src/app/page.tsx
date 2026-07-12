@@ -12,12 +12,6 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#1A4D2E] px-6 py-16 text-center text-white">
       <h1 className="motion-safe:animate-fade-up text-5xl font-black tracking-tight">Smart Cafe Management</h1>
-      <p
-        className="motion-safe:animate-fade-up mt-3 text-lg text-white/70"
-        style={{ animationDelay: '80ms' }}
-      >
-        BRAC University CSE400 — Final Year Thesis
-      </p>
 
       {/* RFC-007: segment landing — cafeteria (registered accounts) vs restaurant (guest QR ordering) */}
       <div className="mt-12 grid w-full max-w-3xl gap-6 sm:grid-cols-2">

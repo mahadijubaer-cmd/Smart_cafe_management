@@ -386,6 +386,50 @@ Components: `app/register-organization/page.tsx` (3-step wizard), `components/au
 
 ---
 
+## WF-11: Staff/Cleaner/Server/Outlet-Admin Invitation ✅ [documented 2026-07-12]
+
+**Actor:** An existing tenant admin (`tenant_admin`/`outlet_admin`/`food_court_admin`/`super_admin`)
+inviting a new team member; the invitee has no account yet.
+**Start:** `/{tenant_slug}/users/invite`
+
+```
+1. Admin fills the invite form: email + role (Staff / Cleaner / Server / Outlet Admin — the only
+   four invitable roles; everything else, including admin roles, is rejected server-side)
+   POST /users/invite  Body: { email, role }
+
+2. Backend creates a StaffInvitation (hashed token, 48h expiry, tier-limit checked) and emails the
+   invitee a link: /{tenant_slug}/register?invite_token={raw_token}
+   Response 201 also returns invite_link (added 2026-07-12) — the invite page shows a one-time
+   "Copy invite link" affordance right after send/resend, as a fallback if the email doesn't arrive.
+   ← This is the only moment the link is retrievable; only the token's hash is stored.
+
+3. Invitee opens the link → the register page detects ?invite_token= and switches from the normal
+   self-register form to the invite-acceptance form (name + a password THEY choose)
+   POST /users/accept-invite  Body: { token, full_name, password }
+
+4. Backend creates the User (active, verified) with the invited role, marks the invite accepted
+   (single-use — re-submitting an already-accepted token is rejected), and returns a JWT immediately.
+   Frontend stores the token → invitee is logged in without a separate first-login step.
+
+5. On later visits, the invitee logs in exactly like any other role at /{tenant_slug}/login
+   (email + password). staff/cleaner/server get NO OTP step (2FA is admin-roles-only, frontend-side)
+   and land on /{slug}/orders (staff/server) or /{slug}/tables (cleaner).
+
+6. Admin-side invite management, from the same invite page:
+   - "Resend" — shown for expired invites; sends a brand-new invite (new token/link, old one stays dead)
+   - "Revoke" — shown for still-pending invites (added 2026-07-12)
+     DELETE /users/invite/{invite_id} → 204; 400 if the invite was already accepted (revoke only
+     makes sense pre-acceptance — an accepted invite has a real user account, which should instead be
+     deactivated via the existing users list, not "un-invited")
+```
+
+Components: `[tenant_slug]/(admin)/users/invite/page.tsx` (send form + sent-invitations table),
+`[tenant_slug]/(auth)/register/page.tsx` (accepts `?invite_token=`, same page self-registration uses).
+Full endpoint/business-rule detail: `specs/modules/auth.md` § "Staff/Cleaner/Server/Outlet-Admin
+Invitations".
+
+---
+
 ## WebSocket Connection Pattern (Frontend)
 
 ```typescript

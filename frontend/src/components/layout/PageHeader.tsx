@@ -55,7 +55,12 @@ export default function PageHeader({ title, description, eyebrow, action, breadc
         {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       </div>
 
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {/* `shrink-0` only applies from `sm:` up — below that it's `w-full` so this wrapper is
+          actually constrained to the row's width once it wraps below the title, letting any
+          `flex-wrap` action content (e.g. a multi-button row) wrap its own children instead of
+          overflowing off-screen (shrink-0 with no width otherwise lets this box grow to fit all
+          of its content unshrunk, which defeats an inner flex-wrap). */}
+      {action ? <div className="w-full sm:w-auto sm:shrink-0">{action}</div> : null}
     </div>
   )
 }

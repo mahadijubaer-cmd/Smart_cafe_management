@@ -1,9 +1,9 @@
 # Module: Auth
 
-**Routers:** `backend/app/routers/auth.py`, `backend/app/routers/otp.py`  
+**Routers:** `backend/app/routers/auth.py`, `backend/app/routers/otp.py`, `backend/app/routers/invitations.py`  
 **Schemas:** `backend/app/schemas/user.py`, `backend/app/schemas/otp.py`  
 **Service:** `backend/app/services/auth_service.py`  
-**Last verified:** 2026-07-11
+**Last verified:** 2026-07-12
 
 ---
 
@@ -281,6 +281,95 @@ actually submitted (non-`None`) are applied.
 2. Load the caller's tenant and issue a brand-new JWT with full tenant claims.
 
 **Response `200`:** `Token` (same shape as login)
+
+---
+
+## Staff/Cleaner/Server/Outlet-Admin Invitations
+
+**Router:** `backend/app/routers/invitations.py` — this whole flow existed in code before this spec
+section did (built during the Phase 21 notifications/invitations work); documented here for the
+first time on 2026-07-12 alongside two small additions (invite-link exposure, revoke).
+
+`staff`/`cleaner`/`server`/`outlet_admin` cannot self-register (BR-REG-1 below) — the only way these
+accounts come to exist is an existing tenant admin inviting them by email.
+
+### `POST /api/v1/users/invite`
+
+**Auth:** Required | **Roles:** `outlet_admin`, `tenant_admin`, `food_court_admin`, `super_admin`, `platform_admin` (`ADMIN_ROLES`)
+
+**Body:** `{ email: EmailStr, role: UserRole }` — `role` must be one of `staff`/`cleaner`/`server`/
+`outlet_admin` (`_INVITABLE_ROLES`) or `400`.
+
+**Business logic:**
+1. Tier-limit check (`check_tier_limit(tenant.subscription_tier, "max_staff", current_count)`) —
+   `402` if the tenant's plan cap on staff members would be exceeded.
+2. Creates a `StaffInvitation` row: a cryptographically random token (`secrets.token_urlsafe(32)`),
+   only its SHA-256 hash is ever persisted (`token_hash`), 48-hour expiry.
+3. Sends an email (via whichever `mail_provider` is configured — see ADR-007) with the accept link
+   `{SERVER_HOST}/{tenant_slug}/register?invite_token={raw_token}`. A delivery failure here is logged
+   and swallowed, not surfaced as a `500` — the invite row still exists either way.
+4. ✅ [2026-07-12] **Response now also includes `invite_link`** (the same link just emailed) so the
+   inviting admin can copy/share it directly from the UI as a fallback if the email never arrives —
+   see `frontend/src/app/[tenant_slug]/(admin)/users/invite/page.tsx`'s "Copy invite link" affordance,
+   shown once immediately after a successful send/resend. **This is the only moment the link is ever
+   retrievable** — only the hash is stored, so there is no way to recover or re-display an older
+   invite's link later (same security posture as a one-time-shown API key). Resending generates a
+   brand-new token/link; it does not resurface the original.
+
+**Response `201`:** `{ invite_id, email, role, expires_at, invite_link }`
+
+### `GET /api/v1/users/invite`
+
+**Auth:** Required | **Roles:** `ADMIN_ROLES`
+
+Lists invitations for the caller's own tenant, most recent first — `{ invite_id, email, role,
+expires_at, accepted_at }` per row. Powers the "Sent Invitations" table in the invite page; does
+**not** include `invite_link` (see above — it's gone after the create/resend response).
+
+### `DELETE /api/v1/users/invite/{invite_id}` ✅ [2026-07-12, new]
+
+**Auth:** Required | **Roles:** `ADMIN_ROLES`
+
+**Business logic (BR-INVITE-1):**
+1. `404` if no invitation with that ID exists, or it belongs to a different tenant (scoped by
+   `TenantContext`, same isolation pattern as every other tenant-scoped endpoint — ADR-001).
+2. `400 "Cannot revoke an invitation that has already been accepted"` if `accepted_at is not None` —
+   revoking only makes sense for a still-pending invite; an accepted one already has a real user
+   account and revoking it would be confusing (use the existing user deactivate/toggle flow instead
+   if the account itself needs to be disabled).
+3. Otherwise hard-deletes the `StaffInvitation` row and returns `204`. No soft-delete/audit trail was
+   added — the row simply stops existing, same as it never having been sent; this is a deliberate
+   scope decision (a full audit trail for invite lifecycle wasn't asked for and would need a schema
+   migration, whereas hard-delete needs none).
+
+Powers a "Revoke" action next to each still-pending row in the invite table (distinct from the
+existing "Resend" action, which only shows for *expired* rows).
+
+### `POST /api/v1/users/accept-invite`
+
+**Auth:** None (the invite token itself is the credential)
+
+**Body:** `{ token: str, full_name: str, password: str }` — password validated against the same
+complexity regex as the rest of the app (uppercase + digit + special char, min 8 chars).
+
+**Business logic:**
+1. Hash the submitted token, look up the matching `StaffInvitation` by `token_hash`. `404` if no match
+   (covers both "never existed" and "wrong token" identically — doesn't leak which).
+2. `400` if expired, `400` if `accepted_at` is already set (single-use — verified live: replaying an
+   already-accepted token is rejected).
+3. Creates the `User` with the invited role, `is_active=True`, `email_verified=True` (an invite link
+   sent to a real inbox is itself the verification), marks `invite.accepted_at = now`.
+4. Returns a JWT immediately — the invitee is logged in the moment they set their password, no
+   separate first-login step.
+
+**Frontend wiring:** `[tenant_slug]/(auth)/register/page.tsx` detects `?invite_token=` in the URL and
+calls this endpoint instead of the normal self-register endpoint when present.
+
+**Response `201`:** `Token` (same shape as login)
+
+**After this:** the new account logs in exactly like every other role, at the same shared
+`/{tenant_slug}/login` page — `staff`/`cleaner`/`server` get no OTP step (that's admin-roles-only,
+frontend-side) and land on `/orders` (staff/server) or `/tables` (cleaner).
 
 ---
 

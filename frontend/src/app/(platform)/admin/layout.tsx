@@ -57,8 +57,8 @@ function PlatformAdminShell({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b px-3 py-3">
-          <div className="flex items-center justify-between gap-2 px-2 text-primary">
-            <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 px-2 text-primary">
+            <div className="flex min-w-0 items-center gap-2">
               <span className="text-xl" aria-hidden="true">🛡️</span>
               <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">Platform Admin</span>
             </div>
@@ -109,7 +109,7 @@ function PlatformAdminShell({ children }: { children: ReactNode }) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
+        <header className="flex h-14 items-center gap-3 border-b bg-background px-4 md:hidden">
           <SidebarTrigger />
           <span className="text-sm font-bold text-primary">Platform Admin</span>
         </header>

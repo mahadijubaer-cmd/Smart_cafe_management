@@ -94,9 +94,15 @@
 > steps (e.g. credentials → OTP) retriggers a fresh entrance transition instead of an instant snap.
 > Primary CTA buttons across these pages gained `transition-transform hover:-translate-y-0.5` for a
 > consistent hover-lift micro-interaction. Legacy non-`[tenant_slug]` duplicate auth pages
-> (`app/(auth)/login`, `app/(auth)/register`) were intentionally left untouched — see `ADR-009` and
-> this file's routing-tree notes on the duplicate-route-tree debt. Phases 3+ (customer ordering flow,
-> admin dashboard, staff/food-court, platform admin) are backlogged, not yet started.
+> (`app/(auth)/login`, `app/(auth)/register`) were intentionally left untouched at the time — see
+> `ADR-009` and this file's routing-tree notes on the duplicate-route-tree debt. Phases 3+ (customer
+> ordering flow, admin dashboard, staff/food-court, platform admin) are backlogged, not yet started.
+>
+> **Update (2026-07-12, see `ADR-011`):** those two pages turned out to be more than stale — neither
+> form ever sent `tenant_slug`, which `POST /auth/login` / `POST /auth/register` have required since
+> multi-tenancy landed, so every submission 422'd and they could never succeed. Both now
+> server-redirect to `/discover` instead of rendering a dead form. See the Routing Tree below and
+> `ADR-011` for full detail.
 
 > **UIX-1 — Navigation foundation & bug fixes (2026-07-12, stage 1 of the platform-wide UI/UX
 > modernization program — see `ADR-010`):** a full navigation survey across every section (customer,
@@ -112,6 +118,20 @@
 > sub-pages, `users/invite`, and all four platform pages. Stages UIX-2 (dark mode) through UIX-6
 > (staff/food-court/platform polish) are planned but not started — each will get its own spec update
 > before implementation, per this project's spec-first convention.
+
+> **Mobile viewport audit (2026-07-12, see `ADR-012`):** a dedicated phone-width (≤400px) regression
+> pass — not covered by UIX-1…6's own scope — across every role's layout and the data-heavy admin
+> pages found four real bugs, fixed: (1) `menu-management`'s category panel (`CategoryManager` —
+> create/rename/delete) was `hidden ... lg:block` with no mobile equivalent beyond a plain category
+> picker; now reachable via a `Sheet` triggered next to the mobile `<Select>`, and `CategoryManager`'s
+> hover-only edit/delete icons are now always visible below `sm` (touch range) so they're tappable
+> inside that Sheet; (2) the inventory page's `PageHeader` action row (3 buttons) and its "All Items"
+> title/search row both overflowed at 375px, now wrap/stack responsively; (3) the cleaner layout's top
+> bar had no truncation/label-hiding, unlike the sibling staff layout's already-shipped UIX-1 pattern
+> — ported the same treatment; (4) the tenant-admin, food-court, and platform-admin layouts' mobile
+> header wrapper used `lg:hidden` while the underlying `Sidebar` primitive switches mobile/desktop at
+> `md` — caused a redundant double-header in the 768–1023px band, fixed by aligning both to `md`.
+> Full detail in `ADR-012`.
 
 ---
 
@@ -139,6 +159,15 @@ src/app/
     page.tsx                         → Public menu + cart + guest checkout (name+phone);
                                         `?mode=kiosk` = fullscreen locked kiosk variant
     track/[guestToken]/page.tsx      → Guest order tracking (live via public WS)
+
+  (auth)/                            → Legacy, non-tenant-scoped duplicate route tree (ADR-009).
+                                        ✅ [ADR-011, 2026-07-12] Both pages now `redirect('/discover')`
+                                        server-side rather than rendering a form — neither ever sent
+                                        `tenant_slug`, which the backend has required since
+                                        multi-tenancy landed, so both 422'd on every submission.
+                                        Reachable via `ProtectedRoute`'s unknown-tenant fallback.
+    login/page.tsx                   → Redirects to /discover
+    register/page.tsx                → Redirects to /discover
 
   [tenant_slug]/                     → Tenant-scoped routes
     layout.tsx                       → Loads tenant context from JWT

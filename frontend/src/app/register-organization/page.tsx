@@ -174,7 +174,7 @@ export default function RegisterOrganizationPage() {
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto grid min-h-screen w-full max-w-6xl items-stretch gap-6 px-4 py-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8 lg:py-10">
         {/* Form panel */}
-        <Card className="motion-safe:animate-scale-in order-2 self-center overflow-hidden border-black/5 bg-white shadow-sm lg:order-1">
+        <Card className="light motion-safe:animate-scale-in order-2 self-center overflow-hidden border-black/5 bg-white shadow-sm lg:order-1">
           <CardContent className="pt-6">
             <StepBar current={step} />
 

@@ -9,6 +9,120 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — Mobile viewport audit: category management unreachable, inventory overflow, cleaner nav, double header (2026-07-12)
+
+See `ADR-012` for the full record. Found by a dedicated phone-width (≤400px) regression pass across
+every role's layout and the data-heavy admin pages, prompted by a bug report at `/menu-management`.
+
+**1. Category management (create/rename/delete) was completely unreachable on mobile.**
+`app/(admin)/menu-admin/page.tsx`'s category panel (`CategoryManager`) was `hidden ... lg:block`,
+with only a plain category-picker `Select` below that breakpoint — no create/rename/delete affordance
+existed on any phone-width screen. Added a `Sheet` (the same mobile-overlay primitive already used
+for the Sidebar drawer and `CartSidebar`) triggered by an icon button next to the mobile `Select`,
+hosting a second `CategoryManager` instance for full CRUD. Also fixed `CategoryManager`'s rename/
+delete icon buttons, which were hover-only (`opacity-0 group-hover:opacity-100` — never reveals on
+touch): now `opacity-100 sm:opacity-0 sm:group-hover:opacity-100`, always visible below `sm`, unchanged
+hover-gated behavior at `sm`+ where the desktop `<aside>` (itself `lg:block` only) lives.
+
+**2. Inventory page overflowed at 375px in two places.** `[tenant_slug]/(admin)/inventory/page.tsx`'s
+`PageHeader` action row (3 buttons: Purchase Orders / Movements / Add Item) had no `flex-wrap`, and
+the "All Items" `CardHeader` paired a title with a 320px-capped search `Input` in a non-wrapping row —
+neither fit a phone screen. Added `flex-wrap` to the button row and made the title/search row stack
+vertically below `sm` with a full-width input. Root-caused one level deeper than the local page: adding
+`flex-wrap` alone didn't work at first, because `components/layout/PageHeader.tsx`'s own `action` wrapper
+was `shrink-0` with no width — a `shrink-0` flex item with no width constraint sizes to its *unwrapped*
+content width, so the inner `flex-wrap` never actually had less space than it needed and never
+triggered. Fixed at the source in `PageHeader.tsx` (`shrink-0` now only applies from `sm:` up; `w-full`
+below it), benefiting any future page with multi-item actions, not just this one — verified live with
+Playwright (button right edge was past the 375px viewport before this fix, fully inside it after).
+
+**5. (found during verification, same root cause as #2) A long tenant name pushed the sidebar's `⌘K`
+hint past the sidebar's edge, overlapping neighboring page content** — confirmed live on `/menu-management`
+at 1440px with a long auto-generated tenant name. Same missing-width-constraint pattern: the `SidebarHeader`
+title row had no `w-full`, and its title `<span>`'s `truncate` never engaged because the flex-item
+ancestor had no `min-w-0` (flex items default to `min-width: auto`, which blocks `truncate`). Fixed
+identically in all three sidebar layouts (`[tenant_slug]/(admin)`, `[tenant_slug]/(food-court)`,
+`(platform)/admin`) — confirmed via bounding-box measurement that the badge and neighboring content no
+longer overlap, and the tenant name now truncates with an ellipsis as intended.
+
+**3. The cleaner layout's top bar had no mobile handling** — no truncation on the title, no responsive
+hiding of the "Logout" label — unlike its sibling `[tenant_slug]/(staff)/layout.tsx`, which already
+got this exact treatment in UIX-1 (`ADR-010`). Ported the same pattern: `truncate`/`min-w-0` title,
+`shrink-0` logout button, `hidden sm:inline` logout label.
+
+**4. Three sidebar-based layouts double-rendered in the 768–1023px band.** The shared `Sidebar`
+primitive switches between its mobile `Sheet` drawer and fixed desktop sidebar at `md` (768px), but
+`[tenant_slug]/(admin)/layout.tsx`, `[tenant_slug]/(food-court)/layout.tsx`, and
+`(platform)/admin/layout.tsx` all gated their mobile trigger `<header>` on `lg:hidden` (1024px)
+instead — so both the fixed desktop sidebar and the mobile trigger header rendered simultaneously in
+that range. Fixed by aligning all three to `md:hidden`, matching the breakpoint the underlying
+`Sidebar` primitive already uses.
+
+**Audited, no action needed:** dialogs (already width-fluid), most form grids (already collapse to
+1 column below `sm`), the `purchase-orders`/`movements`/`outlets` pages (already card-list/responsive-
+grid based), the staff top bar (already has UIX-1 mobile handling), the food-court sidebar (same
+working `Sheet` pattern as tenant-admin), the customer bottom nav and `CartSidebar` (already a bottom
+sheet on mobile), and the command palette (⌘K is inert on touch, but duplicates the already-reachable
+visible nav, so nothing is hidden exclusively behind it).
+
+### Fix — Post-onboarding admin sweep across every restaurant category, plus a header/sidebar overlap (2026-07-12)
+
+Found by registering a fresh organization of each self-serve tenant type (independent restaurant,
+corporate, academic, franchise brand, food court) through the real UI with Playwright, logging in as
+the new admin, and crawling every admin page for console/page errors and failed API calls — not just
+reading code.
+
+**1. Food-court admins got a wall of silent 403s on Inventory, Purchase Orders, and Inventory
+Movements.** `[tenant_slug]/(admin)/inventory/{page,purchase-orders/page,movements/page}.tsx` each
+guarded access with `ProtectedRoute allowedRoles={[..., 'admin']}`. `'admin'` is a legacy alias that
+`ProtectedRoute` expands to `ADMIN_ROLES`, which includes `food_court_admin` — silently re-admitting
+the exact role the explicit list was written to exclude. The backend already correctly rejects
+`food_court_admin` from `/inventory/*` per `specs/modules/inventory.md` ("food court parent tenant
+has no inventory of its own"), so the page rendered but every fetch inside it 403'd. Removed the dead
+`'admin'` alias from all three `allowedRoles` arrays (it can never appear in a real JWT — the backend
+`UserRole` enum has no `'admin'` value) and hid the Inventory nav entry from `food_court_admin` in
+`[tenant_slug]/(admin)/layout.tsx`, whose `visibleNav` filter previously only checked `allowedTypes`
+and silently ignored `allowedRoles` entirely — fixed to check both. Per `WORKFLOW.md`'s bug-fix rule,
+the spec was already correct here; only the code needed fixing.
+
+**2. The Outlets page fired its API call before checking tenant type.** Any non-franchise admin who
+reached `[tenant_slug]/(admin)/outlets` (hidden from nav, but reachable via direct URL/back-button)
+got a spurious "Failed to load outlets" toast from a `GET /tenants/{id}/outlets` call the backend
+always rejects with 403 for non-franchise tenants, even though the page itself correctly renders
+"Outlets are only available to franchise brands." Fixed by skipping the fetch entirely when
+`tenantType !== 'franchise_brand'`.
+
+**3. Input text was invisible in "always-light" auth/onboarding cards under system dark mode.**
+`register-organization`, both `[tenant_slug]/(auth)/{login,register}`, and both legacy
+`(auth)/{login,register}` pages hardcode their `Card` to `bg-white`/`bg-white/92`, but their `Input`
+fields read theme-reactive CSS variables (`bg-background`, `text-foreground`, etc.). With the OS/
+browser in dark mode, `next-themes` applies `.dark` to `<html>`, so those variables resolved to the
+dark palette (near-black) inside a card that stayed white — black-on-black text. Added a `.light`
+CSS class (`globals.css`) that pins the full light-mode variable set regardless of an ancestor
+`.dark`, applied to the `Card` on all five affected pages.
+
+**4. The global sticky header clipped the top of every sidebar-based console.** `SiteHeader` (root
+layout, every page) is `sticky top-0`, 59px tall, but the shared `Sidebar` primitive
+(`components/ui/sidebar.tsx`) used `fixed inset-y-0 h-svh` for its desktop container — pinned to the
+true viewport top, ignoring the header's space in the document flow, so the header (higher z-index)
+visually covered the sidebar's first ~59px on every page that uses it: `[tenant_slug]/(admin)`,
+`[tenant_slug]/(food-court)`, and `(platform)/admin`. Added a `--site-header-height: 59px` CSS
+variable and changed the sidebar container to `top-[--site-header-height] bottom-0
+h-[calc(100svh-var(--site-header-height))]`. Verified zero overlap on all three affected layouts.
+
+**5. The bare `/login` and `/register` pages could never succeed.** See `ADR-011` — neither form ever
+sent `tenant_slug`, which the backend has required since multi-tenancy landed, so every submission
+422'd. Both now redirect to `/discover`. `specs/frontend/overview.md`'s Phase 2 note and Routing Tree
+updated accordingly (this was a behaviour change, not a pure bug fix, so the spec-first workflow
+applies retroactively here — see `ADR-011` for the full record).
+
+**Not a bug (ruled out during this sweep):** a "Failed to load tenants" toast on the platform-admin
+console traced back to a flaw in the *test script*, not the app — a Playwright `browser.newPage()`
+reused shared `localStorage` across two supposedly-independent test sessions, so a stale
+lower-privileged token leaked into what was meant to be a fresh platform-admin session, and `GET
+/tenants` correctly 403'd for it. Verified clean (200, real data, zero console errors) with an
+isolated session and a validly-scoped `platform_admin` token.
+
 ### Fix — Cafeteria-admin sweep: cross-tenant category leak in menu/inventory, and a table-status crash (2026-07-08)
 
 Found by exercising the `bracu` (academic/cafeteria-segment) admin's full admin surface end-to-end

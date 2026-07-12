@@ -68,9 +68,16 @@ export default function OutletsPage() {
   }
 
   useEffect(() => {
+    // Outlets are franchise-brand only — the backend rejects this call with 403 for every
+    // other tenant type, so skip it rather than firing a request that always fails and
+    // surfaces a spurious "Failed to load outlets" toast to non-franchise admins.
+    if (tenantType && tenantType !== 'franchise_brand') {
+      setLoading(false)
+      return
+    }
     void loadOutlets()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId])
+  }, [tenantId, tenantType])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()

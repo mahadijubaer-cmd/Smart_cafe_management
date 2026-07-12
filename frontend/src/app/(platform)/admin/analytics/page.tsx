@@ -146,7 +146,7 @@ export default function PlatformAnalyticsPage() {
           { label: 'Outlet Revenue (৳)', value: totalRevenue.toFixed(0) },
         ].map(({ label, value }) => (
           <Card key={label} className="p-5 shadow-sm">
-            <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+            <p className="truncate text-xs font-semibold text-muted-foreground">{label}</p>
             <p className="mt-1 text-2xl font-black text-foreground">{value}</p>
           </Card>
         ))}
