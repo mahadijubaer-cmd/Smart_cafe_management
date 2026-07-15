@@ -83,6 +83,9 @@ class Order(Base):
     guest_token: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True, nullable=True)
     guest_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     guest_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # OR-12 (RFC-010): per-tenant daily counter shown on kiosk confirmation +
+    # signage order board. NULL for non-device orders.
+    pickup_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     time_slot: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(
         SQLEnum(OrderStatus, name="orderstatus"),

@@ -25,19 +25,16 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.core.segments import is_restaurant_segment
-from app.models.menu import Category, MenuItem
 from app.models.order import Order
 from app.models.tenant import Tenant, TenantType
 from app.schemas.public import (
     GuestOrderCreate,
     GuestOrderGroupResponse,
     GuestOrderResponse,
-    PublicFoodCourtVendor,
-    PublicMenuItem,
     PublicMenuResponse,
     PublicTenantInfoResponse,
 )
-from app.services import qr_service
+from app.services import menu_service, qr_service
 from app.services.order_service import OrderService
 from app.services.ws_pubsub import publish_event
 
@@ -106,7 +103,8 @@ async def _group_response(db: AsyncSession, orders: list[Order]) -> GuestOrderGr
 
 @router.get("/{public_slug}/menu", response_model=PublicMenuResponse)
 async def get_public_menu(public_slug: str, db: AsyncSession = Depends(get_db)):
-    """PUB-7: price/availability only — no cost/inventory fields ever leave this endpoint."""
+    """PUB-7: price/availability only — no cost/inventory fields ever leave this
+    endpoint. Built by the shared builder in menu_service (RFC-010 refactor)."""
     tenant = await _resolve_public_tenant(public_slug, db)
 
     redis = await get_redis()
@@ -115,63 +113,10 @@ async def get_public_menu(public_slug: str, db: AsyncSession = Depends(get_db)):
     if cached:
         return PublicMenuResponse.model_validate_json(cached)
 
-    if tenant.tenant_type == TenantType.food_court:
-        response = await _build_food_court_menu(tenant, db)
-    else:
-        cat_result = await db.execute(
-            select(Category).where(Category.tenant_id == tenant.tenant_id, Category.is_active.is_(True))
-            .order_by(Category.display_order)
-        )
-        categories = cat_result.scalars().all()
-
-        item_result = await db.execute(
-            select(MenuItem).where(MenuItem.tenant_id == tenant.tenant_id, MenuItem.is_available.is_(True))
-        )
-        items = item_result.scalars().all()
-
-        response = PublicMenuResponse(
-            categories=[c for c in categories],
-            items=[PublicMenuItem.model_validate(i) for i in items],
-        )
+    response = await menu_service.build_public_menu(tenant, db)
 
     await redis.set(cache_key, response.model_dump_json(), ex=60)
     return response
-
-
-async def _build_food_court_menu(food_court_tenant: Tenant, db: AsyncSession) -> PublicMenuResponse:
-    """Unified menu across all active vendors — food-court parents have no menu
-    items of their own. No unified categories across vendors; the frontend
-    groups by vendor instead (mirrors the authenticated food_court.unified_menu)."""
-    vendor_result = await db.execute(
-        select(Tenant).where(
-            Tenant.parent_tenant_id == food_court_tenant.tenant_id,
-            Tenant.tenant_type == TenantType.food_court_vendor,
-            Tenant.is_active.is_(True),
-        )
-    )
-    vendors = {t.tenant_id: t for t in vendor_result.scalars().all()}
-    if not vendors:
-        return PublicMenuResponse(categories=[], items=[], vendors=[])
-
-    item_result = await db.execute(
-        select(MenuItem).where(
-            MenuItem.tenant_id.in_(vendors.keys()),
-            MenuItem.is_available.is_(True),
-        )
-    )
-    items = []
-    for item in item_result.scalars().all():
-        vendor = vendors[item.tenant_id]
-        public_item = PublicMenuItem.model_validate(item)
-        public_item.vendor_id = str(vendor.tenant_id)
-        public_item.vendor_name = vendor.name
-        items.append(public_item)
-
-    return PublicMenuResponse(
-        categories=[],
-        items=items,
-        vendors=[PublicFoodCourtVendor(vendor_id=str(t.tenant_id), vendor_name=t.name) for t in vendors.values()],
-    )
 
 
 @router.get("/{public_slug}/info", response_model=PublicTenantInfoResponse)

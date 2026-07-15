@@ -576,3 +576,79 @@ CREATE INDEX ix_platform_audit_logs_created_at ON platform_audit_logs(created_at
 ```
 
 See `specs/modules/platform.md` for the full `AuditAction` value list and business rules PA-1–PA-5.
+
+### Device terminals — Phase 25 (RFC-010, Kiosk + Signage) ✅ Implemented
+
+Migration `0009_add_devices_and_signage.py`. Model file `backend/app/models/device.py`. See
+`specs/modules/devices.md` / `kiosk.md` / `signage.md`, ADR-013.
+
+```sql
+CREATE TYPE device_type AS ENUM ('kiosk', 'signage');
+
+CREATE TYPE signage_slide_type AS ENUM (
+  'menu_board', 'promo_image', 'announcement',
+  'order_status_board', 'trending_items', 'offers'
+);
+
+CREATE TABLE devices (
+    device_id    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id    UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    outlet_id    UUID REFERENCES tenants(tenant_id) ON DELETE SET NULL,
+    name         VARCHAR(80) NOT NULL,
+    device_type  device_type NOT NULL,
+    token_hash   VARCHAR(64) UNIQUE,          -- sha256 hex of opaque token; NULL = unpaired (ADR-013)
+    token_prefix VARCHAR(16),                  -- first 12 chars, admin display only
+    is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+    settings     JSONB NOT NULL DEFAULT '{}',  -- kiosk: idle_timeout override; signage: playlist_id
+    paired_at    TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ,
+    created_by   UUID REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX ix_devices_tenant_id ON devices(tenant_id);
+
+CREATE TABLE signage_playlists (
+    playlist_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id   UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    outlet_id   UUID REFERENCES tenants(tenant_id) ON DELETE SET NULL,
+    name        VARCHAR(80) NOT NULL,
+    is_default  BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX ix_signage_playlists_tenant_id ON signage_playlists(tenant_id);
+-- SGN-4: at most one default per scope (COALESCE handles NULL outlet)
+CREATE UNIQUE INDEX uq_signage_playlists_default
+  ON signage_playlists (tenant_id, COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'))
+  WHERE is_default;
+
+CREATE TABLE signage_slides (
+    slide_id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    playlist_id      UUID NOT NULL REFERENCES signage_playlists(playlist_id) ON DELETE CASCADE,
+    slide_type       signage_slide_type NOT NULL,
+    position         INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER NOT NULL DEFAULT 10 CHECK (duration_seconds >= 5),  -- SGN-1
+    config           JSONB NOT NULL DEFAULT '{}',   -- per-type shape: modules/signage.md
+    active_from      TIMESTAMPTZ,                    -- schedule window (client-filtered, SGN-2)
+    active_until     TIMESTAMPTZ,
+    is_active        BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE INDEX ix_signage_slides_playlist_id ON signage_slides(playlist_id);
+
+CREATE TABLE kiosk_configs (
+    config_id  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id  UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    outlet_id  UUID REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    config     JSONB NOT NULL DEFAULT '{}',  -- shape: modules/kiosk.md (welcome text, attract images, featured items, accent, idle timeout)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by UUID REFERENCES users(user_id) ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX uq_kiosk_configs_scope
+  ON kiosk_configs (tenant_id, COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'));
+
+-- Column additions
+ALTER TABLE orders     ADD COLUMN pickup_number INTEGER;                  -- OR-12
+ALTER TABLE menu_items ADD COLUMN allergens    JSONB NOT NULL DEFAULT '[]';  -- BR-MENU-4 (EU FIC 14)
+ALTER TABLE menu_items ADD COLUMN dietary_tags JSONB NOT NULL DEFAULT '[]';  -- BR-MENU-4
+```

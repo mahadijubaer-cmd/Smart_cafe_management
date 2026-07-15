@@ -11,6 +11,8 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  MonitorPlay,
+  MonitorSmartphone,
   QrCode,
   Settings,
   ShoppingBag,
@@ -96,6 +98,11 @@ const NAV_DEFS: NavItem[] = [
     // All tenant types may publish a public menu — restaurant segment gets guest
     // ordering, cafeteria segment gets read-only browsing only (RFC-007 Phase D).
   },
+  // ❌→✅ Phase 25.2 (RFC-010): kiosk/signage terminal registry + pairing
+  { label: 'Devices', path: 'devices', icon: <MonitorSmartphone /> },
+  // ❌→✅ Phase 25.5 (RFC-010): kiosk customization + signage playlist editors w/ live preview
+  { label: 'Kiosk Settings', path: 'kiosk-settings', icon: <MonitorSmartphone /> },
+  { label: 'Signage', path: 'signage', icon: <MonitorPlay /> },
   { label: 'Analytics', path: 'analytics', icon: <BarChart3 /> },
   { label: 'Reports', path: 'reports', icon: <Download /> },
   { label: 'Memo', path: 'memo', icon: <FileText /> },

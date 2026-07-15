@@ -14,12 +14,23 @@ class ConnectionManager:
         # {user_id: {"websocket": WebSocket, "role": str, "tenant_id": str}}
         self.active_connections: Dict[str, Dict] = {}
 
-    async def connect(self, websocket: WebSocket, user_id: str, role: str, tenant_id: str) -> None:
+    async def connect(
+        self,
+        websocket: WebSocket,
+        user_id: str,
+        role: str,
+        tenant_id: str,
+        scope_tenant_ids: set[str] | None = None,
+    ) -> None:
+        """`scope_tenant_ids` (RFC-010): device connections on a food-court parent
+        must also receive events published on its vendor children's channels
+        (sibling kiosk orders live on vendor tenants). Defaults to {tenant_id}."""
         await websocket.accept()
         self.active_connections[user_id] = {
             "websocket": websocket,
             "role": role,
             "tenant_id": tenant_id,
+            "scope_tenant_ids": scope_tenant_ids or {tenant_id},
         }
         logger.info("WebSocket connected: user=%s role=%s tenant=%s", user_id, role, tenant_id)
 
@@ -48,13 +59,27 @@ class ConnectionManager:
         (RFC-007 Phase D), each publishing to its own channel, but the guest has
         exactly one WebSocket connection that isn't tenant-scoped the way staff
         connections are.
+
+        Device connections (role "device", RFC-010) get the staff-style broadcast
+        stream — INCLUDING order events targeted at a user/guest, which the
+        signage order board needs — filtered by their scope_tenant_ids. Events
+        carrying "target_device_id" (e.g. DEVICE_REVOKED) go only to that device.
         """
         target_user = event.get("target_user_id")
         target_guest = event.get("target_guest_token")
+        target_device = event.get("target_device_id")
         disconnected: list[str] = []
 
         for conn_id, conn in list(self.active_connections.items()):
-            if target_guest:
+            if conn["role"] == "device":
+                if tenant_id not in conn.get("scope_tenant_ids", {conn["tenant_id"]}):
+                    continue
+                if target_device and conn_id != f"device:{target_device}":
+                    continue
+            elif target_device:
+                # Device-targeted events are never delivered to users/guests.
+                continue
+            elif target_guest:
                 if conn_id != f"guest:{target_guest}":
                     continue
             else:

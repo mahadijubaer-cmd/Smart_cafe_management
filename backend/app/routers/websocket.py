@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
@@ -10,11 +9,67 @@ from app.models.models import Order
 from app.models.user import User
 from app.services.auth_service import AuthService
 from app.services.websocket_manager import manager
-from app.services.ws_pubsub import subscribe_and_forward, subscribe_and_forward_many
+from app.services.ws_pubsub import subscribe, unsubscribe
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
 auth_service = AuthService()
+
+
+@router.websocket("/ws/device")
+async def device_websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
+    """RFC-010 (Phase 25): device terminal channel — see specs/modules/websocket.md.
+
+    The opaque device token IS the credential (ADR-013), validated by the same
+    hash lookup as REST. Devices get the staff-style broadcast stream for their
+    scope (a food-court device also hears its vendor children's channels, since
+    sibling kiosk orders live on vendor tenants), plus targeted DEVICE_REVOKED.
+
+    Declared before `/ws/{user_id}` deliberately: Starlette matches WebSocket
+    routes in registration order, not by specificity, so a single-segment
+    dynamic route like `/ws/{user_id}` would otherwise shadow this literal
+    `/ws/device` path and swallow every device connection attempt.
+    """
+    from app.services import device_service
+
+    db_gen = get_db()
+    db: AsyncSession = await db_gen.__anext__()
+    channels: list[str] = []
+    conn_id: str | None = None
+
+    try:
+        device = await device_service.resolve_device_by_token(db, token)
+        if device is None:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        conn_id = f"device:{device.device_id}"
+        scope_ids = {str(t) for t in await device_service.device_scope_tenant_ids(db, device)}
+        await manager.connect(
+            websocket, conn_id, "device", str(device.tenant_id), scope_tenant_ids=scope_ids
+        )
+
+        channels = await subscribe(list(scope_ids), manager)
+        logger.info(
+            "Device WebSocket session started: device=%s type=%s tenants=%s",
+            device.device_id, device.device_type, scope_ids,
+        )
+
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "PING":
+                await websocket.send_json({"type": "PONG"})
+
+    except WebSocketDisconnect:
+        logger.info("Device WebSocket disconnected: %s", conn_id)
+    except Exception as exc:
+        logger.error("Device WebSocket error for %s: %s", conn_id, exc)
+    finally:
+        if conn_id:
+            manager.disconnect(conn_id)
+        if channels:
+            await unsubscribe(channels)
+        await db_gen.aclose()
 
 
 @router.websocket("/ws/{user_id}")
@@ -28,16 +83,17 @@ async def websocket_endpoint(
     On connect:
     1. Validates the JWT and loads the user from DB.
     2. Registers the connection in ConnectionManager (with tenant_id).
-    3. Starts a background task that subscribes to the tenant's Redis channel
-       and forwards published events to all local connections for that tenant.
+    3. Joins the tenant's shared channel listener (ws_pubsub.subscribe) — one
+       Redis subscription per channel regardless of how many local connections
+       share it, so a busy tenant doesn't get N-fold event delivery.
     4. Loops to handle incoming PING frames (and any future client messages).
 
-    On disconnect the background task is cancelled, which triggers the
-    pub/sub cleanup (unsubscribe + close).
+    On disconnect the channel is released, which tears the shared listener
+    down (unsubscribe + close) once no other connection still needs it.
     """
     db_gen = get_db()
     db: AsyncSession = await db_gen.__anext__()
-    sub_task: asyncio.Task | None = None
+    channels: list[str] = []
 
     try:
         # ── Auth ──────────────────────────────────────────────────────────────
@@ -68,10 +124,8 @@ async def websocket_endpoint(
         # ── Register connection ───────────────────────────────────────────────
         await manager.connect(websocket, user_id, role, tenant_id)
 
-        # ── Start Redis pub/sub forwarding task ───────────────────────────────
-        sub_task = asyncio.create_task(
-            subscribe_and_forward(tenant_id, manager, outlet_id)
-        )
+        # ── Join the tenant's shared channel listener ─────────────────────────
+        channels = await subscribe([tenant_id], manager, outlet_id)
         logger.info("WebSocket session started: user=%s tenant=%s outlet=%s", user_id, tenant_id, outlet_id)
 
         # ── Message loop ──────────────────────────────────────────────────────
@@ -86,12 +140,8 @@ async def websocket_endpoint(
         logger.error("WebSocket error for user %s: %s", user_id, exc)
     finally:
         manager.disconnect(user_id)
-        if sub_task and not sub_task.done():
-            sub_task.cancel()
-            try:
-                await sub_task
-            except asyncio.CancelledError:
-                pass
+        if channels:
+            await unsubscribe(channels)
         await db_gen.aclose()
 
 
@@ -107,7 +157,7 @@ async def guest_order_websocket_endpoint(websocket: WebSocket, guest_token: str)
     """
     db_gen = get_db()
     db: AsyncSession = await db_gen.__anext__()
-    sub_task: asyncio.Task | None = None
+    channels: list[str] = []
     conn_id = f"guest:{guest_token}"
 
     try:
@@ -122,7 +172,7 @@ async def guest_order_websocket_endpoint(websocket: WebSocket, guest_token: str)
         # broadcasts, which guest connections never receive — any one is fine.
         await manager.connect(websocket, conn_id, "guest", next(iter(tenant_ids)))
 
-        sub_task = asyncio.create_task(subscribe_and_forward_many(list(tenant_ids), manager))
+        channels = await subscribe(list(tenant_ids), manager)
         logger.info("Guest WebSocket session started: orders=%s tenants=%s", [o.order_id for o in orders], tenant_ids)
 
         while True:
@@ -136,10 +186,6 @@ async def guest_order_websocket_endpoint(websocket: WebSocket, guest_token: str)
         logger.error("Guest WebSocket error for token %s: %s", guest_token, exc)
     finally:
         manager.disconnect(conn_id)
-        if sub_task and not sub_task.done():
-            sub_task.cancel()
-            try:
-                await sub_task
-            except asyncio.CancelledError:
-                pass
+        if channels:
+            await unsubscribe(channels)
         await db_gen.aclose()

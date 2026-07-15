@@ -52,6 +52,9 @@ Before changing any behaviour: find the spec file that owns it, update the spec,
 | [modules/public-surface.md](modules/public-surface.md) | ✅ [Phase 22 — Implemented 2026-07-05] `/public/*` endpoints · guest QR ordering · kiosk/signage · rate limiting (RFC-007) |
 | [modules/platform.md](modules/platform.md) | ✅ Implemented `/platform/*` endpoints · audit log · platform-wide analytics · impersonation · subscription tier limits (RFC-009) |
 | [modules/notifications.md](modules/notifications.md) | `/notifications/*` endpoints · user notification inbox · unread counts |
+| [modules/devices.md](modules/devices.md) | ✅ Implemented Device registry · pairing · device-token auth · `/devices/*` + `/device/*` (RFC-010/ADR-013) |
+| [modules/kiosk.md](modules/kiosk.md) | ✅ Implemented Self-service kiosk ordering · pickup numbers · kiosk config + preview · accessibility rules (RFC-010) |
+| [modules/signage.md](modules/signage.md) | ✅ Implemented Signage playlists/slides · live order board · trending/offers · `/signage/*` admin + preview (RFC-010) |
 
 ### Frontend
 
@@ -109,6 +112,12 @@ When you change a file in the codebase, you MUST update the corresponding spec f
 | `backend/app/services/audit_service.py` | `specs/modules/platform.md` |
 | `backend/app/routers/public.py` | `specs/modules/public-surface.md` |
 | `backend/app/routers/notifications.py` | `specs/modules/notifications.md` |
+| `backend/app/routers/devices.py` | `specs/modules/devices.md` |
+| `backend/app/routers/device_api.py` | `specs/modules/devices.md` (+ `kiosk.md`/`signage.md` for type-specific endpoints) |
+| `backend/app/routers/kiosk_config.py` | `specs/modules/kiosk.md` |
+| `backend/app/routers/signage.py` | `specs/modules/signage.md` |
+| `backend/app/models/device.py` | `specs/system/data-model.md` + `specs/modules/devices.md` |
+| `backend/app/services/device_service.py` | `specs/modules/devices.md` |
 | `backend/app/routers/invitations.py` | `specs/modules/users.md` |
 | `backend/app/core/segments.py` | `specs/system/segments.md` |
 | `backend/app/schemas/*.py` | The module spec file matching the schema's domain |

@@ -325,6 +325,36 @@ all reachable from nav.
 
 ---
 
+### Phase 25 — Device Terminals: Kiosk + Signage
+**RFC/ADR:** [RFC-010](../decisions/rfcs/RFC-010-device-terminals.md) ·
+[ADR-013](../decisions/adrs/ADR-013-device-token-auth.md)
+**Priority:** P1
+**Status:** ✅ Complete — specs written 2026-07-15, all sub-phases implemented and verified live 2026-07-15
+
+Self-service kiosk terminals and digital signage displays on venue hardware, built on a new device
+registry with pairing-code provisioning and opaque hashed device tokens (ADR-013). Specs:
+`modules/devices.md`, `modules/kiosk.md`, `modules/signage.md`.
+
+Sub-phases (each: spec ✅ → code → tests → CHANGELOG):
+
+| Sub-phase | Scope | Status |
+|---|---|---|
+| 25.1 | Device registry/auth/pairing backend: `models/device.py`, migration 0009, `services/device_service.py`, `routers/devices.py`, `routers/device_api.py` (pair/me), `get_current_device()` | ✅ |
+| 25.2 | Admin Devices page + pairing frontend (`(admin)/devices`, `lib/deviceApi.ts`, `PairingScreen`) | ✅ |
+| 25.3 | Kiosk: `/device/menu` (shared builder) + `/device/orders` + pickup numbers + allergen fields; `app/kiosk/` flow (attract→order-number, WCAG 2.2.1 idle warning, a11y + EN/BN toggles) | ✅ |
+| 25.4 | Signage runtime: `/device/playlist` + `/device/trending` + `/device/orders/board`, `WS /ws/device`, `app/signage/` renderer (6 slide types, offline cache, burn-in shift), legacy display redirect | ✅ |
+| 25.5 | Admin customization + live preview: `routers/signage.py` + `routers/kiosk_config.py`, `(admin)/signage` playlist editor + `(admin)/kiosk-settings`, preview panes bound to unsaved form state | ✅ |
+| 25.6 | Hardening: rate limits, staleness badges, brand-colour contrast validation, spec-marker flips | ✅ |
+
+**Definition of done:** an admin can register + pair a kiosk and a signage display from the Devices
+page; a customer places a kiosk order and gets a pickup number that appears on the signage order
+board and moves Preparing→Ready in real time as staff act; signage keeps rendering its cached
+playlist through a backend restart; editing a slide or the kiosk welcome text updates the paired
+device without a reboot and is previewable before saving; revoking a device returns it to the
+pairing screen; kiosk passes the RFC-010 §2.7 accessibility checklist.
+
+---
+
 ## Frontend Track — UI/UX Modernization (UIX-1…6)
 
 **RFC/ADR:** [ADR-010](../decisions/adrs/ADR-010-uiux-modernization-program.md)

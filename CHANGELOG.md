@@ -9,6 +9,94 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — WebSocket routing bug and cross-connection event duplication (2026-07-15)
+
+Found by precisely re-testing the Phase 25 device WebSocket channel after the fact (live WS
+connections, not just REST) rather than trusting the REST contract alone:
+
+- **`/ws/device` was completely unreachable.** `routers/websocket.py` registered `/ws/{user_id}`
+  before `/ws/device`; Starlette matches WebSocket routes in registration order, not by
+  specificity, so the single-segment dynamic route silently swallowed every device connection
+  attempt (it tried to JWT-decode the opaque device token and rejected with HTTP 403). No
+  signage/kiosk device had ever actually received a live `PLAYLIST_UPDATED` / `KIOSK_CONFIG_UPDATED`
+  / `DEVICE_REVOKED` / order event over WS. Fixed by declaring `/ws/device` first.
+- **Every event was delivered once per currently-open connection on the tenant, not once per
+  event.** Each WebSocket connection ran its own `subscribe_and_forward` task with its own Redis
+  subscription to the same channel; Redis fans a publish out to every subscriber, so N
+  simultaneously connected clients (e.g. a paired kiosk + signage display — exactly the normal
+  RFC-010 deployment shape) each received every event N times. Rewrote
+  `services/ws_pubsub.py` around a ref-counted registry: one Redis subscription and one listener
+  Task per unique channel, shared by every local connection interested in it, instead of one per
+  connection. `subscribe()`/`unsubscribe()` replace `subscribe_and_forward`/
+  `subscribe_and_forward_many` across all three WS endpoints (`/ws/{user_id}`, `/ws/device`,
+  `/ws/public/orders/{guest_token}`). Confirmed via live WS clients: single connection → exactly 1
+  delivery; two devices on one tenant → exactly 1 delivery each (was 2); two different staff users
+  logged in simultaneously → exactly 1 delivery each (this half of the bug predates RFC-010 and
+  affected the plain staff dashboard WS too, just unnoticed since it only manifests as harmless
+  wasted redundant sends until a non-idempotent handler is added). Full backend suite still
+  224/225 passing (same pre-existing unrelated OTP failure) after the rewrite.
+
+### Added — Phase 25.2–25.6: Kiosk ordering, signage runtime, admin customization + live preview (RFC-010) (2026-07-15)
+
+Completes the device-terminal program started in Phase 25.1: self-service kiosk ordering,
+unattended signage displays, and the admin-facing customization UI for both — all bound to
+the same data-source-agnostic renderer components used by the live devices (RFC-010 §2.5).
+
+- **Kiosk (25.3)**: `menu_service.build_public_menu()` extracted from `routers/public.py` so
+  `/public/{slug}/menu` and `GET /device/menu` share one cost-stripped, allergen-aware builder.
+  `POST /device/orders` reuses the guest-order path with no table number, a per-tenant daily
+  pickup number (Redis `INCR`, 48 h TTL), and a 10/min/device rate limit. `app/kiosk/` renders
+  `KioskExperience` (attract → browse → detail → cart → order-number) with a 60 s idle timeout,
+  a ≥20 s WCAG 2.2.1 warning, large-text/high-contrast toggles, and an EN/BN chrome toggle.
+- **Signage (25.4)**: `GET /device/playlist` (SGN-3 resolution: explicit assignment → outlet
+  default → tenant default), `GET /device/trending` (Redis-cached 10 min top-seller query),
+  `GET /device/orders/board` (SGN-7: pickup numbers + status only, never guest identity),
+  `WS /ws/device` broadcasting `PLAYLIST_UPDATED` / `KIOSK_CONFIG_UPDATED` / `DEVICE_REVOKED`.
+  `app/signage/` renders `SignageRenderer` (menu board, promo image, announcement, order status
+  board, trending items, offers) with schedule-window filtering, a localStorage cache for offline
+  playback, and a burn-in mitigation shuffle. Legacy `[tenant_slug]/display/page.tsx` (JWT-gated,
+  no offline support) replaced with a deprecation notice pointing at the new paired flow.
+- **Admin customization + live preview (25.5)**: `routers/signage.py` (playlist/slide CRUD,
+  reorder, `PLAYLIST_UPDATED` on every mutation) and `routers/kiosk_config.py` (resolved
+  tenant/outlet config, WCAG 1.4.3 accent-contrast check against white button text, publishes
+  `KIOSK_CONFIG_UPDATED`) both expose preview endpoints that mirror the device payload shapes
+  exactly, so `(admin)/kiosk-settings` and `(admin)/signage` can bind the *real* `KioskExperience`
+  / `SignageRenderer` components to unsaved draft state for a true live preview before saving.
+  Each editor also has a full-screen preview route (`/kiosk-preview`, `/signage-preview/[id]`).
+  Devices admin page gained a per-signage-device playlist assignment control.
+- **Hardening (25.6)**: full spec-marker flip (`❌ [Phase 25]` → `✅`) across all RFC-010-touched
+  specs now that every phase has shipped and been verified against the live Docker stack.
+- Verified live end-to-end against the Docker stack (not just the SQLite test suite): device
+  pairing → kiosk order placed (`pickup_number` assigned) → signage order board shows it under
+  "Preparing" → staff status transitions move it to "Ready" in real time → trending reflects the
+  seeded sale once its 10-minute cache expires → admin playlist create/add-slide/reorder/preview
+  round-trips exactly as the editor UI drives it → per-device playlist assignment resolves correctly.
+
+### Added — Phase 25.1: Device registry, pairing, device-token auth (RFC-010 / ADR-013) (2026-07-15)
+
+Backend foundation for kiosk terminals and digital signage displays. Specs first:
+`specs/decisions/rfcs/RFC-010-device-terminals.md`, `specs/decisions/adrs/ADR-013-device-token-auth.md`,
+new module specs `devices.md` / `kiosk.md` / `signage.md`, plus updates to `data-model.md`,
+`security.md` (§8a device credentials + PCI scoping), `websocket.md`, `public-surface.md`,
+`orders.md` (OR-12), `menu.md` (BR-MENU-4), `roadmap.md` (Phase 25).
+
+- New `backend/app/models/device.py`: `devices`, `signage_playlists`, `signage_slides`,
+  `kiosk_configs` (JSON columns use `JSON().with_variant(JSONB)` so the SQLite test DB keeps working).
+- Migration `0009_add_devices_and_signage.py` — also adds `orders.pickup_number` and
+  `menu_items.allergens` / `dietary_tags` (EU FIC 14 closed vocabulary).
+- `core/dependencies.py`: `get_current_device()` (X-Device-Token → SHA-256 hash lookup with 60 s
+  Redis cache, throttled `last_seen_at`) + `require_device_type()`.
+- `routers/devices.py` (admin, `ADMIN_ROLES`): register/list/patch devices, issue 6-digit single-use
+  pairing codes (Redis GETDEL, TTL 600 s), revoke (immediate — nulls hash, drops auth cache,
+  publishes targeted `DEVICE_REVOKED`), delete.
+- `routers/device_api.py` (device-facing): `POST /device/pair` (unauthenticated, 5/min/IP) redeems a
+  code for an opaque `scmsd_{k|s}_…` token (plaintext shown once; re-pairing rotates) +
+  `GET /device/me` heartbeat/profile with resolved kiosk config (outlet overrides tenant, defaults filled).
+- `services/device_service.py`: token lifecycle, kiosk-config + signage-playlist resolution (SGN-3).
+- Tests: `backend/tests/test_devices.py` — 11 tests covering DEV-1…DEV-5, DEV-7 (pairing happy path,
+  single-use/expired codes, rotation, revocation, cross-tenant invisibility, role gating, rate limit).
+  Verified live: register → pair → `/device/me` → revoke → 401 against the Docker stack.
+
 ### Fix — Mobile viewport audit: category management unreachable, inventory overflow, cleaner nav, double header (2026-07-12)
 
 See `ADR-012` for the full record. Found by a dedicated phone-width (≤400px) regression pass across

@@ -164,6 +164,9 @@ async def update_order_status(
             "type": event_type,
             "order_id": str(order.order_id),
             "status": status_val,
+            # OR-12/Phase 25: lets the signage order board match events to
+            # displayed numbers without re-fetching (null for non-device orders).
+            "pickup_number": order.pickup_number,
         }
         if order.user_id is not None:
             event["target_user_id"] = str(order.user_id)

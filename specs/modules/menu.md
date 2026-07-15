@@ -113,6 +113,8 @@ endpoint; any authenticated user, including `cleaner`, can call it.
 | `is_available` | bool | No | true | — |
 | `is_homemade` | bool | No | false | — |
 | `prep_time_mins` | int | No | 10 | — |
+| `allergens` ✅ Phase 25 | list[str] | No | `[]` | Subset of the EU FIC 14 canonical codes (BR-MENU-4) |
+| `dietary_tags` ✅ Phase 25 | list[str] | No | `[]` | Subset of `vegetarian, vegan, halal, spicy` (BR-MENU-4) |
 
 **Business logic:** rejects with `402 Payment Required` if the tenant's subscription tier's
 `max_menu_items` cap is already reached — see **PA-2/PA-3** in `modules/platform.md` (RFC-009).
@@ -284,6 +286,15 @@ Before this fix, the only guard was the DB's `menu_items_category_id_fkey` forei
 The `CUSTOMER_ROLES` (homemade-listing) branch is unaffected — it always overwrites `category_id`
 server-side with the caller's own tenant's Homemade category via `_get_homemade_category_id()`, so
 it never trusts client input for this field.
+
+### BR-MENU-4: Allergen and Dietary Vocabularies Are Closed ✅ Implemented (Phase 25, RFC-010)
+`menu_items.allergens` accepts only the EU FIC 1169/2011 canonical codes:
+`gluten, crustaceans, eggs, fish, peanuts, soybeans, milk, nuts, celery, mustard, sesame,
+sulphites, lupin, molluscs`. `menu_items.dietary_tags` accepts only
+`vegetarian, vegan, halal, spicy`. Unknown values → `422`. Both surface on `MenuItemResponse`,
+`GET /public/{public_slug}/menu`, and `GET /device/menu`; the kiosk item detail renders allergens
+as icon + text chips (never icon-only) and the signage menu board shows abbreviations with a
+legend (`modules/kiosk.md`, `modules/signage.md`).
 
 - Key: `cache:menu:{tenant_id}`
 - Invalidated on: `POST`, `PUT`, `PATCH` (`/toggle` and generic), `DELETE`, and image upload, for

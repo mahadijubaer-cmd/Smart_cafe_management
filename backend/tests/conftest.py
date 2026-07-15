@@ -66,7 +66,7 @@ class FakeAsyncRedis:
     """Minimal async-compatible Redis fake for testing.
 
     Implements only the operations used by SCMS services:
-    get / set / setex / delete / exists / incr / expire / scan / publish.
+    get / set / setex / getdel / delete / exists / incr / expire / scan / publish.
     """
 
     def __init__(self) -> None:
@@ -101,6 +101,13 @@ class FakeAsyncRedis:
 
     async def setex(self, key: str, seconds: int, value: str) -> bool:
         return await self.set(key, value, ex=seconds)
+
+    async def getdel(self, key: str) -> str | None:
+        value = self._live(key)
+        if value is not None:
+            del self._data[key]
+            self._ttls.pop(key, None)
+        return value
 
     async def delete(self, *keys: str) -> int:
         removed = 0

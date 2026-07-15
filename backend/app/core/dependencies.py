@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.redis import get_redis
+from app.models.device import Device, DeviceType
 from app.models.tenant import Tenant, TenantType
 from app.models.user import User, UserRole
 from app.services.auth_service import AuthService
@@ -118,6 +119,45 @@ async def accessible_tenant_ids(ctx: TenantContext, db: AsyncSession) -> set[UUI
         vendor_ids: set[UUID] = set(result.scalars().all())
         return {ctx.tenant_id} | vendor_ids
     return {ctx.tenant_id}
+
+
+async def get_current_device(
+    x_device_token: str | None = Header(None, alias="X-Device-Token"),
+    db: AsyncSession = Depends(get_db),
+) -> Device:
+    """Authenticate a device terminal by its opaque token (ADR-013, DEV-1..5).
+
+    A device token is never accepted by user-JWT endpoints and vice versa —
+    this dependency is only wired into /device/* routes.
+    """
+    from app.services import device_service  # local import: avoid service<->deps cycle
+
+    if not x_device_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Device-Token header",
+        )
+    device = await device_service.resolve_device_by_token(db, x_device_token)
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or revoked device token",
+        )
+    return device
+
+
+def require_device_type(device_type: DeviceType):
+    """DEV-8: kiosk-only endpoints reject signage devices with 403, and vice versa."""
+
+    async def _checker(device: Device = Depends(get_current_device)) -> Device:
+        if device.device_type != device_type:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This endpoint requires a {device_type.value} device",
+            )
+        return device
+
+    return _checker
 
 
 def require_role(*allowed_roles: UserRole):

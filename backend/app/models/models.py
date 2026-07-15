@@ -21,6 +21,9 @@ from app.models.inventory import (  # noqa: F401
     InventoryMovement, PurchaseOrder, PurchaseOrderItem,
     InventoryUnit, StockMovementType, PurchaseOrderStatus,
 )
+from app.models.device import (  # noqa: F401
+    Device, DeviceType, KioskConfig, SignagePlaylist, SignageSlide, SignageSlideType,
+)
 
 
 # ─────────────────────────────────────────────

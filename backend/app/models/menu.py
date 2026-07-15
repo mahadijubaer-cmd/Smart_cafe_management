@@ -5,9 +5,9 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean, CheckConstraint, DateTime, ForeignKey,
-    Integer, Numeric, String, Text, UniqueConstraint, text,
+    Integer, JSON, Numeric, String, Text, UniqueConstraint, text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -64,6 +64,15 @@ class MenuItem(Base):
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     is_homemade: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     prep_time_mins: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default=text("10"))
+    # BR-MENU-4 (RFC-010): closed vocabularies — EU FIC 14 allergen codes and
+    # dietary tags, validated in the schema layer. JSON variant keeps the
+    # SQLite test DB working while Postgres stores JSONB.
+    allergens: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False, default=list, server_default=text("'[]'")
+    )
+    dietary_tags: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False, default=list, server_default=text("'[]'")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

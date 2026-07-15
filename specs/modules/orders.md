@@ -302,12 +302,21 @@ Admin roles can cancel any order in `pending` or `confirmed` status.
 | `POST /orders/` (this endpoint, authenticated customer/student) | `customer_app` (default) |
 | Staff POS entry form (planned, `modules/public-surface.md` context — restaurant segment) | `staff_pos` |
 | `POST /public/{public_slug}/orders` (guest QR) | `guest_qr` |
-| `POST /public/{public_slug}/orders` with kiosk flag | `kiosk` |
+| `POST /device/orders` (paired kiosk terminal, RFC-010 — see `modules/kiosk.md`) ✅ Phase 25 | `kiosk` |
 
 `guest_qr` and `kiosk` orders have `user_id IS NULL` and a non-null `guest_token`; all other sources
 require `user_id`. Enforced by the `chk_order_identity` constraint (`system/data-model.md`).
 Analytics (`modules/analytics.md`) must report the `order_source` breakdown per RFC-007's
 guest-vs-staff dimension.
+
+### OR-12: Pickup Number ✅ Implemented (Phase 25, RFC-010)
+Orders created via `POST /device/orders` get `orders.pickup_number` — a per-tenant, daily-reset,
+human-readable integer from Redis `INCR order:pickup:{tenant_id}:{YYYYMMDD}` (key TTL 48 h). Other
+creation paths leave it `NULL`. `pickup_number` is included in every `ORDER_*` WS event payload
+(`modules/websocket.md`) and shown on the kiosk confirmation screen and the signage order-status
+board (`modules/kiosk.md` KSK-4, `modules/signage.md` SGN-7). Unlike anonymous-phone guest orders,
+device orders have `table_id=NULL`, no `guest_phone`, and bypass the restaurant-segment guard —
+KSK-2/KSK-3 in `modules/kiosk.md` own those exceptions.
 
 ---
 

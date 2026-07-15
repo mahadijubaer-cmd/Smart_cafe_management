@@ -1,4 +1,5 @@
-"""Menu cache service — Redis-backed cache for GET /menu/items.
+"""Menu cache service — Redis-backed cache for GET /menu/items — plus the
+shared cost-stripped public menu builder (RFC-010 Phase 25 refactor).
 
 Cache key: cache:menu:{tenant_id}:{cat}:{avail}:{homemade}
   where each filter component is the value or the literal string 'all'.
@@ -11,11 +12,81 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.redis import get_redis
+from app.models.menu import Category, MenuItem
+from app.models.tenant import Tenant, TenantType
+from app.schemas.public import PublicFoodCourtVendor, PublicMenuItem, PublicMenuResponse
 
 logger = logging.getLogger(__name__)
 
 MENU_CACHE_TTL = 300  # seconds
+
+
+# ── Shared public menu builder (PUB-7 / DEV-6) ────────────────────────────────
+# One implementation feeding both GET /public/{slug}/menu and GET /device/menu
+# (specs/modules/public-surface.md "Shared Menu Builder"). Cost/inventory fields
+# never leave here — the PublicMenuItem schema is the projection boundary.
+
+async def build_public_menu(tenant: Tenant, db: AsyncSession) -> PublicMenuResponse:
+    """Cost-stripped menu for unauthenticated/device surfaces. Food-court
+    parents get the vendor-aggregated shape (no unified categories)."""
+    if tenant.tenant_type == TenantType.food_court:
+        return await _build_food_court_menu(tenant, db)
+
+    cat_result = await db.execute(
+        select(Category).where(Category.tenant_id == tenant.tenant_id, Category.is_active.is_(True))
+        .order_by(Category.display_order)
+    )
+    categories = cat_result.scalars().all()
+
+    item_result = await db.execute(
+        select(MenuItem).where(MenuItem.tenant_id == tenant.tenant_id, MenuItem.is_available.is_(True))
+    )
+    items = item_result.scalars().all()
+
+    return PublicMenuResponse(
+        categories=[c for c in categories],
+        items=[PublicMenuItem.model_validate(i) for i in items],
+    )
+
+
+async def _build_food_court_menu(food_court_tenant: Tenant, db: AsyncSession) -> PublicMenuResponse:
+    """Unified menu across all active vendors — food-court parents have no menu
+    items of their own. No unified categories across vendors; the frontend
+    groups by vendor instead (mirrors the authenticated food_court.unified_menu)."""
+    vendor_result = await db.execute(
+        select(Tenant).where(
+            Tenant.parent_tenant_id == food_court_tenant.tenant_id,
+            Tenant.tenant_type == TenantType.food_court_vendor,
+            Tenant.is_active.is_(True),
+        )
+    )
+    vendors = {t.tenant_id: t for t in vendor_result.scalars().all()}
+    if not vendors:
+        return PublicMenuResponse(categories=[], items=[], vendors=[])
+
+    item_result = await db.execute(
+        select(MenuItem).where(
+            MenuItem.tenant_id.in_(vendors.keys()),
+            MenuItem.is_available.is_(True),
+        )
+    )
+    items = []
+    for item in item_result.scalars().all():
+        vendor = vendors[item.tenant_id]
+        public_item = PublicMenuItem.model_validate(item)
+        public_item.vendor_id = str(vendor.tenant_id)
+        public_item.vendor_name = vendor.name
+        items.append(public_item)
+
+    return PublicMenuResponse(
+        categories=[],
+        items=items,
+        vendors=[PublicFoodCourtVendor(vendor_id=str(t.tenant_id), vendor_name=t.name) for t in vendors.values()],
+    )
 
 
 def _cache_key(

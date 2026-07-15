@@ -258,6 +258,10 @@ onward, a guest order behaves exactly like any other order except it has no wall
 
 ## Kiosk Mode
 
+> ⚠️ **Superseded by RFC-010** — dedicated kiosk terminals now live in `modules/kiosk.md`
+> (device-token auth, `/device/orders`, pickup numbers, admin customization). The `?mode=kiosk`
+> behaviour below remains valid for phone-based guest ordering but is no longer the kiosk story.
+
 Same `/m/{public_slug}` page, `?mode=kiosk` query param. Frontend-only behaviour — no dedicated
 backend endpoint:
 - Locked UI: no browser back/forward escape, no address bar navigation affordance
@@ -266,9 +270,21 @@ backend endpoint:
 
 ## Signage
 
-`/{tenant_slug}/display` — authenticated-tenant route (not under `/public`), read-only, auto-rotating
-menu board. Reads from the tenant's normal (non-public) menu endpoints since it runs on an in-store
-device already inside the tenant's network context. No guest-order capability.
+> ⚠️ **Superseded by RFC-010** — see `modules/signage.md` (device-paired displays, playlists, live
+> order board). The `/{tenant_slug}/display` page is now a deprecation notice + link to the paired flow.
+
+`/{tenant_slug}/display` — ✅ Phase 25: now a static notice pointing at `/signage` pairing +
+the admin Devices page, replacing the old JWT-gated auto-rotating board (no offline resilience,
+no admin-managed content, no order board/trending/offers).
+
+## Shared Menu Builder (Phase 25 refactor — RFC-010)
+
+✅ Implemented (Phase 25). The cost-stripped menu construction previously inlined in
+`routers/public.py` (single-vendor + `_build_food_court_menu`) is extracted into
+`services/menu_service.py` so `GET /public/{public_slug}/menu` and `GET /device/menu`
+(`modules/devices.md`) share one implementation. Behaviour of the public endpoint is unchanged,
+except items additionally carry `allergens` and `dietary_tags` (PUB-7 still strips cost/inventory
+fields; allergens are customer-facing, not internal).
 
 ---
 

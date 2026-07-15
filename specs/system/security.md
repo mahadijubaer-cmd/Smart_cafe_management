@@ -194,6 +194,29 @@ All request bodies are validated by **Pydantic v2** before reaching any router f
 
 ---
 
+## 8a. Device Credentials (Kiosk / Signage Terminals) ✅ Implemented (Phase 25, RFC-010 / ADR-013)
+
+A second credential class alongside user JWTs, for unattended venue hardware:
+
+- **Format:** opaque `scmsd_{k|s}_{token_urlsafe(32)}`; stored as `devices.token_hash =
+  sha256(token)` — plaintext returned exactly once at pairing, never stored or logged.
+- **Issuance:** admin-generated 6-digit pairing code (Redis, TTL 600 s, single-use GETDEL) redeemed
+  at unauthenticated `POST /device/pair`, rate-limited 5/min/IP.
+- **Verification:** `get_current_device()` — hash lookup with 60 s Redis cache; scope
+  (tenant/outlet/type) read fresh from the row on every request, never from the token.
+- **Revocation:** immediate — null the hash, delete the cache key, push targeted `DEVICE_REVOKED`.
+- **Least privilege:** device tokens work only on `/device/*` and `/ws/device`; reads plus kiosk
+  order creation, nothing else. Never interchangeable with user JWTs in either direction.
+- **WS:** `ws://host/ws/device?token={device_token}` — same query-param transport as user WS,
+  validated by the device hash lookup instead of JWT checks.
+
+**PCI-DSS scoping statement (KSK-1):** kiosks take no payment input of any kind — orders are
+settled at the counter via the existing mark-paid flow. No cardholder data exists anywhere in SCMS,
+keeping the entire system out of PCI-DSS scope. Any future kiosk payment feature must re-evaluate
+this boundary before implementation.
+
+---
+
 ## 9. Secrets Management
 
 | Secret | Env Var | Minimum |

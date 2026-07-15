@@ -13,8 +13,10 @@ from app.models.models import Notification, RewardLog, User
 from app.models.order import Order, OrderItem, OrderSource, OrderStatus, PaymentMethod, PaymentStatus
 from app.models.table import TablesMap, TableStatus
 from app.models.tenant import Tenant, TenantType
+from app.schemas.device import KioskOrderCreate
 from app.schemas.order import OrderCreate, StaffPosOrderCreate
 from app.schemas.public import GuestOrderCreate
+from app.core.redis import get_redis
 from app.services.cleaner_service import CleanerService
 from app.services import inventory_service
 
@@ -239,6 +241,129 @@ class OrderService:
             await db.refresh(user)
         await db.refresh(order)
         return order
+
+    async def assign_pickup_number(self, tenant_id: UUID) -> int:
+        """OR-12 (RFC-010): per-tenant, daily-reset, human-readable counter for
+        device orders. Redis INCR keyed by tenant + local date, TTL 48h."""
+        redis = await get_redis()
+        day = datetime.now(timezone.utc).strftime("%Y%m%d")
+        key = f"order:pickup:{tenant_id}:{day}"
+        number = await redis.incr(key)
+        if number == 1:
+            await redis.expire(key, 48 * 3600)
+        return int(number)
+
+    async def create_kiosk_order_session(
+        self,
+        db: AsyncSession,
+        tenant: Tenant,
+        kiosk_data: KioskOrderCreate,
+    ) -> list[Order]:
+        """KSK-2/KSK-3/KSK-4 (specs/modules/kiosk.md): kiosk terminal order.
+
+        Differences from the anonymous guest path: no table binding (pickup
+        model — table_id=NULL, no PUB-5 validation, no per-table cap; the
+        per-device rate limit in the router replaces it), no guest_phone, no
+        restaurant-segment guard (the admin-registered device credential is the
+        gate, enforced by the caller), and a pickup_number shared by every
+        sibling order of the session. Food-court carts split per vendor exactly
+        like guest sessions, sharing one guest_token + one pickup_number.
+        """
+        guest_name = (kiosk_data.guest_name or "").strip() or "Kiosk"
+        shared_guest_token = uuid.uuid4()
+
+        if tenant.tenant_type == TenantType.food_court:
+            vendor_result = await db.execute(
+                select(Tenant).where(
+                    Tenant.parent_tenant_id == tenant.tenant_id,
+                    Tenant.tenant_type == TenantType.food_court_vendor,
+                    Tenant.is_active.is_(True),
+                )
+            )
+            vendors_by_id = {t.tenant_id: t for t in vendor_result.scalars().all()}
+
+            items_by_vendor: dict[UUID, list[dict]] = {}
+            for item_req in kiosk_data.items:
+                result = await db.execute(select(MenuItem).where(MenuItem.item_id == item_req.item_id))
+                item = result.scalar_one_or_none()
+                if not item or item.tenant_id not in vendors_by_id:
+                    raise HTTPException(status_code=404, detail=f"Item {item_req.item_id} not found")
+                if not item.is_available:
+                    raise HTTPException(status_code=400, detail=f"Item {item.name} is not available")
+                items_by_vendor.setdefault(item.tenant_id, []).append({
+                    "item": item,
+                    "quantity": item_req.quantity,
+                    "unit_price": Decimal(str(item.price)),
+                })
+            order_specs = [
+                (vendor_id, items_data) for vendor_id, items_data in items_by_vendor.items()
+            ]
+        else:
+            items_data = []
+            for item_req in kiosk_data.items:
+                result = await db.execute(
+                    select(MenuItem).where(
+                        MenuItem.item_id == item_req.item_id,
+                        MenuItem.tenant_id == tenant.tenant_id,
+                    )
+                )
+                item = result.scalar_one_or_none()
+                if not item:
+                    raise HTTPException(status_code=404, detail=f"Item {item_req.item_id} not found")
+                if not item.is_available:
+                    raise HTTPException(status_code=400, detail=f"Item {item.name} is not available")
+                items_data.append({
+                    "item": item,
+                    "quantity": item_req.quantity,
+                    "unit_price": Decimal(str(item.price)),
+                })
+            order_specs = [(tenant.tenant_id, items_data)]
+
+        # One pickup number per session — the customer collects once (KSK-4).
+        pickup_number = await self.assign_pickup_number(tenant.tenant_id)
+
+        created_orders: list[Order] = []
+        for order_tenant_id, items_data in order_specs:
+            total = sum((d["unit_price"] * d["quantity"] for d in items_data), Decimal("0.00"))
+            order = Order(
+                tenant_id=order_tenant_id,
+                outlet_id=None,
+                user_id=None,
+                table_id=None,
+                time_slot=datetime.now(timezone.utc),
+                status=OrderStatus.pending_confirmation,
+                order_source=OrderSource.kiosk,
+                guest_token=shared_guest_token,
+                guest_name=guest_name,
+                guest_phone=None,
+                pickup_number=pickup_number,
+                total_amount=total,
+                discount_amount=Decimal("0.00"),
+                payment_status=PaymentStatus.pending,
+                payment_method=None,
+                special_notes=kiosk_data.special_notes,
+            )
+            db.add(order)
+            await db.flush()
+            for item_data in items_data:
+                db.add(OrderItem(
+                    tenant_id=order_tenant_id,
+                    order_id=order.order_id,
+                    item_id=item_data["item"].item_id,
+                    quantity=item_data["quantity"],
+                    unit_price=item_data["unit_price"],
+                ))
+            created_orders.append(order)
+
+        await db.commit()
+
+        loaded_orders: list[Order] = []
+        for order in created_orders:
+            result = await db.execute(
+                select(Order).options(selectinload(Order.items)).where(Order.order_id == order.order_id)
+            )
+            loaded_orders.append(result.scalar_one())
+        return loaded_orders
 
     async def create_guest_order_session(
         self,

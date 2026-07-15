@@ -70,6 +70,7 @@ class GuestOrderResponse(BaseModel):
     payment_method: str | None = None
     guest_name: str | None = None
     guest_phone: str | None = None
+    pickup_number: int | None = None  # OR-12 (RFC-010): set on kiosk orders
     special_notes: str | None = None
     created_at: datetime
     updated_at: datetime
