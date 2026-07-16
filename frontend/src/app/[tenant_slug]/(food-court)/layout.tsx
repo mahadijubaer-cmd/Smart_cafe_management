@@ -9,6 +9,7 @@ import { useStore } from '@/store/useStore'
 import type { UserRole } from '@/types'
 import { Button } from '@/components/ui/button'
 import CommandPalette from '@/components/layout/CommandPalette'
+import SiteFooter from '@/components/layout/SiteFooter'
 import {
   Sidebar,
   SidebarContent,
@@ -51,6 +52,14 @@ export default function FoodCourtLayout({ children }: { children: ReactNode }) {
   const user = useStore((s) => s.user)
   const hasHydrated = useStore((s) => s.hasHydrated)
   const clearAuth = useStore((s) => s.clearAuth)
+  const setGlobalFooterSuppressed = useStore((s) => s.setGlobalFooterSuppressed)
+
+  // Fixed sidebar must never cover the global footer — hide the root layout's full-width
+  // instance and render <SiteFooter inset /> in the content column below instead.
+  useEffect(() => {
+    setGlobalFooterSuppressed(true)
+    return () => setGlobalFooterSuppressed(false)
+  }, [setGlobalFooterSuppressed])
 
   useEffect(() => {
     if (!hasHydrated) return
@@ -137,6 +146,7 @@ export default function FoodCourtLayout({ children }: { children: ReactNode }) {
           <span className="text-sm font-bold">Food Court</span>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <SiteFooter inset />
       </SidebarInset>
 
       <CommandPalette items={paletteItems} />

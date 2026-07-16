@@ -7,7 +7,6 @@ import apiClient from '@/lib/api'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import CategoryTabs from '@/components/menu/CategoryTabs'
 import MenuItemCard from '@/components/menu/MenuItemCard'
-import CartSidebar from '@/components/menu/CartSidebar'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
@@ -320,11 +319,7 @@ export default function StudentMenuPage() {
           </div>
         )}
 
-        <div className="px-4 pb-28 lg:px-8 lg:pb-8">
-          <div className="mx-auto max-w-7xl">
-            <CartSidebar />
-          </div>
-        </div>
+        <div className="pb-28 lg:pb-8" aria-hidden="true" />
 
         <Button
           type="button"

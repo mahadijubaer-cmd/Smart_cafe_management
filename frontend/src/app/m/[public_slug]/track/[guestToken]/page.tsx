@@ -32,14 +32,14 @@ function TicketCard({ order }: { order: GuestOrder }) {
   return (
     <Card className="rounded-2xl p-6 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {order.vendor_name ? order.vendor_name : `Order #${order.order_id.slice(0, 8)}`}
         </p>
         {order.payment_status === 'paid' ? (
           <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">Paid</Badge>
         ) : null}
       </div>
-      <h2 className="mt-1 text-xl font-black text-slate-900">
+      <h2 className="mt-1 text-xl font-black text-foreground">
         {isCancelled ? 'Cancelled' : STATUS_STEPS[currentStepIndex]?.label ?? order.status}
       </h2>
 
@@ -52,33 +52,33 @@ function TicketCard({ order }: { order: GuestOrder }) {
                 <span
                   className={[
                     'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                    done ? 'bg-primary text-primary-foreground' : 'bg-slate-200 text-slate-500',
+                    done ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
                   ].join(' ')}
                 >
                   {done ? '✓' : index + 1}
                 </span>
-                <span className={`text-sm ${done ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{step.label}</span>
+                <span className={`text-sm ${done ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{step.label}</span>
               </div>
             )
           })}
         </div>
       ) : (
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           This ticket was cancelled — it may have expired before being confirmed, or was rejected.
         </p>
       )}
 
-      <ul className="mt-4 flex flex-col gap-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
+      <ul className="mt-4 flex flex-col gap-1 border-t border-border pt-3 text-sm text-muted-foreground">
         {order.items.map((line, index) => (
           <li key={`${line.item_id}-${index}`} className="flex justify-between">
             <span>{line.quantity}×</span>
-            <span className="flex-1 px-2">{line.item_id.slice(0, 8)}</span>
+            <span className="flex-1 px-2">{line.menu_item?.name ?? line.item_id.slice(0, 8)}</span>
             <span>{formatCurrency(Number(line.subtotal))}</span>
           </li>
         ))}
       </ul>
 
-      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-sm font-semibold">
+      <div className="mt-2 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
         <span>Subtotal</span>
         <span>{formatCurrency(Number(order.total_amount))}</span>
       </div>
@@ -148,39 +148,39 @@ export default function GuestOrderTrackPage() {
 
   if (error && !group) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-center">
-        <p className="text-slate-500">Order not found or this tracking link has expired.</p>
+      <main className="flex min-h-screen items-center justify-center bg-muted/30 px-6 text-center">
+        <p className="text-muted-foreground">Order not found or this tracking link has expired.</p>
       </main>
     )
   }
 
   if (!group) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">Loading order…</p>
+      <main className="flex min-h-screen items-center justify-center bg-muted/30">
+        <p className="text-sm text-muted-foreground">Loading order…</p>
       </main>
     )
   }
 
   const isMultiVendor = group.orders.length > 1
   const guestName = group.orders[0]?.guest_name
-  const tableId = group.orders[0]?.table_id
+  const tableLabel = group.orders[0]?.table_number ?? group.orders[0]?.table_id
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
+    <main className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="mx-auto max-w-md">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {guestName}
-              {tableId ? ` · Table #${tableId}` : ''}
+              {tableLabel ? ` · Table ${tableLabel}` : ''}
             </p>
             {isMultiVendor ? (
-              <p className="text-xs text-slate-400">{group.orders.length} tickets from different stalls</p>
+              <p className="text-xs text-muted-foreground">{group.orders.length} tickets from different stalls</p>
             ) : null}
           </div>
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
             {live ? 'Live' : 'Reconnecting…'}
           </span>
         </div>
@@ -191,7 +191,7 @@ export default function GuestOrderTrackPage() {
           ))}
         </div>
 
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-6 py-4 font-bold text-slate-900">
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-card px-6 py-4 font-bold text-foreground">
           <span>Grand total{group.orders.every((o) => o.payment_status === 'paid') ? ' (paid)' : ' (pay at counter)'}</span>
           <span>{formatCurrency(Number(group.total_amount))}</span>
         </div>

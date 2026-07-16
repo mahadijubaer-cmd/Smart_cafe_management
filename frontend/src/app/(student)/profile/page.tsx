@@ -82,6 +82,7 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
                 id="current-pw"
                 required
                 type="password"
+                autoComplete="current-password"
                 value={currentPw}
                 onChange={(e) => setCurrentPw(e.target.value)}
               />
@@ -93,6 +94,7 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
                   id="new-pw"
                   required
                   type={showNew ? 'text' : 'password'}
+                  autoComplete="new-password"
                   className="pr-9"
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
@@ -115,6 +117,7 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
                 id="confirm-pw"
                 required
                 type="password"
+                autoComplete="new-password"
                 className={confirmPw && confirmPw !== newPw ? 'border-destructive' : undefined}
                 value={confirmPw}
                 onChange={(e) => setConfirmPw(e.target.value)}

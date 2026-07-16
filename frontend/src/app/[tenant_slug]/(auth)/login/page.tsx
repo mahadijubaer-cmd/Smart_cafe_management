@@ -36,7 +36,7 @@ function getRedirectPath(role: UserRole | null, slug: string): string {
   if (!role) return `/${slug}/menu`
   if (CUSTOMER_ROLES.includes(role)) return `/${slug}/menu`
   if (STAFF_ROLES.includes(role)) return `/${slug}/orders`
-  if (CLEANER_ROLES.includes(role)) return `/${slug}/tables`
+  if (CLEANER_ROLES.includes(role)) return `/${slug}/cleaning-queue`
   if (ADMIN_ROLES.includes(role)) return `/${slug}/dashboard`
   return `/${slug}/menu`
 }
@@ -187,6 +187,7 @@ export default function TenantLoginPage() {
                         <Input
                           id="email"
                           type="email"
+                          autoComplete="username"
                           placeholder="you@example.com"
                           aria-invalid={!!errors.email}
                           {...register('email')}
@@ -207,6 +208,7 @@ export default function TenantLoginPage() {
                         <Input
                           id="password"
                           type="password"
+                          autoComplete="current-password"
                           placeholder="••••••••"
                           aria-invalid={!!errors.password}
                           {...register('password')}

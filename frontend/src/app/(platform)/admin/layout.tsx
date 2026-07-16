@@ -1,12 +1,13 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ArrowLeft, BarChart3, History, LogOut, Store } from 'lucide-react'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
 import CommandPalette from '@/components/layout/CommandPalette'
+import SiteFooter from '@/components/layout/SiteFooter'
 import { getRoleFromToken } from '@/lib/auth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -37,7 +38,15 @@ function PlatformAdminShell({ children }: { children: ReactNode }) {
   const token = useStore((state) => state.token)
   const tenantSlug = useStore((state) => state.tenantSlug)
   const clearAuth = useStore((state) => state.clearAuth)
+  const setGlobalFooterSuppressed = useStore((state) => state.setGlobalFooterSuppressed)
   const role = getRoleFromToken(token)
+
+  // Fixed sidebar must never cover the global footer — hide the root layout's full-width
+  // instance and render <SiteFooter inset /> in the content column below instead.
+  useEffect(() => {
+    setGlobalFooterSuppressed(true)
+    return () => setGlobalFooterSuppressed(false)
+  }, [setGlobalFooterSuppressed])
 
   const backHref = tenantSlug ? `/${tenantSlug}/dashboard` : '/discover'
 
@@ -114,6 +123,7 @@ function PlatformAdminShell({ children }: { children: ReactNode }) {
           <span className="text-sm font-bold text-primary">Platform Admin</span>
         </header>
         <main className="flex-1 overflow-y-auto bg-muted/30">{children}</main>
+        <SiteFooter inset />
       </SidebarInset>
 
       <CommandPalette items={paletteItems} tenantSearch />

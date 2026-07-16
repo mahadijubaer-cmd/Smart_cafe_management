@@ -218,6 +218,7 @@ export default function ForgotPasswordPage() {
                         id="new_password"
                         required
                         type={showPw ? 'text' : 'password'}
+                        autoComplete="new-password"
                         className="pr-10"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -243,6 +244,7 @@ export default function ForgotPasswordPage() {
                       id="confirm_password"
                       required
                       type="password"
+                      autoComplete="new-password"
                       aria-invalid={passwordsMismatch}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}

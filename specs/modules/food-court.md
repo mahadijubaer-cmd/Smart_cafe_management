@@ -1,7 +1,7 @@
 # Module: Food Court
 
 **Router:** `backend/app/routers/food_court.py`  
-**Last verified:** 2026-07-11
+**Last verified:** 2026-07-16
 
 ---
 
@@ -182,6 +182,13 @@ Users with `role = server | cleaner` at a food court have `tenant_id = food_cour
 ### FC-5: Server Can Only Deliver "Ready" Orders
 `PATCH /food-court/orders/{id}/deliver` requires `order.status = ready`.  
 Error: `400 "Order must be 'ready' to deliver; current status: {order.status}"`
+
+> **✅ Fixed 2026-07-16 (QA browser pass):** this was only half-enforced — the generic
+> `PATCH /orders/{id}/status` (`modules/orders.md` OR-14) had no vendor-tenant special case, so a
+> vendor's own `tenant_admin` could self-mark an order `delivered` from the ordinary kitchen-queue
+> UI, skipping this endpoint (and its `server`-role restriction) entirely. That endpoint now rejects
+> the `delivered` transition outright for `food_court_vendor` tenants — the parent's `server`
+> role, via this endpoint, is the only path to `delivered` for a vendor order.
 
 ### FC-6: Unified Menu Excludes Parent Items
 `GET /food-court/menu` queries `tenant_id IN (vendor_ids only)` — the food court parent's `tenant_id` is excluded. The parent food court has no menu items.

@@ -101,7 +101,21 @@ Every playlist/slide mutation publishes `PLAYLIST_UPDATED {playlist_id}` on the 
 config forms (menu-board category picker, offer-card builder with menu-item picker, trending
 window/limit, schedule-window pickers); **side-by-side live preview pane** — the real slide
 components in a scaled 16:9 frame bound to unsaved form state (SGN-6); "Full-screen preview" →
-`(admin)/signage/preview/[playlist_id]/`.
+`[tenant_slug]/signage-preview/[playlist_id]/` (a bare route directly under `[tenant_slug]`, not
+nested inside `(admin)/signage/` — the "Full-screen" link's `href` is the source of truth).
+
+> **✅ Fixed 2026-07-16 (QA browser pass):** `signage-preview/[playlist_id]/page.tsx`'s own auth
+> guard was `useEffect(() => { if (!token) router.replace(login) }, [token])` — missing the
+> `if (!hasHydrated) return` check every other guarded layout in this app has
+> (`(customer)`/`(cleaner)`/`(staff)`/`(admin)` layouts all check it first). On mount, Zustand's
+> persisted `token` starts `null` until `localStorage` rehydration completes; this route's bundle is
+> unusually heavy (KioskApp types + SignageRenderer + preview data, ~2,400 modules — the largest in
+> the app), which widens that pre-hydration window enough to consistently lose the race in practice:
+> the guard fired while `token` was still `null`, bounced to `/login`, which by then saw the
+> (already-hydrated) valid token and auto-redirected to `/dashboard` instead — the full-screen
+> preview never rendered. This is a full-screen-display route (real deployments run it on paired
+> signage hardware, often lower-spec and always-on), so a slow-hydration race here is *more* likely
+> to bite in the field, not less. Fixed by adding the same `hasHydrated` guard.
 
 ---
 

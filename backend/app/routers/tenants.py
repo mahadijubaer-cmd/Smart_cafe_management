@@ -39,6 +39,7 @@ from app.core.tier_limits import check_tier_limit
 from app.models.menu import MenuItem
 from app.models.models import Order
 from app.models.table import TablesMap
+from app.core.segments import SEGMENT_MAP
 from app.models.tenant import SubscriptionTier, Tenant, TenantType
 from app.models.user import User, UserRole
 from app.schemas.tenant import (
@@ -81,38 +82,68 @@ def _validate_org_password(password: str) -> None:
 
 _admin_only = Depends(require_role(UserRole.platform_admin))
 
-_PUBLIC_LIST_KEY = "tenants:public:list"
+_PUBLIC_LIST_VER_KEY = "tenants:public:ver"
+_PUBLIC_LIST_KEY = "tenants:public:v{ver}:{skip}:{limit}:{segment}"
 _PUBLIC_DETAIL_KEY = "tenants:public:{slug}"
 _PUBLIC_TTL = 300  # 5 minutes
+
+
+async def _public_list_cache_key(redis, skip: int, limit: int, segment: str | None) -> str:
+    """Versioned per-page cache key — invalidation bumps the version counter instead of
+    wildcard-deleting page keys (SCAN isn't supported by the test suite's FakeAsyncRedis);
+    stale versions simply expire via TTL. See modules/tenants.md."""
+    ver = await redis.get(_PUBLIC_LIST_VER_KEY) or "0"
+    if isinstance(ver, bytes):
+        ver = ver.decode()
+    return _PUBLIC_LIST_KEY.format(ver=ver, skip=skip, limit=limit, segment=segment or "all")
+
+
+async def _bump_public_list_cache(redis) -> None:
+    await redis.incr(_PUBLIC_LIST_VER_KEY)
 
 
 @router.get("/public", response_model=TenantPublicListResponse)
 async def list_public_tenants(
     q: str | None = Query(default=None, description="Filter by name or city"),
+    segment: str | None = Query(default=None, pattern="^(cafeteria|restaurant)$"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=24, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all active tenants. Results are cached 5 min when no search query."""
+    """Paginated list of active tenants. `total` counts post-filter, pre-slice.
+    Results are cached 5 min when there's no search query."""
     redis = await get_redis()
 
+    cache_key = None
     if not q:
-        cached = await redis.get(_PUBLIC_LIST_KEY)
+        cache_key = await _public_list_cache_key(redis, skip, limit, segment)
+        cached = await redis.get(cache_key)
         if cached:
             data = json.loads(cached)
             return TenantPublicListResponse(**data)
 
-    stmt = select(Tenant).where(Tenant.is_active.is_(True))
+    filters = [Tenant.is_active.is_(True)]
     if q:
         term = f"%{q}%"
-        stmt = stmt.where(or_(Tenant.name.ilike(term), Tenant.city.ilike(term)))
-    stmt = stmt.order_by(Tenant.name)
+        filters.append(or_(Tenant.name.ilike(term), Tenant.city.ilike(term)))
+    if segment:
+        segment_types = [t for t, s in SEGMENT_MAP.items() if s == segment]
+        filters.append(Tenant.tenant_type.in_(segment_types))
 
-    result = await db.execute(stmt)
+    total_result = await db.execute(
+        select(func.count()).select_from(Tenant).where(*filters)
+    )
+    total = total_result.scalar_one()
+
+    result = await db.execute(
+        select(Tenant).where(*filters).order_by(Tenant.name).offset(skip).limit(limit)
+    )
     tenants = result.scalars().all()
     items = [TenantPublicResponse.model_validate(t) for t in tenants]
-    response = TenantPublicListResponse(items=items, total=len(items))
+    response = TenantPublicListResponse(items=items, total=total)
 
-    if not q:
-        await redis.setex(_PUBLIC_LIST_KEY, _PUBLIC_TTL, response.model_dump_json())
+    if cache_key:
+        await redis.setex(cache_key, _PUBLIC_TTL, response.model_dump_json())
 
     return response
 
@@ -209,7 +240,7 @@ async def register_organization(
 
     # Invalidate the cached public tenant list so the new org shows up immediately
     redis = await get_redis()
-    await redis.delete(_PUBLIC_LIST_KEY)
+    await _bump_public_list_cache(redis)
 
     access_token = _auth_service.create_access_token(admin_user, tenant)
     return Token(
@@ -230,7 +261,8 @@ _LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 
 
 async def _invalidate_tenant_caches(redis, slug: str) -> None:
-    await redis.delete(_PUBLIC_LIST_KEY, _PUBLIC_DETAIL_KEY.format(slug=slug))
+    await _bump_public_list_cache(redis)
+    await redis.delete(_PUBLIC_DETAIL_KEY.format(slug=slug))
 
 
 @router.get("/me", response_model=TenantResponse)

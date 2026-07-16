@@ -9,6 +9,134 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — Discover pagination + footer never covered by sidebars (2026-07-16)
+
+- **`/discover` now has standard server-side pagination.** `GET /tenants/public` gains
+  `skip`/`limit`/`segment` query params (segment resolved server-side via `SEGMENT_MAP`,
+  superseding the RFC-007 client-side-filter MVP shortcut); `total` is post-filter/pre-slice.
+  Redis caching reworked to versioned per-page keys (`tenants:public:v{N}:…`, invalidation by
+  `INCR`ing the version). The discover page renders shadcn pagination controls (page size 12,
+  "Showing X–Y of Z"), resetting to page 1 on search/segment change. Spec: `modules/tenants.md`,
+  `frontend/overview.md`.
+- **Fixed sidebars no longer cover the global footer.** The three fixed-sidebar dashboard layouts
+  (tenant admin, food court, platform admin) now suppress the root layout's full-width `SiteFooter`
+  (non-persisted store flag) and render `<SiteFooter inset />` inside their content column — the
+  standard dashboard pattern. Modal drawers/sheets intentionally unchanged. Spec:
+  `frontend/overview.md`.
+
+### Fix — Dark-mode contrast bug on the public guest surface, found via P3 QA pass (2026-07-16)
+
+The only bug found across the entire P3 (cross-cutting/resilience) tier — session/token handling,
+tenant isolation, WebSocket reconnection, error/404 states, responsive layout, and kiosk i18n all
+passed. Detail in `frontend/overview.md` (`m/[public_slug]` section).
+
+- **Guest menu and guest tracking pages were unreadable in dark mode.** Both `m/[public_slug]`
+  pages hardcoded light-only colors (`bg-slate-50` page, `bg-white` sticky/total bars,
+  `text-slate-900` item names) while their cards used the theme-aware shadcn `Card` — so in dark
+  mode the cards flipped dark but the headings inside stayed near-black (dark-on-dark), with a
+  light page body behind dark cards. Replaced every hardcoded neutral with the theme tokens the
+  rest of the app uses (`text-foreground`, `text-muted-foreground`, `bg-muted/30`, `bg-background`,
+  `bg-card`, `border-border`); semantic status colors (emerald "Paid" badge, live dot) kept as-is.
+
+### Fix — Four bugs found via P2 platform/kiosk/signage/QR QA pass (2026-07-16)
+
+Found while testing the platform admin console, device/kiosk/signage flows, and QR/PDF generation.
+Detail in `frontend/overview.md`, `modules/signage.md` SGN-6, and `modules/qr-pdf.md`.
+
+- **"Exit impersonation" always landed on `/unauthorized`.** The banner swapped the token back via
+  Zustand `setToken()` and then did a `router.replace('/admin/tenants')` — but the impersonated
+  tenant's `[tenant_slug]/(admin)/layout.tsx` was still mounted and its own guard reacted to the
+  token swap first (tenant-slug mismatch against the still-current URL), winning the redirect race.
+  Fixed with a hard `window.location.href` navigation instead, which tears down the old page before
+  the restored-token page ever mounts.
+- **Platform Subscriptions page crashed outright** (`TypeError: tenants.map is not a function`).
+  `GET /tenants` returns `{items, total}`; the page did `setTenants(res.data)` directly instead of
+  the `res.data.items ?? res.data` unwrap the sibling Tenants page already used for the same
+  endpoint.
+- **Signage full-screen preview randomly failed to load**, bouncing preview → login → dashboard.
+  Its auth guard was missing the `hasHydrated` check every other guarded layout has; this route's
+  unusually heavy bundle (~2,400 modules) widens the pre-hydration window enough to reliably lose
+  the race in practice — and real signage hardware (lower-spec, always-on displays) is if anything
+  more exposed to this than a typical admin browser.
+- **Order-confirmation QR emails never sent.** `email_qr_attachment` bypassed the app's
+  Brevo-preferred provider selection and always used SMTP with the unfilled `.env.example`
+  placeholder credentials. QR generation itself (file + DB row) was never affected — only delivery.
+  Fixed by routing through a new `send_qr_attachment_email()` in `app/config/email.py` (same
+  provider selection as OTP/invite emails); `qr_codes.emailed`/`emailed_at`, previously dead
+  columns no code path wrote to, are now set on a genuine successful send.
+
+### Fix — Three bugs found via P1 food-court/notifications QA pass (2026-07-16)
+
+Found while testing food-court fulfillment and the notification inbox. Detail in
+`modules/orders.md` OR-14, `modules/food-court.md` FC-5, and `frontend/overview.md`.
+
+- **`server`-role staff could never open the orders page their own login sends them to.** The
+  legacy `(staff)/orders/page.tsx` (reused via re-export for every tenant's `/orders`) wraps itself
+  in `<ProtectedRoute allowedRoles={["staff", "admin"]}>`, omitting `"server"` even though the login
+  redirect treats `staff` and `server` identically. Fixed by adding `"server"` to the allowed list.
+- **A food-court vendor's own admin could self-mark orders `delivered`, bypassing the shared-staff
+  pickup model.** `PATCH /orders/{id}/status` had no food-court-vendor special case, so any
+  `WORK_ROLE` — including a vendor's own `tenant_admin` — could jump an order straight to
+  `delivered` from the ordinary kitchen queue, sidestepping the `server`-role-only
+  `PATCH /food-court/orders/{id}/deliver`. Fixed by rejecting the `delivered` transition on that
+  generic endpoint for `food_court_vendor` tenants.
+- **`useStore.user` was never populated for cleaner/staff/admin roles — only customer/student.**
+  Confirmed live: the same stale `user_id` (from a much earlier login) followed a browser profile
+  across cleaner, food-court admin, vendor admin, and server logins in a row. This silently broke
+  every non-customer WebSocket connection (wrong `user_id` in the URL → rejected by the backend) —
+  no cleaner/staff/admin page ever received a live order/table/cleaning update. Fixed by adding the
+  same `/auth/me` → `setUser()` sync effect the customer layout already had to the cleaner, staff,
+  and admin layouts.
+
+### Fix — Two bugs found via P1 browser QA pass (2026-07-16)
+
+Found while testing the admin console and cleaner module. Backend suite still 224/225 passing
+(same pre-existing unrelated OTP failure). Detail in `modules/inventory.md` INV-8 and
+`modules/cleaners.md`.
+
+- **Every inventory item creation failed with a false-positive 400.** `create_inventory_item`
+  validated `inv_category_id` against the tenant unconditionally, including when it was `None` (its
+  own documented default) — and the admin "Add Item" form has no category picker, so it was always
+  `None`. `InventoryCategory.inv_category_id == None` never matches a row, so every creation was
+  rejected. Fixed by skipping validation when `inv_category_id is None`, matching the guard the
+  `PUT` update endpoint already had.
+- **"Assign Cleaner" button in the table admin panel always failed.** It called
+  `POST /cleaners/logs/`, a route that was never implemented (and was documented in the spec with a
+  request shape — `cleaner_id` — the UI never sent). The real system has no manual-assignment
+  capability at all: cleaners are auto-assigned, load-balanced, when a customer marks their order
+  complete (`PATCH /orders/{id}/complete` → `CleanerService.assign_cleaner`). Removed the dead
+  button/handler, rewrote `modules/cleaners.md` to document the real `/cleaners/assignments*`
+  routes, and fixed the post-login redirect for the `cleaner` role (was sending cleaners to
+  `/tables`, a page they can't act on; now sends them to `/cleaning-queue`).
+
+### Fix — Five bugs found via full-site browser QA pass (2026-07-16)
+
+Found by driving the app end-to-end in a real browser (login → order → payment → staff fulfillment)
+rather than trusting the API test suite alone. Full backend suite still 224/225 passing (same
+pre-existing unrelated OTP failure) after all fixes. Detail in `modules/orders.md` OR-13,
+`modules/tenants.md` (`PATCH /tenants/me/settings`), and `frontend/overview.md`.
+
+- **Order items/tables displayed as raw UUIDs/IDs, not names.** `OrderItemResponse` had no item
+  name and `OrderResponse` had no table label — every order-tracking surface (guest, authenticated
+  customer, staff kitchen queue) rendered `item_id`/`table_id` directly. Added guarded
+  `menu_item`/`table_number` fields (never trigger a lazy-load `MissingGreenlet`) and eager-loaded
+  them at every response-building call site across `order_service.py`, `routers/orders.py`,
+  `routers/public.py`, `routers/device_api.py`.
+- **Guest-ordering "live" state could be silently wrong.** The admin Public Link page showed the
+  guest menu URL and offered a QR-sheet download based only on whether a slug was set, ignoring the
+  actual `public_menu_enabled` toggle — an admin could believe guest ordering was live (and hand out
+  QR codes) while it was actually off.
+- **Checkout routed to the bare `/order`, not `/{tenant_slug}/order`,** and mounted the cart sidebar
+  twice in the DOM. Root cause: `CartSidebar` hardcoded `/order`, and `(student)/menu/page.tsx`
+  rendered its own `<CartSidebar />` on top of the one its hosting layout already renders.
+- **No redirect on role/tenant mismatch.** `[tenant_slug]/(admin)/layout.tsx` only checked for a
+  missing token — a `staff` session hitting an admin-only URL, or any session hitting a different
+  tenant's admin URL, rendered the full admin shell indefinitely (data calls correctly 403'd, but
+  the page never redirected). Now redirects to `/unauthorized` on either condition, and the sidebar
+  nav itself is now role-gated to match.
+- **Password autofill leaked across unrelated forms** (missing `autocomplete` attributes) on
+  register/login/forgot-password/change-password forms.
+
 ### Fix — WebSocket routing bug and cross-connection event duplication (2026-07-15)
 
 Found by precisely re-testing the Phase 25 device WebSocket channel after the fact (live WS

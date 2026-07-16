@@ -139,36 +139,26 @@ async def generate_and_save_order_qr(
 
 
 async def email_qr_attachment(
+    db: AsyncSession,
     to_email: str,
     order_id: UUID,
     file_path: Path,
 ) -> None:
-    """Email the QR code PNG as an attachment.
+    """Email the QR code PNG as an attachment, then mark qr_codes.emailed on success.
 
-    Falls back to a log line if SMTP is not configured.
+    Delivery itself goes through app.config.email.send_qr_attachment_email — the same
+    Brevo-preferred provider selection send_otp_email/send_invite_email use (ADR-007) — rather
+    than duplicating SMTP-only logic here.
     """
-    if not settings.mail_enabled:
-        logger.warning("[DEV — no SMTP] Would email QR for order %s to %s", order_id, to_email)
-        return
+    from sqlalchemy import update
 
-    from fastapi_mail import FastMail, MessageSchema, MessageType
-    from app.config.email import _mail_config
+    from app.config.email import send_qr_attachment_email
 
-    message = MessageSchema(
-        subject=f"Your order QR code — #{str(order_id)[:8].upper()}",
-        recipients=[to_email],
-        body=(
-            f"Your order has been confirmed.\n\n"
-            f"Please present the attached QR code at the counter to collect your order.\n\n"
-            f"Order ID: {order_id}\n\n"
-            f"— {settings.MAIL_FROM_NAME}"
-        ),
-        subtype=MessageType.plain,
-        attachments=[str(file_path)],
-    )
-    fm = FastMail(_mail_config)
-    try:
-        await fm.send_message(message)
-        logger.info("QR email sent to %s for order %s", to_email, order_id)
-    except Exception:
-        logger.exception("Failed to email QR for order %s to %s", order_id, to_email)
+    sent = await send_qr_attachment_email(to_email, order_id, file_path)
+    if sent:
+        await db.execute(
+            update(QrCode)
+            .where(QrCode.order_id == order_id)
+            .values(emailed=True, emailed_at=datetime.now(timezone.utc))
+        )
+        await db.commit()

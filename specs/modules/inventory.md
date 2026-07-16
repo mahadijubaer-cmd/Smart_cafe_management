@@ -3,7 +3,7 @@
 **Router:** `backend/app/routers/inventory.py`  
 **Schemas:** `backend/app/schemas/inventory.py`  
 **Service:** `backend/app/services/inventory_service.py`  
-**Last verified:** 2026-07-08
+**Last verified:** 2026-07-16
 
 ---
 
@@ -58,7 +58,7 @@ Tracks raw ingredient stock. Supports categories, individual items with supplier
 
 | Field | Type | Required | Default | Constraint |
 |---|---|---|---|---|
-| `inv_category_id` | int | Yes | — | Must exist in tenant |
+| `inv_category_id` | int \| null | No | null | If provided, must exist in tenant (INV-8) |
 | `outlet_id` | UUID \| null | No | null | — |
 | `is_central` | bool | No | false | Marks franchise brand central warehouse item |
 | `name` | str | Yes | — | — |
@@ -278,7 +278,7 @@ class InventoryCategoryResponse(BaseModel):
 ### `InventoryItemCreate`
 ```python
 class InventoryItemCreate(BaseModel):
-    inv_category_id: int
+    inv_category_id: int | None = None   # see INV-8 — optional; admin UI has no category picker yet
     outlet_id: UUID | None = None
     is_central: bool = False
     name: str
@@ -411,13 +411,21 @@ Error if already received: `400 "Purchase order already received"`
 ### INV-7: Manual Adjust Cannot Result in Negative Quantity
 `quantity_on_hand + quantity_delta < 0` → `400 "Adjustment would result in negative stock"`
 
-### INV-8: inv_category_id Must Belong to the Caller's Own Tenant
+### INV-8: inv_category_id, When Provided, Must Belong to the Caller's Own Tenant
 ✅ [2026-07-08 — cafeteria-admin sweep]. `POST /inventory/items` and `PUT /inventory/items/{item_id}`
 validate that a submitted `inv_category_id` exists and belongs to the caller's own tenant —
 `400 "inv_category_id does not exist for this tenant"` if not. Same class of gap as `BR-MENU-1`
 (`modules/menu.md`): the FK alone doesn't reject a category_id that belongs to a *different* tenant,
 only one that doesn't exist at all — silently creating a cross-tenant category link. Enforced in
 `app/routers/inventory.py::_validate_inv_category_id()`.
+
+**Bug found and fixed 2026-07-16 (QA browser pass):** `create_inventory_item` called
+`_validate_inv_category_id()` unconditionally, including when `inv_category_id` was `None` (its own
+valid default per the schema above). `InventoryCategory.inv_category_id == None` never matches a
+real row, so this rejected with a false-positive `400` on **every** item creation that didn't supply
+a category — which was every one, since the admin "Add Item" form has no category-picker field yet.
+Fixed by skipping the validation call entirely when `inv_category_id is None`; only a non-null value
+is checked against the tenant.
 
 ---
 

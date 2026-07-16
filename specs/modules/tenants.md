@@ -2,7 +2,7 @@
 
 **Router:** `backend/app/routers/tenants.py`  
 **Schemas:** `backend/app/schemas/tenant.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-16
 
 ---
 
@@ -33,12 +33,27 @@ brand's own `super_admin`/`tenant_admin`, scoped to their own tenant — see BR-
 
 **Auth:** None
 
-**Query params:** `?q=<name or city search>` (optional, case-insensitive substring match)
+**Query params** (all optional):
+
+| Param | Type | Default | Meaning |
+|---|---|---|---|
+| `q` | str | — | Case-insensitive substring match on `name` OR `city` |
+| `segment` | `cafeteria` \| `restaurant` | — | ✅ Added 2026-07-16: server-side segment filter via `app/core/segments.py` `SEGMENT_MAP` (`tenant_type IN (…)`); supersedes the RFC-007 MVP note that segment filtering was client-side only |
+| `skip` | int ≥ 0 | 0 | ✅ Added 2026-07-16: pagination offset |
+| `limit` | int 1–100 | 24 | ✅ Added 2026-07-16: page size (the `/discover` page uses 12) |
 
 **Business logic:**
-- Returns all tenants where `is_active = TRUE`
+- Returns tenants where `is_active = TRUE`, ordered by `name`, sliced by `skip`/`limit`
 - If `q` provided: filter where `name ILIKE %q%` OR `city ILIKE %q%`
-- Response cached in Redis: key `tenants:public:list` (no `q`) or `tenants:public:list:q={q}`, TTL=300s
+- If `segment` provided: filter `tenant_type IN` the types mapping to that segment
+- `total` in the response is the count **after** `q`/`segment` filters but **before** pagination —
+  the number the UI's "Showing X–Y of Z" and page count derive from
+- **Caching (✅ reworked 2026-07-16 for per-page keys):** only requests without `q` are cached.
+  Key: `tenants:public:v{N}:{skip}:{limit}:{segment or 'all'}`, TTL 300s, where `N` is a version
+  counter at `tenants:public:ver`. Invalidation (tenant create / settings update, the same two
+  call sites that previously `DELETE`d the single list key) now `INCR`s the version counter
+  instead — old page keys become unreachable and expire via TTL. This avoids `SCAN`-based
+  wildcard deletes (not supported by the test suite's `FakeAsyncRedis`).
 
 **Response `200`:** `TenantPublicListResponse`
 
@@ -401,6 +416,24 @@ Returns the full tenant record for the calling user's own tenant. Used by the ad
 **Side effects:** Invalidates `tenants:public:{slug}` and `tenants:public:list` in Redis.
 
 **Response `200`:** `TenantResponse`
+
+> **Partial update, genuinely** — the backend applies `data.model_dump(exclude_none=True)`, so a
+> request containing only `{"public_slug": "green-fork"}` never touches `public_menu_enabled` (it's
+> not in the payload, not `None` sent explicitly). This is correct and intentional; it was
+> misdiagnosed once (2026-07-16 QA pass) as "the Save button reverts the enabled flag to false" —
+> it doesn't. The real bug was purely on the frontend (below).
+
+> **UI contract (fixed 2026-07-16):** `[tenant_slug]/(admin)/public-link/page.tsx` must never present
+> the guest ordering link as reachable — showing "Guest menu URL: ...", or offering the table QR PDF
+> download — unless `public_menu_enabled=TRUE`. Before the fix, that page's "is this live" check
+> (`publicUrl`) was derived purely from whether `public_slug` was set, ignoring the enabled flag
+> entirely — an admin could set a slug, leave the toggle off (or have it silently fail its own
+> `!publicSlug.trim()` guard when clicked before a slug existed), and still see the full "live" guest
+> URL and a working QR-sheet download, while every real guest scanning that code hit a `404` from
+> `_resolve_public_tenant()` (`modules/public-surface.md` PUB-1, which requires
+> `public_menu_enabled=TRUE`). The page now derives a separate `isLive = enabled && Boolean(publicUrl)`
+> and gates both the "live" URL messaging and the QR-download section on it, showing an explicit
+> "Not live yet — enable public menu above" state otherwise.
 
 ---
 

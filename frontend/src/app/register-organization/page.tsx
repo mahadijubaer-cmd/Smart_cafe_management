@@ -284,6 +284,7 @@ export default function RegisterOrganizationPage() {
                     <Input
                       id="org-contact"
                       type="email"
+                      autoComplete="off"
                       placeholder="hello@yourorg.com"
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
@@ -348,6 +349,7 @@ export default function RegisterOrganizationPage() {
                     <Input
                       id="admin-email"
                       type="email"
+                      autoComplete="username"
                       placeholder="you@yourorg.com"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
@@ -360,6 +362,7 @@ export default function RegisterOrganizationPage() {
                     <Input
                       id="admin-password"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Min 8 chars, 1 uppercase, 1 digit, 1 special"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}

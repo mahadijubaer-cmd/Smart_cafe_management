@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, LogOut, PlusSquare, ShoppingBag, UtensilsCrossed } from 'lucide-react'
 
+import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
   const params = useParams<{ tenant_slug: string }>()
   const slug = params.tenant_slug
   const token = useStore((state) => state.token)
+  const setUser = useStore((state) => state.setUser)
   const clearAuth = useStore((state) => state.clearAuth)
   const hasHydrated = useStore((state) => state.hasHydrated)
 
@@ -29,6 +31,26 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
     if (!hasHydrated) return
     if (!token) router.replace(`/${slug}/login`)
   }, [hasHydrated, router, slug, token])
+
+  // Keeps `user` (and therefore useWebSocket's user_id) in sync with whoever the token
+  // actually belongs to — without this, a stale `user` from a previous login on this
+  // browser silently persists and every WebSocket connection uses the wrong user_id
+  // (rejected by the backend). Mirrors [tenant_slug]/(customer)/layout.tsx's syncUser.
+  useEffect(() => {
+    if (!token) return
+    let mounted = true
+    apiClient
+      .get('/auth/me')
+      .then((response) => {
+        if (mounted) setUser(response.data)
+      })
+      .catch(() => {
+        if (!mounted) return
+        clearAuth()
+        router.replace(`/${slug}/login`)
+      })
+    return () => { mounted = false }
+  }, [clearAuth, router, setUser, slug, token])
 
   const handleLogout = () => {
     clearAuth()

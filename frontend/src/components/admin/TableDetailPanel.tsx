@@ -35,7 +35,6 @@ export default function TableDetailPanel({
   const [table, setTable] = useState<TableMap | null>(null)
   const [loading, setLoading] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
-  const [assigningCleaner, setAssigningCleaner] = useState(false)
 
   useEffect(() => {
     if (!tableId) {
@@ -63,19 +62,6 @@ export default function TableDetailPanel({
       toast.error('Failed to update status')
     } finally {
       setUpdatingStatus(false)
-    }
-  }
-
-  const handleAssignCleaner = async () => {
-    if (!table) return
-    setAssigningCleaner(true)
-    try {
-      await apiClient.post('/cleaners/logs/', { table_id: table.table_id })
-      toast.success('Cleaner assigned')
-    } catch {
-      toast.error('Failed to assign cleaner')
-    } finally {
-      setAssigningCleaner(false)
     }
   }
 
@@ -151,20 +137,12 @@ export default function TableDetailPanel({
               </div>
 
               {/* Actions */}
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Actions
-                </p>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAssignCleaner}
-                    disabled={assigningCleaner}
-                  >
-                    {assigningCleaner ? 'Assigning...' : 'Assign Cleaner'}
-                  </Button>
-                  {onEditInLayout && (
+              {onEditInLayout && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Actions
+                  </p>
+                  <div className="flex flex-col gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -176,9 +154,9 @@ export default function TableDetailPanel({
                     >
                       Edit in Layout
                     </Button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

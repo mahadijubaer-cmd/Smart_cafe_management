@@ -138,7 +138,7 @@ class OrderService:
             )
 
         loaded = await db.execute(
-            select(Order).options(selectinload(Order.items)).where(Order.order_id == order.order_id)
+            select(Order).options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table)).where(Order.order_id == order.order_id)
         )
         return loaded.scalar_one()
 
@@ -165,7 +165,7 @@ class OrderService:
 
         result = await db.execute(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table))
             .where(Order.order_id == order_uuid, Order.tenant_id == tenant_id)
         )
         order = result.scalar_one_or_none()
@@ -187,7 +187,7 @@ class OrderService:
         # a lazy load outside the async context (MissingGreenlet).
         reloaded = await db.execute(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table))
             .where(Order.order_id == order_uuid, Order.tenant_id == tenant_id)
         )
         return reloaded.scalar_one()
@@ -360,7 +360,7 @@ class OrderService:
         loaded_orders: list[Order] = []
         for order in created_orders:
             result = await db.execute(
-                select(Order).options(selectinload(Order.items)).where(Order.order_id == order.order_id)
+                select(Order).options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table)).where(Order.order_id == order.order_id)
             )
             loaded_orders.append(result.scalar_one())
         return loaded_orders
@@ -479,7 +479,7 @@ class OrderService:
         loaded_orders: list[Order] = []
         for order in created_orders:
             result = await db.execute(
-                select(Order).options(selectinload(Order.items)).where(Order.order_id == order.order_id)
+                select(Order).options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table)).where(Order.order_id == order.order_id)
             )
             loaded_orders.append(result.scalar_one())
         return loaded_orders
@@ -571,7 +571,7 @@ class OrderService:
         await db.commit()
 
         loaded = await db.execute(
-            select(Order).options(selectinload(Order.items)).where(Order.order_id == order.order_id)
+            select(Order).options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table)).where(Order.order_id == order.order_id)
         )
         return loaded.scalar_one()
 
@@ -586,7 +586,7 @@ class OrderService:
 
         result = await db.execute(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table))
             .where(Order.guest_token == token_uuid)
             .order_by(Order.created_at)
         )
@@ -677,7 +677,7 @@ class OrderService:
             raise HTTPException(status_code=404, detail="Order not found")
 
         result = await db.execute(
-            select(Order).options(selectinload(Order.items)).where(
+            select(Order).options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table)).where(
                 Order.order_id == order_uuid, Order.tenant_id == tenant_id
             )
         )
@@ -776,6 +776,6 @@ class OrderService:
         await db.commit()
 
         loaded = await db.execute(
-            select(Order).options(selectinload(Order.items)).where(Order.order_id == order.order_id)
+            select(Order).options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table)).where(Order.order_id == order.order_id)
         )
         return loaded.scalar_one()

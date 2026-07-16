@@ -35,6 +35,7 @@ function formatCurrency(amount: number) {
 
 export default function CartSidebar() {
   const router = useRouter()
+  const tenantSlug = useStore((state) => state.tenantSlug)
   const cart = useStore((state) => state.cart)
   const cartTotal = useStore((state) => state.cartTotal)
   const cartCount = useStore((state) => state.cartCount)
@@ -87,7 +88,7 @@ export default function CartSidebar() {
 
   const handleProceed = () => {
     closeCart()
-    router.push('/order')
+    router.push(tenantSlug ? `/${tenantSlug}/order` : '/order')
   }
 
   return (

@@ -103,6 +103,17 @@
 > multi-tenancy landed, so every submission 422'd and they could never succeed. Both now
 > server-redirect to `/discover` instead of rendering a dead form. See the Routing Tree below and
 > `ADR-011` for full detail.
+>
+> **Update (2026-07-16, QA browser pass):** none of the email/password `<Input>`s across
+> `register-organization`, `[tenant_slug]/(auth)/{login,register,forgot-password}`, and
+> `(student)/profile`'s `ChangePasswordModal` set `autoComplete`. Chromium's own autofill was
+> observed carrying a password typed into one form (e.g. registering a new organisation) forward
+> into the next unrelated form opened in the same browser session (e.g. a customer registration on a
+> different tenant), auto-populating fields the user never touched — flagged in-browser by a real
+> console warning (`Input elements should have autocomplete attributes`). Added the correct semantic
+> value to every such field: `username` for login-identifying emails, `current-password` for a
+> password being verified, `new-password` for one being set/changed, `off` for a non-credential email
+> (an org's contact address).
 
 > **UIX-1 — Navigation foundation & bug fixes (2026-07-12, stage 1 of the platform-wide UI/UX
 > modernization program — see `ADR-010`):** a full navigation survey across every section (customer,
@@ -143,10 +154,18 @@ src/app/
                                         ✅ [Phase 22] Becomes segment landing (Cafeteria /
                                         Restaurant cards → tenant directory filtered by segment) — RFC-007
   discover/page.tsx                  → ✅ [RFC-007] Public tenant directory (search by name/city).
-                                        `?segment=cafeteria|restaurant` filters results client-side
-                                        (getSegment(), no backend filter param) and — added
-                                        2026-07-11 — surfaces a "Register your {cafeteria|restaurant}"
-                                        CTA linking to `/register-organization?segment=…`
+                                        Surfaces a "Register your {cafeteria|restaurant}" CTA
+                                        (added 2026-07-11) linking to `/register-organization?segment=…`.
+                                        ✅ Reworked 2026-07-16: standard server-side pagination —
+                                        `?segment=` is now a real backend filter param (was
+                                        client-side getSegment() per the RFC-007 MVP shortcut) and
+                                        the page passes `skip`/`limit` (page size 12) to
+                                        `GET /tenants/public`, rendering the shared shadcn
+                                        `pagination.tsx` controls ("Showing X–Y of Z" +
+                                        Previous/Next, same pattern as `(platform)/admin/audit-log`).
+                                        Page resets to 1 whenever `q` or `segment` changes; the
+                                        response `total` (post-filter, pre-slice — see
+                                        `modules/tenants.md`) drives the page count.
   register-organization/page.tsx     → ✅ [RFC-006] Public org onboarding wizard
                                         (choose category → org details → admin account → auto-login).
                                         Added 2026-07-11: optional `?segment=cafeteria|restaurant` query
@@ -159,6 +178,20 @@ src/app/
     page.tsx                         → Public menu + cart + guest checkout (name+phone);
                                         `?mode=kiosk` = fullscreen locked kiosk variant
     track/[guestToken]/page.tsx      → Guest order tracking (live via public WS)
+
+  > **✅ Dark mode fixed 2026-07-16 (QA browser pass):** both `m/[public_slug]` pages hardcoded
+  > light-only Tailwind colors (`bg-slate-50` page background, `bg-white` sticky bars,
+  > `text-slate-900` headings, `border-slate-200`, etc.) while simultaneously using the theme-aware
+  > shadcn `Card` for item/ticket cards. With the site-wide dark toggle on, the cards flipped to
+  > `bg-card` (dark) but the item-name headings inside stayed `text-slate-900` — unreadable
+  > dark-on-dark — and the page body stayed light behind dark cards. Confirmed page-specific
+  > (`/discover` and every token-based page render dark mode correctly). Fixed by replacing every
+  > hardcoded slate/white class with the theme tokens the rest of the app uses: `bg-slate-50` →
+  > `bg-muted/30` (page) / `bg-muted` (inset boxes), `bg-white` → `bg-background`/`bg-card`,
+  > `text-slate-900`/`-800` → `text-foreground`, `text-slate-4/5/600` → `text-muted-foreground`,
+  > `border-slate-100/200` → `border-border`. **Rule for these two files:** no raw palette color
+  > classes — theme tokens only, same as every `[tenant_slug]` page. (The tenant `brand_color`
+  > header is inline-styled from API data and is theme-neutral by design — unchanged.)
 
   (auth)/                            → Legacy, non-tenant-scoped duplicate route tree (ADR-009).
                                         ✅ [ADR-011, 2026-07-12] Both pages now `redirect('/discover')`
@@ -256,7 +289,14 @@ src/app/
                                         per-row Impersonate / Export / Delete actions
       subscriptions/page.tsx         → Tier changes per tenant. ✅ [2026-07-12] gained its own
                                         `ProtectedRoute` guard + `PageHeader` (previously unguarded
-                                        except via the layout — see ADR-010)
+                                        except via the layout — see ADR-010). ✅ Fixed 2026-07-16
+                                        (QA browser pass): `GET /tenants` returns
+                                        `{items, total}` (`TenantListResponse`), but this page did
+                                        `setTenants(res.data)` directly — crashed the whole page with
+                                        `TypeError: tenants.map is not a function` on every load.
+                                        `tenants/page.tsx`'s `loadTenants()` already had the correct
+                                        defensive unwrap (`res.data.items ?? res.data`) for the same
+                                        endpoint; subscriptions now uses the same pattern.
       analytics/page.tsx             → ✅ [Phase 24 — RFC-009] now also calls
                                         GET /platform/analytics/overview for the genuine
                                         cross-tenant-type view. ✅ [2026-07-12] same guard fix as
@@ -272,6 +312,19 @@ mounted at the root layout; reads the `impersonation` JWT claim and shows a pers
 {tenant} — Exit impersonation" banner. Impersonation flow: the Tenants page stashes the platform
 admin's real token in `sessionStorage` before swapping the store token and navigating to
 `/${targetSlug}/dashboard`; Exit restores the stashed token/context and returns to `/admin/tenants`.
+
+> **✅ Fixed 2026-07-16 (QA browser pass):** Exit previously called `setToken(backup)` (a Zustand
+> update) and then `router.replace('/admin/tenants')` (a Next.js soft navigation) while the browser
+> was still sitting on the impersonated tenant's `/{slug}/(admin)/...` page. `[tenant_slug]/(admin)/
+> layout.tsx` is still mounted at that instant and its own guard `useEffect` — which reacts to
+> `token` — re-runs with the *old* pathname (`/{slug}/...`) but the *new*, already-swapped-back
+> token (`tenant_slug: scms-platform` or whichever tenant the admin actually belongs to). That's a
+> tenant-slug mismatch by the layout's own rule, so its `/unauthorized` redirect fires and reliably
+> wins the race against the banner's own `/admin/tenants` navigation — every "Exit impersonation"
+> click ended on `/unauthorized` instead. Fixed by using a hard navigation
+> (`window.location.href = '/admin/tenants'`) for the exit instead of `router.replace` — a full
+> document load tears down the impersonated page (and its guard) before the restored-token page ever
+> mounts, so there's no component left to race.
 
 `components/ui/tooltip.tsx`'s `TooltipProvider` is also mounted at the root layout (wrapping
 `ImpersonationBanner`, `children`, and `ToastProvider`) — ✅ [2026-07-08, shadcn/ui adoption] required
@@ -365,6 +418,69 @@ apply, both mandatory for any future auth-redirect logic:
 2. **Any `401`-triggered redirect to login MUST `clearAuth()` first** — otherwise the login page
    still sees a token and the loop re-arms. `(customer)/layout.tsx`'s `syncUser` catch now does this.
 
+**Admin layout never redirected on role/tenant mismatch (fixed 2026-07-16):** the login-page guard
+above (rule 1) only ever covers the moment of arriving at `/login` — it says nothing about a session
+that's already inside the app and navigates (via direct URL, not a rendered link) to a page it
+doesn't belong on. Found via QA browser testing: `[tenant_slug]/(admin)/layout.tsx` checked only
+`if (!token) router.replace(login)` — a `staff` role hitting `/bracu/users` by URL, or a valid
+`bracu`-tenant session hitting `/unimart-hall/dashboard`, rendered the **full admin page shell**
+(sidebar, header, page content) indefinitely, only failing at the individual data-fetch calls (403s
+surfaced as toasts, dashboard widgets showing stale data from whatever tenant was last loaded — never
+real cross-tenant data, since the API itself enforces `ctx.tenant_id` correctly, but still a broken
+and misleading UI state). The layout now runs a second guard alongside the token check:
+1. `claims.tenant_slug !== slug` (JWT's own tenant claim vs. the URL) → `router.replace('/unauthorized')`
+   immediately — this is the layout-level counterpart to the login-page rule above.
+2. The current pathname resolved against `NAV_DEFS` — if it matches an item the current
+   `role`/`tenantType` doesn't pass (see `allowedRoles`/`allowedTypes` below), same redirect.
+Both checks are cheap (JWT claims + a local array lookup, no network round-trip) and run in a
+`useEffect` after `hasHydrated`, so they can't race the store-hydration issue from rule 1 above.
+
+**Admin sidebar showed every admin page to `staff`/`cleaner` (fixed 2026-07-16, same QA pass):**
+`NAV_DEFS` in the same file only gated `Inventory`/`Central Inventory`/`Outlets` by
+`allowedRoles`/`allowedTypes` — every other item (Dashboard, Menu, Users, Public Link, Devices,
+Kiosk Settings, Signage, Analytics, Reports, Memo, Settings) had no role gate at all, so a `staff`
+account confirmed to have full kitchen-queue access via `/orders` also saw — and could navigate
+into — the entire tenant-configuration surface, 403ing only once the page tried to fetch data. Added
+`allowedRoles` to every genuinely admin-only item, mirroring backend `ADMIN_ROLES`
+(`app/core/dependencies.py`: `outlet_admin`, `tenant_admin`, `food_court_admin`, `super_admin`,
+`platform_admin`). `Orders` and `Tables` stay ungated — `GET /orders` explicitly allows
+`WORK_ROLES` (staff + admins, `routers/orders.py`) and `GET /tables/` has no role restriction at all,
+so both are legitimately staff-visible.
+
+**`server` role could never open the page its own login redirect sends it to (fixed 2026-07-16,
+same QA pass):** `getRedirectPath()` on the login page treats `staff` and `server` identically —
+both land on `/{slug}/orders` (`STAFF_ROLES = ['staff', 'server']`). But that page is
+`[tenant_slug]/(admin)/orders/page.tsx`, a re-export stub for the legacy
+`(staff)/orders/page.tsx`, which wraps itself in `<ProtectedRoute allowedRoles={["staff", "admin"]}>`
+— `"server"` was missing from that literal array. The outer `[tenant_slug]/(admin)/layout.tsx` guard
+(above) correctly allows `server` through, since `Orders` is intentionally ungated there, but this
+*inner*, independent `ProtectedRoute` guard still fires a moment later once its own `useEffect`
+runs, bouncing to `/unauthorized` — after the page's data calls had already succeeded, so a `server`
+account would see a flash of the real kitchen queue before losing it. Confirmed live with
+`server1@unimart.hall`: `POST /auth/login` → 200, `GET /orders/` → 200 with real order data, then
+redirected anyway. Fixed by adding `"server"` to the `allowedRoles` array. This wasn't food-court-specific
+— the same dead end hits `server`-role staff on any tenant, since this is the one shared orders page.
+
+**`useStore.user` was never populated for cleaner/staff/admin roles, only customer (fixed
+2026-07-16, same QA pass):** `[tenant_slug]/(customer)/layout.tsx` fetches `/auth/me` and calls
+`setUser()` in a `useEffect` keyed on `token` — this is what keeps the store's `user` object in sync
+with whoever is actually logged in. No equivalent effect existed in
+`[tenant_slug]/(cleaner)/layout.tsx`, `[tenant_slug]/(staff)/layout.tsx`, or
+`[tenant_slug]/(admin)/layout.tsx`. Since the login page's `hydrateAndRedirect()` sets the token but
+never calls `setUser()` either, `user` simply kept whatever value `zustand/persist` had last written
+to `localStorage` — from a **previous** login, possibly a different account entirely, on any browser
+profile that had ever logged into a non-customer role before. Confirmed live across three
+consecutive different logins (cleaner → food-court admin → vendor admin → server) in the same
+browser profile: all four showed the identical stale `user.user_id`, from a login several sessions
+earlier. Concretely this broke `useWebSocket(user?.user_id || '', ...)` — every cleaner/staff/admin
+WebSocket connection sent the wrong `user_id` in the URL, which the backend correctly rejects
+(`routers/websocket.py`: `str(token_data.user_id) != user_id` → close before accept → uvicorn logs it
+as a `403`), so **no non-customer role ever received live order/table/cleaning WebSocket events** —
+staff/admin pages that claim to be "updated through websocket events" silently were not, and would
+only reflect reality after a manual refresh. Anything else reading `user.*` (name, email) on these
+pages would also have silently shown a previous account's data. Fixed by adding the same
+`/auth/me` → `setUser()` sync effect (mirroring `(customer)/layout.tsx`'s) to all three layouts.
+
 ### Global header/footer: `SiteHeader` / `SiteFooter` (added 2026-07-11)
 
 Before this change, `src/app/layout.tsx` had **no shared chrome at all** — no header, no footer,
@@ -401,6 +517,29 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
 These sit **above** each section's existing functional nav (customer cart/wallet bar, admin sidebar,
 staff/cleaner bars) rather than replacing them — this is global platform-identity chrome, not
 in-app navigation, and the existing section-level navs still own their own navigation concerns.
+
+**Footer on fixed-sidebar pages (✅ fixed 2026-07-16 — sidebar must never cover the footer):**
+the shadcn `Sidebar` is `fixed bottom-0 top-[--site-header-height]` (full viewport height below the
+sticky header), so on the three dashboard layouts that use it — `[tenant_slug]/(admin)/layout.tsx`,
+`[tenant_slug]/(food-court)/layout.tsx`, `(platform)/admin/layout.tsx` — the root layout's
+full-width `SiteFooter` used to slide *under* the sidebar at page bottom, its left portion covered.
+The standard dashboard resolution is that **the footer lives inside the content column**, to the
+right of the sidebar, never spanning under it:
+
+1. `useStore` gains a **non-persisted** `globalFooterSuppressed` flag + setter (not listed in
+   `partialize`, so it never touches localStorage).
+2. Each of the three sidebar layouts sets it `true` on mount / `false` on unmount, and renders
+   `<SiteFooter inset />` inside `SidebarInset`, after `<main>`.
+3. `SiteFooter` takes an `inset?: boolean` prop: the root layout's instance (no prop) returns
+   `null` while the flag is set; an `inset` instance always renders. Same component both places —
+   no duplicated markup.
+
+Route-group note: this **cannot** be done by pathname matching — route groups don't appear in URLs
+(`/{slug}/orders` (admin) and `/{slug}/menu` (customer) are structurally identical), so the flag is
+the mechanism, set by the layouts that actually own a sidebar. **Scope note:** modal overlays
+(cart drawer `CartSidebar`, `Sheet` slide-overs) intentionally keep covering the whole page
+including the footer while open — that's standard modal behavior, explicitly out of scope for this
+rule.
 
 **Bug fixes bundled with this change:** `Navbar.tsx` and `(student)/menu/page.tsx` no longer
 hardcode `"BRACU Cafe"` — both now pull the real tenant name via `useTenantInfo`, falling back to
@@ -581,6 +720,25 @@ its now-`PageHeader`-ized title) keep their existing treatment per the exception
    "Back to Menu" button and the post-"Mark Meal Done" redirect called `router.push('/menu')` with no
    tenant slug — same silent-404 defect as #2. Fixed both to `router.push(`/${tenantSlug}/menu`)`
    using the store's `tenantSlug`.
+4. **Same bug class again, found via QA browser testing 2026-07-16, in `components/menu/CartSidebar.tsx`**
+   (a component shared by `(student)/menu/page.tsx`, and therefore both the `(student)/menu` and
+   `[tenant_slug]/(customer)/menu` re-export trees): "Proceed to Order →" called
+   `router.push('/order')` unconditionally — every tenant-scoped checkout landed on the bare legacy
+   `/order` route instead of `/{tenant_slug}/order`. Unlike #2/#3, this one didn't 404 (the legacy
+   `/order` page still renders — see the routing tree's legacy-route notes), so the checkout still
+   *worked*, but the nav footer and every in-page link went un-prefixed for the rest of the session,
+   and — the more serious half of this bug — landing on `/order` mounted `(student)/layout.tsx`
+   **on top of** `[tenant_slug]/(customer)/layout.tsx` still being in the tree, so `<CartSidebar />`
+   rendered **twice** (once from each layout, both `fixed`-positioned at identical coordinates,
+   confirmed via `document.querySelectorAll` returning two "My Cart" headings) — a genuine duplicate
+   in the DOM, not just a routing cosmetic. Fixed two ways together: (a) `CartSidebar` now reads
+   `tenantSlug` from the store and pushes `` `/${tenantSlug}/order` `` when present, falling back to
+   `/order` only for the legacy non-tenant tree; (b) removed `(student)/menu/page.tsx`'s own inline
+   `<CartSidebar />` render entirely — both of its hosting layouts (`(student)/layout.tsx` and
+   `[tenant_slug]/(customer)/layout.tsx`) already render one each, so the page-level one was pure
+   duplication in every context this shared page can mount in, not just the mixed-tree case. See also
+   `modules/orders.md` OR-13 for a same-day, same-QA-pass fix to what this checkout flow's tracking
+   page actually displays.
 
 ### Admin section polish (UIX-5 — implemented 2026-07-12, see ADR-010)
 

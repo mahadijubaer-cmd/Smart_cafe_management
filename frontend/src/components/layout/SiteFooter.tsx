@@ -5,14 +5,19 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
 import { useTenantInfo } from '@/hooks/useTenantInfo'
+import { useStore } from '@/store/useStore'
 
 const PLATFORM_ACCENT = '#1A4D2E'
 
-export default function SiteFooter() {
+export default function SiteFooter({ inset = false }: { inset?: boolean }) {
   const params = useParams<{ tenant_slug?: string }>()
   const slug = params?.tenant_slug ?? ''
   const { tenant } = useTenantInfo(slug)
   const [pillVisible, setPillVisible] = useState(false)
+  // Fixed-sidebar layouts suppress the root layout's full-width instance and render their own
+  // <SiteFooter inset /> inside the content column, so the sidebar never covers the footer
+  // (specs/frontend/overview.md "Footer on fixed-sidebar pages").
+  const globalFooterSuppressed = useStore((state) => state.globalFooterSuppressed)
 
   useEffect(() => {
     if (tenant) {
@@ -24,6 +29,8 @@ export default function SiteFooter() {
   }, [tenant])
 
   const accentColor = tenant?.brand_color ?? PLATFORM_ACCENT
+
+  if (!inset && globalFooterSuppressed) return null
 
   return (
     <footer className="bg-[hsl(var(--header-surface))]">

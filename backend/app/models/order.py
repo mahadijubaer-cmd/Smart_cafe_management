@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint, Computed, DateTime, Enum as SQLEnum,
     ForeignKey, Integer, Numeric, String, Text, text,
 )
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -127,6 +128,15 @@ class Order(Base):
     cleaner_logs = relationship("CleanerLog", back_populates="triggered_order")
     reward_logs = relationship("RewardLog", back_populates="order")
 
+    @property
+    def table_number(self) -> str | None:
+        """Human-readable table label (e.g. "A1") for API responses. Guarded
+        against triggering an implicit lazy load in async context (MissingGreenlet)
+        — returns None when `table` wasn't eager-loaded rather than crashing."""
+        if "table" in sa_inspect(self).unloaded:
+            return None
+        return self.table.table_number if self.table else None
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -155,3 +165,12 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     menu_item = relationship("MenuItem", back_populates="order_items")
+
+    @property
+    def menu_item_safe(self):
+        """Guarded accessor for the related MenuItem, used by API response
+        schemas. Returns None when `menu_item` wasn't eager-loaded rather than
+        triggering an implicit lazy load in async context (MissingGreenlet)."""
+        if "menu_item" in sa_inspect(self).unloaded:
+            return None
+        return self.menu_item

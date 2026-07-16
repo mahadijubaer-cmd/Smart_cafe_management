@@ -26,6 +26,7 @@ export default function SignagePreviewPage() {
   const router = useRouter()
   const slug = params.tenant_slug
   const token = useStore((state) => state.token)
+  const hasHydrated = useStore((state) => state.hasHydrated)
   const { tenant } = useTenantInfo(slug)
 
   const [slides, setSlides] = useState<SignageSlideShape[]>([])
@@ -35,8 +36,9 @@ export default function SignagePreviewPage() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    if (!hasHydrated) return
     if (!token) router.replace(`/${slug}/login`)
-  }, [router, slug, token])
+  }, [hasHydrated, router, slug, token])
 
   useEffect(() => {
     if (!token) return

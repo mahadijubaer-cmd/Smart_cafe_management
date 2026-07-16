@@ -66,6 +66,7 @@ export default function PublicLinkPage() {
 
   const restaurantSegment = Boolean(tenantType && isRestaurantSegment(tenantType))
   const publicUrl = tenant?.public_slug ? `${APP_ORIGIN}/m/${tenant.public_slug}` : null
+  const isLive = enabled && Boolean(publicUrl)
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -143,10 +144,15 @@ export default function PublicLinkPage() {
                 Save
               </Button>
             </div>
-            {publicUrl ? (
+            {isLive ? (
               <FieldDescription>
                 {restaurantSegment ? 'Guest menu URL' : 'Public menu URL'}:{' '}
                 <span className="font-mono text-card-foreground">{publicUrl}</span>
+              </FieldDescription>
+            ) : publicUrl ? (
+              <FieldDescription className="text-amber-600">
+                Not live yet — enable public menu above to make{' '}
+                <span className="font-mono">{publicUrl}</span> reachable.
               </FieldDescription>
             ) : (
               <FieldDescription>Set a slug to get your public menu link.</FieldDescription>
@@ -155,7 +161,7 @@ export default function PublicLinkPage() {
         </CardContent>
       </Card>
 
-      {publicUrl && restaurantSegment ? (
+      {isLive && restaurantSegment ? (
         <Card>
           <CardContent className="flex flex-col gap-1 p-5">
             <p className="font-semibold text-card-foreground">Table QR codes</p>

@@ -3,6 +3,8 @@ from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
 
+from app.schemas.menu import MenuItemResponse
+
 
 class OrderItemCreate(BaseModel):
     item_id: UUID
@@ -20,17 +22,21 @@ class OrderCreate(BaseModel):
 class OrderItemResponse(BaseModel):
     order_item_id: UUID
     item_id: UUID
+    # Read from the guarded `menu_item_safe` ORM property (never triggers a lazy
+    # load) rather than the `menu_item` relationship name directly.
+    menu_item: MenuItemResponse | None = Field(default=None, validation_alias="menu_item_safe")
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
-    
-    model_config = ConfigDict(from_attributes=True)
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class OrderResponse(BaseModel):
     order_id: UUID
     user_id: UUID | None = None
     table_id: int | None = None
+    table_number: str | None = None
     time_slot: datetime
     status: str
     order_source: str = "customer_app"

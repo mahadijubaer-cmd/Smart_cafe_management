@@ -54,7 +54,7 @@ export default function SubscriptionsPage() {
     const load = async () => {
       try {
         const res = await apiClient.get('/tenants?skip=0&limit=100')
-        setTenants(res.data)
+        setTenants(res.data.items ?? res.data)
       } finally {
         setLoading(false)
       }

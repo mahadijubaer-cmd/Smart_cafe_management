@@ -291,6 +291,7 @@ export interface GuestOrder {
   status: OrderStatus
   order_source: OrderSource
   table_id?: number | null
+  table_number?: string | null
   total_amount: number
   payment_status: PaymentStatus
   payment_method?: PaymentMethod | null

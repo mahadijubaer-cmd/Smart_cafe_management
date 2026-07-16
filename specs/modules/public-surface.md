@@ -116,6 +116,7 @@ vendor**, all created in a single DB transaction and sharing **one** `guest_toke
       "status": "pending_confirmation",
       "order_source": "guest_qr",
       "table_id": 12,
+      "table_number": "A1",
       "total_amount": "400.00",
       "payment_status": "pending",
       "payment_method": null,
@@ -123,13 +124,17 @@ vendor**, all created in a single DB transaction and sharing **one** `guest_toke
       "guest_phone": "...",
       "vendor_id": "...",
       "vendor_name": "Campus Burger",
-      "items": [ ... ]
+      "items": [ { "item_id": "...", "menu_item": { "name": "Classic Burger", "...": "MenuItemResponse" }, "quantity": 1, "unit_price": "400.00", "subtotal": "400.00" } ]
     }
   ]
 }
 ```
 
 `vendor_id`/`vendor_name` are `null` for single-vendor restaurants (only one order in `orders`).
+`table_number` and `items[].menu_item` follow the same contract as `modules/orders.md` OR-13 — the
+guest tracking page (`m/[public_slug]/track/[guestToken]/page.tsx`) and kiosk order-status screen
+must render these, never `table_id`/`item_id` directly (fixed 2026-07-16 — the guest tracking page
+was previously the one surface that had no fallback at all, rendering `item_id.slice(0, 8)`).
 
 **Errors:** `404` unknown slug/disabled, or (food court) an item not owned by one of this food
 court's active vendors | `400` tenant is cafeteria segment (BR-SEG-3) or unavailable item | `429`

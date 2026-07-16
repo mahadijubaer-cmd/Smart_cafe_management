@@ -24,12 +24,14 @@ import {
   Warehouse,
 } from 'lucide-react'
 
-import { getRoleFromToken } from '@/lib/auth'
+import { getClaimsFromToken, getRoleFromToken } from '@/lib/auth'
 import { useTenantInfo } from '@/hooks/useTenantInfo'
+import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
 import type { TenantType, UserRole } from '@/types'
 import { Button } from '@/components/ui/button'
 import CommandPalette from '@/components/layout/CommandPalette'
+import SiteFooter from '@/components/layout/SiteFooter'
 import {
   Sidebar,
   SidebarContent,
@@ -65,11 +67,16 @@ const PLATFORM_NAV_DEFS: NavItem[] = [
   { label: 'Audit Log', path: '/admin/audit-log', icon: <History />, absolute: true, allowedRoles: ['platform_admin'] },
 ]
 
+// Mirrors backend ADMIN_ROLES (app/core/dependencies.py) — the floor-staff roles
+// (staff, server, cleaner) must never see tenant-configuration nav items, only the
+// operational ones (Orders, Tables) they're actually allowed to use.
+const _ADMIN_ROLES: UserRole[] = ['platform_admin', 'super_admin', 'outlet_admin', 'tenant_admin', 'food_court_admin']
+
 const NAV_DEFS: NavItem[] = [
-  { label: 'Dashboard', path: 'dashboard', icon: <LayoutDashboard /> },
+  { label: 'Dashboard', path: 'dashboard', icon: <LayoutDashboard />, allowedRoles: _ADMIN_ROLES },
   { label: 'Orders', path: 'orders', icon: <ShoppingBag /> },
   { label: 'Tables', path: 'tables', icon: <Table2 /> },
-  { label: 'Menu', path: 'menu-management', icon: <UtensilsCrossed /> },
+  { label: 'Menu', path: 'menu-management', icon: <UtensilsCrossed />, allowedRoles: _ADMIN_ROLES },
   {
     label: 'Inventory',
     path: 'inventory',
@@ -90,23 +97,24 @@ const NAV_DEFS: NavItem[] = [
     icon: <Store />,
     allowedTypes: ['franchise_brand'],
   },
-  { label: 'Users', path: 'users', icon: <Users /> },
+  { label: 'Users', path: 'users', icon: <Users />, allowedRoles: _ADMIN_ROLES },
   {
     label: 'Public Link',
     path: 'public-link',
     icon: <QrCode />,
     // All tenant types may publish a public menu — restaurant segment gets guest
     // ordering, cafeteria segment gets read-only browsing only (RFC-007 Phase D).
+    allowedRoles: _ADMIN_ROLES,
   },
   // ❌→✅ Phase 25.2 (RFC-010): kiosk/signage terminal registry + pairing
-  { label: 'Devices', path: 'devices', icon: <MonitorSmartphone /> },
+  { label: 'Devices', path: 'devices', icon: <MonitorSmartphone />, allowedRoles: _ADMIN_ROLES },
   // ❌→✅ Phase 25.5 (RFC-010): kiosk customization + signage playlist editors w/ live preview
-  { label: 'Kiosk Settings', path: 'kiosk-settings', icon: <MonitorSmartphone /> },
-  { label: 'Signage', path: 'signage', icon: <MonitorPlay /> },
-  { label: 'Analytics', path: 'analytics', icon: <BarChart3 /> },
-  { label: 'Reports', path: 'reports', icon: <Download /> },
-  { label: 'Memo', path: 'memo', icon: <FileText /> },
-  { label: 'Settings', path: 'settings', icon: <Settings /> },
+  { label: 'Kiosk Settings', path: 'kiosk-settings', icon: <MonitorSmartphone />, allowedRoles: _ADMIN_ROLES },
+  { label: 'Signage', path: 'signage', icon: <MonitorPlay />, allowedRoles: _ADMIN_ROLES },
+  { label: 'Analytics', path: 'analytics', icon: <BarChart3 />, allowedRoles: _ADMIN_ROLES },
+  { label: 'Reports', path: 'reports', icon: <Download />, allowedRoles: _ADMIN_ROLES },
+  { label: 'Memo', path: 'memo', icon: <FileText />, allowedRoles: _ADMIN_ROLES },
+  { label: 'Settings', path: 'settings', icon: <Settings />, allowedRoles: _ADMIN_ROLES },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -117,21 +125,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const token = useStore((state) => state.token)
   const tenantType = useStore((state) => state.tenantType)
+  const setUser = useStore((state) => state.setUser)
   const clearAuth = useStore((state) => state.clearAuth)
   const hasHydrated = useStore((state) => state.hasHydrated)
+  const setGlobalFooterSuppressed = useStore((state) => state.setGlobalFooterSuppressed)
   const { tenant } = useTenantInfo(slug)
 
-  const role = getRoleFromToken(token)
-
+  // Fixed sidebar must never cover the global footer — hide the root layout's full-width
+  // instance and render <SiteFooter inset /> in the content column below instead.
   useEffect(() => {
-    if (!hasHydrated) return
-    if (!token) router.replace(`/${slug}/login`)
-  }, [hasHydrated, router, slug, token])
+    setGlobalFooterSuppressed(true)
+    return () => setGlobalFooterSuppressed(false)
+  }, [setGlobalFooterSuppressed])
 
-  const handleLogout = () => {
-    clearAuth()
-    router.push(`/${slug}/login`)
-  }
+  const role = getRoleFromToken(token)
+  const tokenTenantSlug = getClaimsFromToken(token)?.tenant_slug ?? null
 
   const visibleNav = NAV_DEFS.filter(
     (item) =>
@@ -141,6 +149,54 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const visiblePlatformNav = PLATFORM_NAV_DEFS.filter(
     (item) => !item.allowedRoles || (role && item.allowedRoles.includes(role))
   )
+
+  useEffect(() => {
+    if (!hasHydrated) return
+    if (!token) {
+      router.replace(`/${slug}/login`)
+      return
+    }
+    // The JWT's own tenant_slug claim is the source of truth for tenant scope —
+    // a valid session for one tenant must never render another tenant's admin
+    // shell (previously rendered indefinitely with stale/mislabeled data instead
+    // of redirecting).
+    if (tokenTenantSlug && tokenTenantSlug !== slug) {
+      router.replace('/unauthorized')
+      return
+    }
+    // A role/tenant-type combination that can't see ANY currently-active nav
+    // item for this exact path (e.g. staff hitting /users directly by URL) means
+    // the page shell has no business rendering here at all.
+    const matchedItem = NAV_DEFS.find((item) => !item.absolute && pathname.startsWith(`/${slug}/${item.path}`))
+    if (matchedItem && !visibleNav.includes(matchedItem)) {
+      router.replace('/unauthorized')
+    }
+  }, [hasHydrated, router, slug, token, tokenTenantSlug, pathname, visibleNav])
+
+  // Keeps `user` (and therefore useWebSocket's user_id) in sync with whoever the token
+  // actually belongs to — without this, a stale `user` from a previous login on this
+  // browser silently persists and every WebSocket connection uses the wrong user_id
+  // (rejected by the backend). Mirrors [tenant_slug]/(customer)/layout.tsx's syncUser.
+  useEffect(() => {
+    if (!token) return
+    let mounted = true
+    apiClient
+      .get('/auth/me')
+      .then((response) => {
+        if (mounted) setUser(response.data)
+      })
+      .catch(() => {
+        if (!mounted) return
+        clearAuth()
+        router.replace(`/${slug}/login`)
+      })
+    return () => { mounted = false }
+  }, [clearAuth, router, setUser, slug, token])
+
+  const handleLogout = () => {
+    clearAuth()
+    router.push(`/${slug}/login`)
+  }
 
   const isActive = (item: NavItem) => {
     const href = item.absolute ? item.path : `/${slug}/${item.path}`
@@ -231,6 +287,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="text-sm font-bold text-primary">{tenant?.name ?? slug} Admin</span>
         </header>
         <main className="flex-1 overflow-y-auto bg-muted/30">{children}</main>
+        <SiteFooter inset />
       </SidebarInset>
 
       <CommandPalette items={paletteItems} quickActions={paletteQuickActions} />

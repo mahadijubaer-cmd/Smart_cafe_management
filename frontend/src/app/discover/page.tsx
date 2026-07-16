@@ -1,46 +1,65 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Plus, Search } from 'lucide-react'
 import apiClient from '@/lib/api'
 import TenantCard from '@/components/auth/TenantCard'
-import { getSegment, type Segment } from '@/lib/segments'
+import { type Segment } from '@/lib/segments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import type { TenantPublicListResponse, TenantPublicResponse } from '@/types'
+
+const PAGE_SIZE = 12
 
 export default function DiscoverPage() {
   const searchParams = useSearchParams()
   const segmentFilter = searchParams.get('segment') as Segment | null
 
   const [tenants, setTenants] = useState<TenantPublicResponse[]>([])
+  const [total, setTotal] = useState(0)
+  const [skip, setSkip] = useState(0)
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  // Any filter change restarts from page 1 — a stale offset could point past the new result set.
+  useEffect(() => {
+    setSkip(0)
+  }, [query, segmentFilter])
+
+  // Server-side pagination + segment filter (modules/tenants.md, reworked 2026-07-16) —
+  // replaces the RFC-007 MVP shortcut that fetched everything and filtered segment client-side.
   useEffect(() => {
     setLoading(true)
     setError(false)
-    const params = query ? { q: query } : undefined
     apiClient
-      .get<TenantPublicListResponse>('/tenants/public', { params })
-      .then((res) => setTenants(res.data.items))
+      .get<TenantPublicListResponse>('/tenants/public', {
+        params: {
+          skip,
+          limit: PAGE_SIZE,
+          ...(query ? { q: query } : {}),
+          ...(segmentFilter ? { segment: segmentFilter } : {}),
+        },
+      })
+      .then((res) => {
+        setTenants(res.data.items)
+        setTotal(res.data.total)
+      })
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [query])
+  }, [query, segmentFilter, skip])
 
-  // RFC-007: segment is derived client-side too — no backend filter param needed for the MVP.
-  const visibleTenants = useMemo(
-    () =>
-      segmentFilter
-        ? tenants.filter((t) => getSegment(t.tenant_type) === segmentFilter)
-        : tenants,
-    [tenants, segmentFilter]
-  )
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -103,7 +122,7 @@ export default function DiscoverPage() {
           </p>
         )}
 
-        {!loading && !error && visibleTenants.length === 0 && (
+        {!loading && !error && tenants.length === 0 && (
           <Empty>
             <EmptyMedia variant="icon">
               <Search />
@@ -115,18 +134,52 @@ export default function DiscoverPage() {
           </Empty>
         )}
 
-        {!loading && !error && visibleTenants.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleTenants.map((t, i) => (
-              <div
-                key={t.slug}
-                className="motion-safe:animate-fade-up"
-                style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
-              >
-                <TenantCard tenant={t} />
-              </div>
-            ))}
-          </div>
+        {!loading && !error && tenants.length > 0 && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {tenants.map((t, i) => (
+                <div
+                  key={t.slug}
+                  className="motion-safe:animate-fade-up"
+                  style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+                >
+                  <TenantCard tenant={t} />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Showing {skip + 1}–{skip + tenants.length} of {total}
+              </p>
+              <Pagination className="mx-0 w-auto">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      aria-disabled={skip === 0}
+                      className={skip === 0 ? 'pointer-events-none opacity-50' : undefined}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setSkip(Math.max(0, skip - PAGE_SIZE))
+                      }}
+                    />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      aria-disabled={skip + PAGE_SIZE >= total}
+                      className={skip + PAGE_SIZE >= total ? 'pointer-events-none opacity-50' : undefined}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setSkip(skip + PAGE_SIZE)
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </>
         )}
       </div>
     </main>

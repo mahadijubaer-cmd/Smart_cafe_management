@@ -3,7 +3,7 @@
 **Router:** `backend/app/routers/orders.py`  
 **Schemas:** `backend/app/schemas/order.py`  
 **Service:** `backend/app/services/order_service.py`  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-16
 
 ---
 
@@ -83,6 +83,7 @@ Handles order placement, status progression, cancellation, and completion signal
     {
       "order_item_id": "...",
       "item_id": "...",
+      "menu_item": { "name": "Chicken Biryani", "price": "120.00", "...": "rest of MenuItemResponse" },
       "quantity": 2,
       "unit_price": "120.00",
       "subtotal": "240.00"
@@ -90,6 +91,9 @@ Handles order placement, status progression, cancellation, and completion signal
   ]
 }
 ```
+
+> `table_number` (see OR-13) and `items[].menu_item` are also present on this response — omitted
+> above for brevity, shown in full in the schema block below.
 
 **Errors:** `400` unavailable item | `400` insufficient stock (strict mode) | `400` insufficient wallet balance | `409` table locked
 
@@ -222,6 +226,7 @@ class OrderUpdateStatus(BaseModel):
 class OrderItemResponse(BaseModel):
     order_item_id: UUID
     item_id: UUID
+    menu_item: MenuItemResponse | None = None   # see OR-13 — None only if not eager-loaded
     quantity: int
     unit_price: Decimal
     subtotal: Decimal        # GENERATED column (quantity * unit_price)
@@ -233,7 +238,8 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     order_id: UUID
     user_id: UUID
-    table_id: int | None     # SERIAL integer, not UUID
+    table_id: int | None      # SERIAL integer, not UUID — internal id, not guest/staff-facing
+    table_number: str | None  # human label ("A1", "T-04") — see OR-13. This is what UIs must display.
     time_slot: datetime
     status: str
     total_amount: Decimal
@@ -317,6 +323,53 @@ creation paths leave it `NULL`. `pickup_number` is included in every `ORDER_*` W
 board (`modules/kiosk.md` KSK-4, `modules/signage.md` SGN-7). Unlike anonymous-phone guest orders,
 device orders have `table_id=NULL`, no `guest_phone`, and bypass the restaurant-segment guard —
 KSK-2/KSK-3 in `modules/kiosk.md` own those exceptions.
+
+### OR-13: Order Responses Must Carry Display Names, Not Raw IDs ✅ Fixed 2026-07-16
+Found via QA browser testing across the guest tracking page, the authenticated customer tracking
+page, and the staff kitchen queue: `OrderItemResponse` had no item name and `OrderResponse` had no
+table label, so every one of those surfaces rendered `items[].item_id` (a raw UUID, sometimes
+truncated to 8 chars) and `table_id` (an internal cross-tenant-wide serial integer, e.g. "Table
+#33") directly to guests and staff — meaningless to a human, and in the table case actively
+misleading (it isn't even scoped to "this tenant's 33rd table").
+
+**Contract (binding for every response-building code path):**
+- `OrderItemResponse.menu_item` — nests the item's `MenuItemResponse` (reuses the existing schema,
+  no cost/inventory fields leak per PUB-7's principle). Frontends must render `menu_item?.name`,
+  never `item_id`.
+- `OrderResponse.table_number` — the human table label from `tables_map.table_number` (e.g. `"A1"`).
+  Frontends must render this, never raw `table_id`.
+- Both are populated via a **guarded ORM property** (`Order.table_number`, `OrderItem.menu_item_safe`
+  in `backend/app/models/order.py`) that checks `sqlalchemy.inspect(self).unloaded` before touching
+  the relationship — returns `None` instead of triggering an implicit lazy load. This exists because
+  an unguarded lazy load in this codebase's async SQLAlchemy setup raises `MissingGreenlet` (the same
+  class of bug fixed once already in `update_status()` — see `project_scms_local_run` history); a
+  silent `None` is the correct failure mode for a display-only field, a 500 is not.
+- **Any new or modified query that returns an `Order`/`OrderItem` for API response MUST eager-load
+  `selectinload(Order.items).selectinload(OrderItem.menu_item)` and `selectinload(Order.table)`.**
+  Omitting this doesn't crash — it silently serves `menu_item: null` / `table_number: null` — so this
+  is easy to miss in review and must be checked explicitly, not assumed from the absence of an error.
+  All current call sites (`order_service.py`, `routers/orders.py`, `routers/public.py` via
+  `order_service`, `routers/device_api.py` kiosk endpoints) were audited and fixed together on
+  2026-07-16.
+- Applies identically to the guest schemas (`GuestOrderItemResponse.menu_item`,
+  `GuestOrderResponse.table_number` in `modules/public-surface.md`) — same underlying `Order`/
+  `OrderItem` ORM objects, same guarded properties.
+
+### OR-14: A Food-Court Vendor Cannot Self-Deliver ✅ Fixed 2026-07-16
+Found via QA browser testing of the food-court fulfillment flow: `PATCH /orders/{id}/status` is
+guarded only by `WORK_ROLES` (`FLOOR_STAFF_ROLES + ADMIN_ROLES`), with no special case for a
+`food_court_vendor` tenant. That let a vendor's own `tenant_admin` (e.g. Burger Joint's admin)
+advance an order straight to `delivered` from the ordinary kitchen-queue UI — completely bypassing
+the shared-staff delivery model `modules/food-court.md` FC-4/FC-5 describes, where only the food
+court **parent's** `server` role (a different tenant context entirely) is meant to physically hand
+food over at the shared pickup point, via `PATCH /food-court/orders/{id}/deliver`.
+
+**Fix:** `update_order_status` now rejects `status="delivered"` outright when
+`ctx.tenant_type == TenantType.food_court_vendor`, with
+`400 "Vendors cannot self-deliver — use the food court's shared deliver queue"`. A vendor order can
+still reach every other status (`confirmed`/`preparing`/`ready`) through this same endpoint; only
+the final `delivered` hop is reserved for the parent's `/food-court/orders/{id}/deliver` (FC-5,
+`server`-role-only, already enforced there).
 
 ---
 

@@ -35,7 +35,11 @@ export default function ImpersonationBanner() {
         brand_color: backupClaims.brand_color,
       })
     }
-    router.replace('/admin/tenants')
+    // Hard navigation, not router.replace: the browser is still sitting on the impersonated
+    // tenant's [tenant_slug]/(admin)/layout.tsx, whose own guard reacts to the token swap above
+    // and races router.replace's soft navigation — a client-side transition can lose that race
+    // and land on /unauthorized. A full document load tears the old page down first.
+    window.location.href = '/admin/tenants'
   }
 
   return (

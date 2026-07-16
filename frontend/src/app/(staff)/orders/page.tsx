@@ -272,7 +272,7 @@ export default function StaffOrdersPage() {
   )
 
   return (
-    <ProtectedRoute allowedRoles={["staff", "admin"]}>
+    <ProtectedRoute allowedRoles={["staff", "server", "admin"]}>
       <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
           <PageHeader

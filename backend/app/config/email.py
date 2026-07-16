@@ -5,9 +5,17 @@ See ADR-007 for the provider-selection rationale and ADR-005 for the visibility 
 nor SMTP is configured, send_otp_email()/send_invite_email() log the code/link instead of
 throwing, so the rest of the OTP/invite flow still works end-to-end in local dev.
 """
+import base64
 import logging
+from pathlib import Path
 
-from brevo import AsyncBrevo, Brevo, SendTransacEmailRequestSender, SendTransacEmailRequestToItem
+from brevo import (
+    AsyncBrevo,
+    Brevo,
+    SendTransacEmailRequestAttachmentItem,
+    SendTransacEmailRequestSender,
+    SendTransacEmailRequestToItem,
+)
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 
 from app.core.config import settings
@@ -196,3 +204,54 @@ async def send_invite_email(to_email: str, invite_link: str, role: str, org_name
         logger.info("Invite email sent to %s via SMTP (role=%s)", to_email, role)
     except Exception:
         logger.exception("Failed to send invite email to %s (role=%s)", to_email, role)
+
+
+async def send_qr_attachment_email(to_email: str, order_id, file_path: Path) -> bool:
+    """Email a generated order QR code as an attachment. Returns True only on an actual send.
+
+    Uses the same Brevo-preferred provider selection as send_otp_email/send_invite_email above —
+    unlike those, delivery here isn't fire-and-forget from the caller's point of view: a True
+    return lets qr_service mark qr_codes.emailed, so don't return True for the "no provider
+    configured" dev-log path.
+    """
+    provider = settings.mail_provider
+    if provider == "none":
+        logger.warning("[DEV — no mail provider] Would email QR for order %s to %s", order_id, to_email)
+        return False
+
+    subject = f"Your order QR code — #{str(order_id)[:8].upper()}"
+    body = (
+        f"Your order has been confirmed.\n\n"
+        f"Please present the attached QR code at the counter to collect your order.\n\n"
+        f"Order ID: {order_id}\n\n"
+        f"— {settings.MAIL_FROM_NAME}"
+    )
+
+    try:
+        if provider == "brevo":
+            content_b64 = base64.b64encode(file_path.read_bytes()).decode()
+            client = AsyncBrevo(api_key=settings.BREVO_API_KEY)
+            await client.transactional_emails.send_transac_email(
+                sender=_brevo_sender(),
+                to=[SendTransacEmailRequestToItem(email=to_email)],
+                subject=subject,
+                html_content=f"<pre style='font:inherit'>{body}</pre>",
+                attachment=[SendTransacEmailRequestAttachmentItem(content=content_b64, name=file_path.name)],
+            )
+            logger.info("QR email sent to %s via Brevo for order %s", to_email, order_id)
+            return True
+
+        message = MessageSchema(
+            subject=subject,
+            recipients=[to_email],
+            body=body,
+            subtype=MessageType.plain,
+            attachments=[str(file_path)],
+        )
+        fm = FastMail(_get_mail_config())
+        await fm.send_message(message)
+        logger.info("QR email sent to %s via SMTP for order %s", to_email, order_id)
+        return True
+    except Exception:
+        logger.exception("Failed to email QR for order %s to %s", order_id, to_email)
+        return False

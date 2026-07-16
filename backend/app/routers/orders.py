@@ -14,7 +14,8 @@ from app.core.dependencies import (
     get_tenant_context,
     require_role,
 )
-from app.models.models import Order, TablesMap, User, UserRole
+from app.models.models import Order, OrderItem, TablesMap, User, UserRole
+from app.models.tenant import TenantType
 from app.schemas.order import OrderCreate, OrderResponse, OrderUpdateStatus, StaffPosOrderCreate
 from app.services.order_service import OrderService
 from app.services.qr_service import email_qr_attachment, generate_and_save_order_qr
@@ -109,7 +110,7 @@ async def get_orders(
 ):
     query = (
         select(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table))
         .where(Order.tenant_id == ctx.tenant_id)
     )
     if current_user.role in CUSTOMER_ROLES:
@@ -129,7 +130,7 @@ async def get_order(
 ):
     result = await db.execute(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items).selectinload(OrderItem.menu_item), selectinload(Order.table))
         .where(Order.order_id == _parse_order_id(order_id), Order.tenant_id == ctx.tenant_id)
     )
     order = result.scalar_one_or_none()
@@ -149,6 +150,14 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(*WORK_ROLES)),
 ):
+    if status_data.status == "delivered" and ctx.tenant_type == TenantType.food_court_vendor:
+        # OR-14: only the food court parent's `server` role, via the shared deliver queue
+        # (PATCH /food-court/orders/{id}/deliver), may mark a vendor order delivered.
+        raise HTTPException(
+            status_code=400,
+            detail="Vendors cannot self-deliver — use the food court's shared deliver queue",
+        )
+
     order = await order_service.update_status(db, order_id, status_data.status, ctx.tenant_id)
 
     status_val = getattr(order.status, "value", order.status)
@@ -214,7 +223,7 @@ async def _qr_generate_and_email(
                 total=total,
             )
             if user_email:
-                await email_qr_attachment(user_email, order_id, file_path)
+                await email_qr_attachment(db, user_email, order_id, file_path)
         except Exception:
             import logging
             logging.getLogger(__name__).exception("QR background task failed for order %s", order_id)

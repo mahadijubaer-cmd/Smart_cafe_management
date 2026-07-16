@@ -5,7 +5,7 @@
 **Services:** `backend/app/services/qr_service.py`, `backend/app/services/pdf_service.py`  
 **PDF library:** reportlab 4.1.0  
 **QR library:** qrcode[pil]  
-**Last verified:** 2026-06-30
+**Last verified:** 2026-07-16
 
 ---
 
@@ -85,6 +85,36 @@ in the caller's tenant (or a selected outlet), each with its outlet-scoped QR co
 **Query params:** `?outlet_id=` (optional, franchise tenants only)
 
 **Response:** `application/pdf` binary stream.
+
+---
+
+## Order-Confirmation QR Email (background task)
+
+Triggered from `PATCH /orders/{id}/status` (`modules/orders.md`) when `status="confirmed"` and
+`order.user_id is not None` (skipped for guest orders — no account/email to send to). Runs as a
+FastAPI `BackgroundTask`, `_qr_generate_and_email` in `backend/app/routers/orders.py`:
+
+1. `qr_service.generate_and_save_order_qr()` — renders the order QR PNG to
+   `{MEDIA_ROOT}/qr_codes/{order_id}.png`, upserts a `qr_codes` row (`tenant_id`, `order_id`,
+   `file_path`, `generated_at`). Always runs, independent of whether email delivery succeeds.
+2. `qr_service.email_qr_attachment()` — emails the PNG as an attachment via
+   `app/config/email.py::send_qr_attachment_email()`, the same Brevo-preferred provider selection
+   `send_otp_email`/`send_invite_email` use (ADR-007: Brevo transactional API when
+   `BREVO_API_KEY` is set, SMTP/`fastapi-mail` fallback otherwise, dev-log-only if neither is
+   configured). On a real send, marks `qr_codes.emailed = true` / `emailed_at = now()`.
+
+> **✅ Fixed 2026-07-16 (QA browser pass):** `email_qr_attachment` previously ignored
+> `settings.mail_provider` entirely and always went through `fastapi-mail`/SMTP using
+> `settings.MAIL_USERNAME`/`MAIL_PASSWORD` directly — in this and most environments those are the
+> unfilled `.env.example` placeholders (`your_email@gmail.com` / `your_app_password`), since Brevo
+> is the actually-configured provider everywhere else in the app. The QR itself always generated and
+> saved correctly (step 1 never depended on mail config), but the email silently never sent. Fixed
+> by routing through the shared `send_qr_attachment_email()` (Brevo attachment support: the
+> `brevo` SDK's `SendTransacEmailRequestAttachmentItem` takes base64 `content` + `name`, not a file
+> path). Separately, `qr_codes.emailed`/`emailed_at` were columns that existed in the schema but no
+> code path ever wrote to — always `false` regardless of actual delivery outcome. Now set on a
+> genuine successful send (Brevo or SMTP); still `false` for the `mail_provider == "none"` dev
+> fallback, since nothing was actually sent.
 
 ---
 

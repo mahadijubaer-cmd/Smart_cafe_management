@@ -52,11 +52,14 @@ class GuestOrderCreate(BaseModel):
 
 class GuestOrderItemResponse(BaseModel):
     item_id: UUID
+    # Read from the guarded `menu_item_safe` ORM property (never triggers a lazy
+    # load) rather than the `menu_item` relationship name directly.
+    menu_item: MenuItemResponse | None = Field(default=None, validation_alias="menu_item_safe")
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class GuestOrderResponse(BaseModel):
@@ -65,6 +68,7 @@ class GuestOrderResponse(BaseModel):
     status: str
     order_source: str
     table_id: int | None = None
+    table_number: str | None = None
     total_amount: Decimal
     payment_status: str = "pending"
     payment_method: str | None = None

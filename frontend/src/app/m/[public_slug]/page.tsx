@@ -214,13 +214,13 @@ export default function PublicMenuPage() {
     const allPaid = placedGroup.orders.every((o) => o.payment_status === 'paid')
     const canPayOnline = info?.guest_checkout_mode === 'online' && !allPaid
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-10 text-center">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-6 py-10 text-center">
         <Card className="w-full max-w-sm rounded-2xl p-6 shadow-sm">
           <p className="text-4xl">✅</p>
-          <h1 className="mt-3 text-xl font-black text-slate-900">
+          <h1 className="mt-3 text-xl font-black text-foreground">
             {placedGroup.orders.length > 1 ? 'Orders placed!' : 'Order placed!'}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {allPaid
               ? 'Paid — waiting for staff to confirm.'
               : canPayOnline
@@ -231,9 +231,9 @@ export default function PublicMenuPage() {
           {placedGroup.orders.length > 1 ? (
             <div className="flex flex-col mt-4 text-left gap-2">
               {placedGroup.orders.map((o) => (
-                <div key={o.order_id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                  <span className="font-semibold text-slate-800">{o.vendor_name ?? 'Order'}</span>
-                  <span className="text-slate-500">{formatCurrency(Number(o.total_amount))}</span>
+                <div key={o.order_id} className="flex items-center justify-between rounded-xl bg-muted px-3 py-2 text-sm">
+                  <span className="font-semibold text-foreground">{o.vendor_name ?? 'Order'}</span>
+                  <span className="text-muted-foreground">{formatCurrency(Number(o.total_amount))}</span>
                 </div>
               ))}
             </div>
@@ -251,15 +251,15 @@ export default function PublicMenuPage() {
             </Button>
           ) : null}
 
-          <div className="mx-auto mt-5 flex h-40 w-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
+          <div className="mx-auto mt-5 flex h-40 w-40 items-center justify-center rounded-2xl border border-border bg-muted">
             {qrData ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`data:image/png;base64,${qrData}`} alt="Tracking QR code" className="h-36 w-36 object-contain" />
             ) : (
-              <span className="text-xs text-slate-400">Loading QR…</span>
+              <span className="text-xs text-muted-foreground">Loading QR…</span>
             )}
           </div>
-          <p className="mt-2 text-xs text-slate-400">Scan or save this link to track your order</p>
+          <p className="mt-2 text-xs text-muted-foreground">Scan or save this link to track your order</p>
 
           <Button
             type="button"
@@ -286,26 +286,26 @@ export default function PublicMenuPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">Loading menu…</p>
+      <main className="flex min-h-screen items-center justify-center bg-muted/30">
+        <p className="text-sm text-muted-foreground">Loading menu…</p>
       </main>
     )
   }
 
   if (error || !info || !menu) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-center">
+      <main className="flex min-h-screen items-center justify-center bg-muted/30 px-6 text-center">
         <div>
           <p className="text-4xl">🍽️</p>
-          <h1 className="mt-4 text-xl font-bold text-slate-900">Menu not available</h1>
-          <p className="mt-2 text-sm text-slate-500">This link is invalid or the venue hasn&apos;t enabled guest ordering.</p>
+          <h1 className="mt-4 text-xl font-bold text-foreground">Menu not available</h1>
+          <p className="mt-2 text-sm text-muted-foreground">This link is invalid or the venue hasn&apos;t enabled guest ordering.</p>
         </div>
       </main>
     )
   }
 
   return (
-    <main className={`min-h-screen bg-slate-50 pb-32 ${isKiosk ? 'select-none' : ''}`}>
+    <main className={`min-h-screen bg-muted/30 pb-32 ${isKiosk ? 'select-none' : ''}`}>
       <header className="px-6 py-8 text-center text-white" style={{ backgroundColor: info.brand_color }}>
         {info.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -322,7 +322,7 @@ export default function PublicMenuPage() {
         </p>
       </header>
 
-      <div className="sticky top-0 z-20 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3">
+      <div className="sticky top-0 z-20 flex gap-2 overflow-x-auto border-b border-border bg-background px-4 py-3">
         {isFoodCourt ? (
           <>
             <Button
@@ -370,14 +370,14 @@ export default function PublicMenuPage() {
             <Card key={item.item_id} className="rounded-2xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="font-bold text-slate-900">{item.name}</h3>
+                  <h3 className="font-bold text-foreground">{item.name}</h3>
                   {isFoodCourt && item.vendor_name ? (
                     <Badge variant="secondary" className="mt-1">{item.vendor_name}</Badge>
                   ) : null}
                 </div>
                 <p className="font-extrabold text-primary">{formatCurrency(Number(item.price))}</p>
               </div>
-              {item.description ? <p className="mt-1 text-sm text-slate-500">{item.description}</p> : null}
+              {item.description ? <p className="mt-1 text-sm text-muted-foreground">{item.description}</p> : null}
 
               {canOrder ? (
               <div className="mt-4 flex justify-end">
@@ -465,7 +465,7 @@ export default function PublicMenuPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 font-semibold">
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-4 font-semibold">
             <span>Total</span>
             <span>{formatCurrency(total)}</span>
           </div>

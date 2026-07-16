@@ -29,6 +29,11 @@ interface Store {
   notifications: StoreNotification[]
   isCartOpen: boolean
 
+  // Layout: true while a fixed-sidebar layout is mounted — the root layout's full-width
+  // SiteFooter hides itself and the sidebar layout renders <SiteFooter inset /> in its content
+  // column instead (specs/frontend/overview.md "Footer on fixed-sidebar pages"). Not persisted.
+  globalFooterSuppressed: boolean
+
   // Setters
   setUser: (user: User) => void
   setToken: (token: string) => void
@@ -36,6 +41,7 @@ interface Store {
   setHasHydrated: (hasHydrated: boolean) => void
   setTenantContext: (ctx: TenantContext) => void
   setTenantSlug: (slug: string) => void
+  setGlobalFooterSuppressed: (suppressed: boolean) => void
 
   // Cart
   addToCart: (item: MenuItem) => void
@@ -79,6 +85,7 @@ export const useStore = create<Store>()(
       rewardPoints: 0,
       notifications: [],
       isCartOpen: false,
+      globalFooterSuppressed: false,
 
       setUser: (user) =>
         set({
@@ -116,6 +123,8 @@ export const useStore = create<Store>()(
         }),
 
       setTenantSlug: (slug) => set({ tenantSlug: slug }),
+
+      setGlobalFooterSuppressed: (suppressed) => set({ globalFooterSuppressed: suppressed }),
 
       addToCart: (item) => {
         const state = get()

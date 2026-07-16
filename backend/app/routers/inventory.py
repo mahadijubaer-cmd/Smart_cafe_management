@@ -150,7 +150,8 @@ async def create_inventory_item(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_role(*_INV_ADMINS)),
 ):
-    await _validate_inv_category_id(db, ctx.tenant_id, data.inv_category_id)
+    if data.inv_category_id is not None:
+        await _validate_inv_category_id(db, ctx.tenant_id, data.inv_category_id)
     item = InventoryItem(tenant_id=ctx.tenant_id, **data.model_dump())
     db.add(item)
     await db.commit()

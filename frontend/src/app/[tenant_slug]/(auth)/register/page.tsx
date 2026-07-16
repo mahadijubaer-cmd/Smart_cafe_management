@@ -316,7 +316,7 @@ export default function TenantRegisterPage() {
 
                       <Field data-invalid={!!errors.email}>
                         <FieldLabel htmlFor="email">Email</FieldLabel>
-                        <Input id="email" type="email" placeholder="you@example.com" aria-invalid={!!errors.email} {...register('email')} />
+                        <Input id="email" type="email" autoComplete="username" placeholder="you@example.com" aria-invalid={!!errors.email} {...register('email')} />
                         {tenant?.allowed_email_domain && (
                           <FieldDescription>
                             Must be a {tenant.allowed_email_domain} address
@@ -330,6 +330,7 @@ export default function TenantRegisterPage() {
                         <Input
                           id="password"
                           type="password"
+                          autoComplete="new-password"
                           placeholder="At least 8 characters"
                           aria-invalid={!!errors.password}
                           {...register('password')}
