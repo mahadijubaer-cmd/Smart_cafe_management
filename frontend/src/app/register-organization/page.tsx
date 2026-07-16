@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Building2, Check, Loader2, ShieldCheck, Store } from 'lucide-react'
@@ -69,7 +69,7 @@ function StepBar({ current }: { current: Step }) {
   )
 }
 
-export default function RegisterOrganizationPage() {
+function RegisterOrganizationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const segmentFilter = searchParams.get('segment') as Segment | null
@@ -426,5 +426,15 @@ export default function RegisterOrganizationPage() {
         </section>
       </div>
     </main>
+  )
+}
+
+// Statically-prerendered page reading useSearchParams() — must render inside <Suspense> or
+// `next build` fails (specs/frontend/overview.md, fixed 2026-07-16).
+export default function RegisterOrganizationPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterOrganizationContent />
+    </Suspense>
   )
 }

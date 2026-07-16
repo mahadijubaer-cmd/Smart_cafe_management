@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ── Node / Next.js (added 2026-07-16 — root node_modules had been accidentally committed) ──
+node_modules/
+.next/

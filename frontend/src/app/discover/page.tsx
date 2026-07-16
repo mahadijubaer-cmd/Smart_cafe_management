@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Plus, Search } from 'lucide-react'
@@ -22,7 +22,7 @@ import type { TenantPublicListResponse, TenantPublicResponse } from '@/types'
 
 const PAGE_SIZE = 12
 
-export default function DiscoverPage() {
+function DiscoverContent() {
   const searchParams = useSearchParams()
   const segmentFilter = searchParams.get('segment') as Segment | null
 
@@ -183,5 +183,15 @@ export default function DiscoverPage() {
         )}
       </div>
     </main>
+  )
+}
+
+// Statically-prerendered page reading useSearchParams() — must render inside <Suspense> or
+// `next build` fails (specs/frontend/overview.md, fixed 2026-07-16).
+export default function DiscoverPage() {
+  return (
+    <Suspense fallback={null}>
+      <DiscoverContent />
+    </Suspense>
   )
 }

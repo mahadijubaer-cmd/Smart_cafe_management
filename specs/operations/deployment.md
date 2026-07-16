@@ -143,6 +143,38 @@ services:
 - Use HTTPS/WSS — update `CORS_ORIGINS` and `NEXT_PUBLIC_WS_URL`
 - Use a managed DB service (AWS RDS, Supabase, etc.)
 
+### Production compose contract (✅ fixed 2026-07-16 — first real end-to-end pass)
+
+`docker-compose.prod.yml` had never been exercised end-to-end (daily dev runs `docker-compose.yml`
+/ `next dev`). Preparing the single-VM public deployment surfaced four defects, all fixed:
+
+1. **`NEXT_PUBLIC_*` must be build args, not runtime env.** Next.js inlines `NEXT_PUBLIC_*` (and
+   this app's `next.config.js` `env:` block) into the client bundle **at `next build` time**. The
+   prod compose passed them only as runtime `environment:` on the `frontend` service, while the
+   image's final `runner` stage serves a bundle compiled in the `builder` stage with those vars
+   unset — so every deployed client silently fell back to `http://localhost:8000/api/v1` /
+   `ws://localhost:8000` regardless of `SERVER_HOST`. The Dockerfile `builder` stage now declares
+   `ARG NEXT_PUBLIC_API_URL` / `ARG NEXT_PUBLIC_WS_URL` (exported as `ENV` before `npm run build`)
+   and the compose file supplies them via `build.args`. **Rule: any new `NEXT_PUBLIC_*` var must be
+   added to BOTH the Dockerfile builder args and the compose `build.args` — runtime `environment:`
+   alone does nothing for client code in the standalone image.**
+2. **`NEXT_PUBLIC_WS_URL` carries NO `/ws` suffix.** `useWebSocket.ts` appends `/ws/{user_id}`
+   itself; the dev compose correctly sets `ws://localhost:8001`. The prod compose had
+   `ws://${SERVER_HOST}:8000/ws`, which would produce `/ws/ws/{id}` → every WS connect 403s.
+   Corrected to `ws://${SERVER_HOST}:8000`.
+3. **`tsconfig.json` excludes `**/__tests__/**`.** The three test files reference jest globals with
+   no jest types installed; `next dev` and baseline `tsc` runs tolerated it, but `next build`
+   (which the prod image runs) fails the type-check outright.
+4. **Hardening:** `postgres` no longer publishes `5432` to the host (backend reaches it on the
+   compose network), and pgAdmin binds to loopback (`127.0.0.1:5050`) — reachable on a VM only via
+   SSH tunnel (`ssh -L 5050:localhost:5050`). Neither may be re-exposed publicly.
+
+`.env.example` corrections (same date): removed `PLATFORM_NAME` and `MEDIA_DIR` — pydantic
+`Settings` **rejects unknown keys**, so a `.env` copied from the example crashed the backend at
+startup (the real key is `MEDIA_ROOT`); added the missing `BREVO_API_KEY` (the active mail
+provider per ADR-007) and `FRONTEND_URL` (baked into table-QR payloads; the code default is a
+placeholder domain that must be overridden in production).
+
 ---
 
 ## Database Migration Workflow (Alembic)

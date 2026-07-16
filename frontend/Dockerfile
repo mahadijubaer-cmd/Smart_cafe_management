@@ -25,6 +25,14 @@ WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# NEXT_PUBLIC_* values are inlined into the client bundle AT BUILD TIME — runtime env on the
+# runner stage does nothing for client code. Any new NEXT_PUBLIC_* var must be added here AND
+# in docker-compose.prod.yml's build.args (specs/operations/deployment.md).
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 

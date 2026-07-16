@@ -174,6 +174,18 @@ src/app/
                                         independent_restaurant+franchise_brand+food_court) — see
                                         `OrgCategorySelector`'s `segmentFilter` prop. No param = all 5
                                         self-serve types shown, unchanged from before.
+
+  > **✅ `useSearchParams()` + static routes need `<Suspense>` (fixed 2026-07-16, first real
+  > `next build` of the prod image):** `/discover` and `/register-organization` are statically
+  > prerendered at build time and both call `useSearchParams()` at the top of the page component —
+  > Next.js 14 fails the build for this ("should be wrapped in a suspense boundary"). `next dev`
+  > never runs static generation, so it went unnoticed until the production Docker image was first
+  > built. Both pages now export a thin `<Suspense>` wrapper around an inner `…Content` component
+  > holding the previous body. **Rule: any statically-rendered page (no dynamic segment in its
+  > path) that reads `useSearchParams()` must use this wrapper pattern.** The other two callers
+  > (`m/[public_slug]`, `[tenant_slug]/(auth)/register`) live under dynamic params and render
+  > per-request, so they're unaffected.
+
   m/[public_slug]/                   → ✅ [Phase 22 — Implemented 2026-07-05] Public surface, no auth — RFC-007
     page.tsx                         → Public menu + cart + guest checkout (name+phone);
                                         `?mode=kiosk` = fullscreen locked kiosk variant

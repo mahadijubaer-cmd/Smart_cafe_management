@@ -9,6 +9,31 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — Production deployment blockers in the prod compose path (2026-07-16)
+
+Preparing the single-VM public deployment surfaced that `docker-compose.prod.yml` had never been
+run end-to-end. Four defects fixed (detail in `specs/operations/deployment.md` "Production compose
+contract"):
+
+- **Deployed frontend pointed at `localhost` no matter what.** `NEXT_PUBLIC_*` vars are inlined at
+  `next build` time, but the prod compose passed them only as runtime env while the image serves a
+  bundle built without them. Now passed as Docker `build.args` into the `builder` stage.
+- **Prod `NEXT_PUBLIC_WS_URL` had a stray `/ws` suffix** → would yield `/ws/ws/{id}` and 403 every
+  WebSocket connect. Removed (the hook appends `/ws/{id}` itself, matching the dev compose).
+- **`next build` failed on the three `__tests__` files** (jest globals, no jest types) — now
+  excluded via `tsconfig.json`.
+- **`next build` failed prerendering `/discover` and `/register-organization`** — both statically
+  generated pages call `useSearchParams()` without a `<Suspense>` boundary, a hard error in
+  Next.js 14 static generation (never hit by `next dev`). Both now export a thin Suspense wrapper
+  around the page body.
+- **The `runner` image stage failed on a missing `frontend/public/` directory** (the Dockerfile
+  copies it; the repo never had one) — added with a `.gitkeep`.
+- **Hardening:** Postgres no longer publishes 5432 to the host; pgAdmin binds to loopback only.
+- `.env.example` fixed: removed `PLATFORM_NAME`/`MEDIA_DIR` (pydantic rejects unknown keys — a
+  copied example crashed backend startup), added `BREVO_API_KEY` and `FRONTEND_URL`. Also removed
+  the stray root `package.json`/`package-lock.json` (accidental root `npm install`; broke Vercel
+  root-directory detection).
+
 ### Changed — Discover pagination + footer never covered by sidebars (2026-07-16)
 
 - **`/discover` now has standard server-side pagination.** `GET /tenants/public` gains
