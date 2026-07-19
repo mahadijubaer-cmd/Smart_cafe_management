@@ -18,14 +18,12 @@ Platform-admin OR the brand's own admin (BR-FRAN-1, RFC-008):
 """
 import json
 import os
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import (
     ADMIN_ROLES,
@@ -59,6 +57,7 @@ from app.schemas.tenant import (
 from app.schemas.user import Token
 from app.services.audit_service import AuditAction, record_audit
 from app.services.auth_service import AuthService
+from app.services.storage_service import save_public_file
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 _auth_service = AuthService()
@@ -335,12 +334,7 @@ async def upload_my_tenant_logo(
 
     ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
     ext = ext_map[logo.content_type]
-    logos_dir = Path(settings.MEDIA_ROOT) / "logos"
-    logos_dir.mkdir(parents=True, exist_ok=True)
-    file_path = logos_dir / f"{ctx.tenant_id}.{ext}"
-    file_path.write_bytes(contents)
-
-    logo_url = f"/media/logos/{ctx.tenant_id}.{ext}"
+    logo_url = save_public_file("logos", f"{ctx.tenant_id}.{ext}", contents, logo.content_type)
 
     result = await db.execute(select(Tenant).where(Tenant.tenant_id == ctx.tenant_id))
     tenant = result.scalar_one_or_none()

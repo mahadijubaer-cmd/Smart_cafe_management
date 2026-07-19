@@ -14,7 +14,6 @@ Franchise rules (Phase 8):
   tenant_admin / food_court_admin / platform_admin:
     - Full control within their tenant_id (no outlet scoping)
 """
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -35,9 +34,9 @@ from app.models.menu import Category, MenuItem
 from app.models.models import Order, OrderItem
 from app.models.tenant import Tenant, TenantType
 from app.models.user import User, UserRole
-from app.core.config import settings
 from app.schemas.menu import CategoryResponse, MenuItemCreate, MenuItemPatch, MenuItemResponse, MenuItemUpdate
 from app.services import menu_service
+from app.services.storage_service import save_public_file
 
 router = APIRouter(prefix="/menu", tags=["menu"])
 
@@ -482,12 +481,7 @@ async def upload_item_image(
         raise HTTPException(status_code=404, detail="Item not found")
 
     ext = _IMAGE_EXT_MAP[image.content_type]
-    menu_dir = Path(settings.MEDIA_ROOT) / "menu"
-    menu_dir.mkdir(parents=True, exist_ok=True)
-    file_path = menu_dir / f"{item_id}.{ext}"
-    file_path.write_bytes(contents)
-
-    image_url = f"/media/menu/{item_id}.{ext}"
+    image_url = save_public_file("menu", f"{item_id}.{ext}", contents, image.content_type)
     item.image_url = image_url
     await db.commit()
     return {"image_url": image_url}

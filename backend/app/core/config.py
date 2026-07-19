@@ -42,6 +42,24 @@ class Settings(BaseSettings):
     # when set: Brevo's API is more reliable in practice than raw SMTP credentials.
     BREVO_API_KEY: str = ""
 
+    # Object storage — Backblaze B2 (S3-compatible), for tenant logos / menu item images.
+    # Only these two upload paths need it: QR codes are generated and consumed within a
+    # single request and never re-read from disk (see app/services/qr_service.py). When
+    # unset, storage_service.py falls back to local disk under MEDIA_ROOT — fine for local
+    # dev/CI, but required in any environment with an ephemeral filesystem (e.g. Render's
+    # free tier, which wipes local disk on every restart/redeploy/sleep-wake).
+    B2_ENDPOINT_URL: str = ""
+    B2_KEY_ID: str = ""
+    B2_APPLICATION_KEY: str = ""
+    B2_BUCKET_NAME: str = ""
+    # Base URL under which an uploaded object is publicly reachable, e.g.
+    # https://f005.backblazeb2.com/file/scms-media — object_service.py appends /{key}.
+    B2_PUBLIC_URL_BASE: str = ""
+
+    @property
+    def b2_enabled(self) -> bool:
+        return bool(self.B2_BUCKET_NAME and self.B2_KEY_ID and self.B2_APPLICATION_KEY)
+
     @property
     def mail_enabled(self) -> bool:
         """True only when SMTP credentials are actually configured."""

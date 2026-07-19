@@ -46,6 +46,11 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 | `MAIL_SSL_TLS` | bool | `false` | — |
 | `USE_CREDENTIALS` | bool | `true` | — |
 | `BREVO_API_KEY` | str | — | Brevo transactional email API key (`xkeysib-...`). See ADR-007 — takes priority over SMTP when set. |
+| `B2_ENDPOINT_URL` | str | — | Backblaze B2 S3-compatible endpoint, e.g. `https://s3.us-west-004.backblazeb2.com` |
+| `B2_KEY_ID` | str | — | B2 application key ID |
+| `B2_APPLICATION_KEY` | str | — | B2 application key secret |
+| `B2_BUCKET_NAME` | str | — | B2 bucket for tenant logos / menu item images |
+| `B2_PUBLIC_URL_BASE` | str | — | Public base URL for the bucket, e.g. `https://f005.backblazeb2.com/file/scms-media` |
 
 > `SECRET_KEY` must be set in production — never use a weak key. Generate with: `openssl rand -hex 32`
 
@@ -198,6 +203,30 @@ CDN in front.
 - Not yet done: Brevo account creation/sender verification (needed for OTP/invite email to
   actually deliver — the code path has been ready since ADR-007), and off-VM Postgres/media
   backups. Both are operator setup steps, not code changes.
+
+### Object storage for logos / menu images (added 2026-07-19 — card-free hosting revision)
+
+The single-VM plan above assumed local disk under `MEDIA_ROOT` persists forever, which it does
+on a VM's own disk. That assumption breaks on host platforms with an ephemeral filesystem (e.g.
+Render's free web service, which wipes local disk on every restart/redeploy/sleep-wake) — the
+free-hosting plan pivoted to those after discovering the VM route needs a credit card that isn't
+available.
+
+- New `backend/app/services/storage_service.py`: `save_public_file(subdir, filename, contents,
+  content_type)` uploads to Backblaze B2 (S3-compatible, via `boto3`) when `Settings.b2_enabled`
+  is true, else falls back to writing under `MEDIA_ROOT` and returning a `/media/...` path
+  served by the existing `StaticFiles` mount — same fallback shape as `mail_provider`
+  (Brevo → SMTP → none) in `app/core/config.py`. Local dev/CI need zero setup; only
+  `.env`/Render's dashboard needs the five `B2_*` vars set in production.
+- Used by exactly two upload routes: `POST /tenants/me/logo` (`routers/tenants.py`) and
+  `POST /menu/items/{item_id}/image` (`routers/menu.py`). Both previously wrote directly to
+  `MEDIA_ROOT` with `Path.write_bytes()`.
+- **QR codes were deliberately left untouched.** `services/qr_service.py`'s order-QR flow
+  writes the PNG to disk and reads it back to email as an attachment within the same request
+  (`routers/orders.py`); table QR codes and guest-tracking QR codes are generated fully
+  in-memory and never touch disk at all. None of the three paths re-read a file in a later
+  request, so an ephemeral filesystem never actually loses anything they depend on.
+- New dependency: `boto3==1.34.144` in `backend/requirements.txt`.
 
 ---
 
