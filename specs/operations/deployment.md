@@ -281,6 +281,41 @@ Verified by running the full chain against a real, empty Neon database: all 9 re
 cleanly, `alembic_version` lands on `0009`, 28 tables created, seed data present (5 categories,
 6 staff/cleaner users, BRACU tenant).
 
+### Neon pooled endpoint requires `statement_cache_size=0` (fixed 2026-07-19)
+
+Deploying to Render surfaced a production-only bug: `/api/v1/health` returned `200`, but any
+route touching the database (e.g. `GET /tenants/public`) returned a bare `500` — `DEBUG=false`
+in production hides the real traceback from the client, so this took process-of-elimination to
+diagnose rather than reading a stack trace.
+
+**Root cause:** asyncpg caches prepared statements client-side by default. Neon's pooled
+(`-pooler`) endpoint fronts Postgres with PgBouncer in transaction-pooling mode, which can swap
+the real backend Postgres process between queries on what SQLAlchemy considers one logical
+connection — once Render's long-running process built up a real connection pool across multiple
+requests, a prepared statement cached against one backend became invalid on the next. **Not
+reproducible locally** even via a script that reused the same `AsyncSessionLocal` factory 5
+times in a loop against the same pooled Neon URL — it only actually manifested under Render's
+real deployment and connection-pool lifecycle.
+
+**Fix:** `Settings.database_connect_args` (`backend/app/core/config.py`) now always includes
+`statement_cache_size: 0`, disabling asyncpg's prepared-statement cache unconditionally. Safe
+against a direct (non-pooled) connection too — the only cost is re-preparing statements on every
+query, negligible at this app's traffic. Live-verified fixed by polling the real Render endpoint
+after redeploy until it returned `200` with correct data.
+
+**Also learned deploying to Render:**
+- Render injects its own `$PORT` env var and expects the process to bind to it — the
+  Dockerfile's hardcoded `--port 8000` won't bind to Render's assigned port, and the deploy
+  fails with "no open ports detected." Start Command must be overridden to
+  `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+- Root Directory must be `backend` — `Dockerfile` only exists at `backend/Dockerfile`, not the
+  repo root; leaving Root Directory unset fails the build with
+  `failed to read dockerfile: open Dockerfile: no such file or directory`.
+- The rate limiter (`slowapi`, `backend/app/core/limiter.py`) uses in-memory storage
+  unconditionally — `Limiter(key_func=get_remote_address)` has no `storage_uri`. This project's
+  own "Redis storage backend recommended for multi-worker" note below was never actually
+  implemented; ruled out as a red herring while debugging the 500 above, not yet fixed.
+
 ---
 
 ## Database Migration Workflow (Alembic)
