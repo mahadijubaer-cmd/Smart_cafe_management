@@ -33,30 +33,35 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     # ── 1. New enum types ──────────────────────────────────────────────────────
+    # create_type=False on both the explicit-create objects AND the sa.Enum(name=...)
+    # references used as column types below — they're separate Python objects, and without
+    # create_type=False on each, create_table's before_create event re-issues CREATE TYPE
+    # for whichever one is embedded as a column, failing with "type already exists" (same
+    # root cause as migration 0001's userrole/orderstatus/etc.).
     tenanttype_enum = postgresql.ENUM(
         "franchise_brand", "franchise_outlet", "corporate", "academic",
         "independent_restaurant", "food_court", "food_court_vendor",
-        name="tenanttype",
+        name="tenanttype", create_type=False,
     )
-    tenanttype_enum.create(conn)
+    tenanttype_enum.create(conn, checkfirst=True)
 
     subscriptiontier_enum = postgresql.ENUM(
         "free", "starter", "professional", "enterprise",
-        name="subscriptiontier",
+        name="subscriptiontier", create_type=False,
     )
-    subscriptiontier_enum.create(conn)
+    subscriptiontier_enum.create(conn, checkfirst=True)
 
     # ── 2. Create tenants table ────────────────────────────────────────────────
     op.create_table(
         "tenants",
         sa.Column("tenant_id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("parent_tenant_id", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("tenant_type", sa.Enum(name="tenanttype"), nullable=False),
+        sa.Column("tenant_type", tenanttype_enum, nullable=False),
         sa.Column("name", sa.String(150), nullable=False),
         sa.Column("slug", sa.String(80), nullable=False),
         sa.Column("logo_url", sa.String(255), nullable=True),
         sa.Column("brand_color", sa.String(7), nullable=False, server_default="#1A4D2E"),
-        sa.Column("subscription_tier", sa.Enum(name="subscriptiontier"), nullable=False,
+        sa.Column("subscription_tier", subscriptiontier_enum, nullable=False,
                   server_default="starter"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("allowed_email_domain", sa.String(100), nullable=True),

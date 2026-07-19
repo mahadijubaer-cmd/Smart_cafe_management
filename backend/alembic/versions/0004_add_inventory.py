@@ -15,6 +15,12 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # uuid_generate_v4() (used as a server_default below and in 0005/0008/0009) comes from
+    # the uuid-ossp extension, which no earlier migration enables. It was apparently only
+    # ever present because it was enabled by hand on the original dev database, outside the
+    # migration chain — never caught until this chain ran against a genuinely fresh database.
+    op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
+
     # ── New enum types ──────────────────────────────────────────────────────
     op.execute("""
         DO $$ BEGIN
@@ -82,7 +88,7 @@ def upgrade() -> None:
         sa.Column("sku", sa.String(50), nullable=True),
         sa.Column(
             "unit",
-            sa.Enum("kg", "g", "litre", "ml", "piece", "packet", "dozen", name="inventory_unit", create_type=False),
+            postgresql.ENUM("kg", "g", "litre", "ml", "piece", "packet", "dozen", name="inventory_unit", create_type=False),
             nullable=False,
             server_default=sa.text("'piece'"),
         ),
@@ -156,7 +162,7 @@ def upgrade() -> None:
         sa.Column("po_number", sa.String(50), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("draft", "submitted", "approved", "received", "cancelled", name="purchase_order_status", create_type=False),
+            postgresql.ENUM("draft", "submitted", "approved", "received", "cancelled", name="purchase_order_status", create_type=False),
             nullable=False,
             server_default=sa.text("'draft'"),
         ),
@@ -201,7 +207,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "movement_type",
-            sa.Enum("purchase", "transfer_in", "transfer_out", "consumption", "adjustment", "waste",
+            postgresql.ENUM("purchase", "transfer_in", "transfer_out", "consumption", "adjustment", "waste",
                     name="stock_movement_type", create_type=False),
             nullable=False,
         ),

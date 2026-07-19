@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
+    # Full connection string override (e.g. Upstash's rediss://default:<password>@host:port) —
+    # takes priority over HOST/PORT/DB below when set, since those three alone can't express
+    # a password or TLS scheme. Local dev/CI leave this blank and use HOST/PORT/DB.
+    REDIS_URL: str = ""
 
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
@@ -84,6 +88,8 @@ class Settings(BaseSettings):
 
     @property
     def redis_url(self) -> str:
+        if self.REDIS_URL:
+            return self.REDIS_URL
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     @property
@@ -112,7 +118,14 @@ class Settings(BaseSettings):
         parts = urlsplit(self.DATABASE_URL)
         query = dict(parse_qsl(parts.query, keep_blank_values=True))
 
-        connect_args: Dict[str, Any] = {}
+        # statement_cache_size=0 disables asyncpg's client-side prepared-statement cache.
+        # Required for any pooled/PgBouncer-fronted Postgres (e.g. Neon's -pooler endpoint):
+        # transaction-mode pooling can silently swap the real backend connection between
+        # queries on what SQLAlchemy considers one logical connection, so a prepared
+        # statement cached against the first backend errors on the second. Safe to leave on
+        # unconditionally — the cost is re-preparing statements each time, negligible for
+        # this app's traffic, and it's a no-op against a direct (non-pooled) connection.
+        connect_args: Dict[str, Any] = {"statement_cache_size": 0}
         sslmode = (query.get("sslmode") or "").lower()
         if sslmode in {"require", "verify-ca", "verify-full"}:
             connect_args["ssl"] = "require"

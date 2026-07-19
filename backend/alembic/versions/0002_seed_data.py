@@ -17,11 +17,51 @@ down_revision = '0001'
 branch_labels = None
 depends_on = None
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Must match app/services/auth_service.py's scheme (pbkdf2_sha256), not bcrypt — the live
+# app's CryptContext only knows pbkdf2_sha256, so a bcrypt hash here would never verify
+# against a real login even if it inserted cleanly. Also sidesteps a real passlib==1.7.4 /
+# bcrypt>=4.1 incompatibility (bcrypt dropped the __about__ attribute passlib's internal
+# self-test reads, breaking CryptContext(schemes=["bcrypt"]).hash() outright).
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def upgrade() -> None:
+    # op.bulk_insert() requires a lightweight sa.table()/sa.column() construct, not a bare
+    # table-name string — passing a string fails with "'str' object has no attribute
+    # 'insert'". Column types here are advisory only (used for literal binding, not DDL);
+    # the real column types already exist from migration 0001.
+    categories_table = sa.table(
+        'categories',
+        sa.column('name', sa.String),
+        sa.column('icon_url', sa.String),
+        sa.column('display_order', sa.Integer),
+    )
+    tables_map_table = sa.table(
+        'tables_map',
+        sa.column('table_id', sa.Integer),
+        sa.column('table_number', sa.String),
+        sa.column('zone', sa.String),
+        sa.column('capacity', sa.Integer),
+        sa.column('status', sa.String),
+        sa.column('position_x', sa.Integer),
+        sa.column('position_y', sa.Integer),
+    )
+    users_table = sa.table(
+        'users',
+        sa.column('user_id', sa.String),
+        sa.column('full_name', sa.String),
+        sa.column('email', sa.String),
+        sa.column('password_hash', sa.String),
+        sa.column('role', sa.String),
+        sa.column('student_id', sa.String),
+        sa.column('phone', sa.String),
+        sa.column('wallet_balance', sa.Numeric),
+        sa.column('reward_points', sa.Integer),
+        sa.column('is_active', sa.Boolean),
+        sa.column('created_at', sa.TIMESTAMP),
+        sa.column('updated_at', sa.TIMESTAMP),
+    )
+
     # Insert categories
     categories = [
         {'name': 'Breakfast', 'icon_url': 'breakfast.svg', 'display_order': 1},
@@ -30,8 +70,8 @@ def upgrade() -> None:
         {'name': 'Beverages', 'icon_url': 'beverages.svg', 'display_order': 4},
         {'name': 'Homemade', 'icon_url': 'homemade.svg', 'display_order': 5},
     ]
-    
-    op.bulk_insert('categories', categories)
+
+    op.bulk_insert(categories_table, categories)
     
     # Insert 30 tables in a 6x5 grid (A1-F5)
     tables = []
@@ -52,7 +92,7 @@ def upgrade() -> None:
             })
             table_id += 1
     
-    op.bulk_insert('tables_map', tables)
+    op.bulk_insert(tables_map_table, tables)
     
     # Insert staff and cleaner users with hashed passwords
     # Password: "password123" hashed with bcrypt
@@ -145,7 +185,7 @@ def upgrade() -> None:
         }
     ]
     
-    op.bulk_insert('users', users)
+    op.bulk_insert(users_table, users)
 
 
 def downgrade() -> None:

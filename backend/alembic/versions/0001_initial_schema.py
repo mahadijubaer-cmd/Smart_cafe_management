@@ -17,27 +17,33 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create ENUM types
-    userRole_enum = postgresql.ENUM('student', 'staff', 'cleaner', 'admin', name='userrole')
-    userRole_enum.create(op.get_bind())
-    
-    orderStatus_enum = postgresql.ENUM('pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled', name='orderstatus')
-    orderStatus_enum.create(op.get_bind())
-    
-    paymentStatus_enum = postgresql.ENUM('pending', 'paid', 'refunded', name='paymentstatus')
-    paymentStatus_enum.create(op.get_bind())
-    
-    paymentMethod_enum = postgresql.ENUM('wallet', 'simulation', name='paymentmethod')
-    paymentMethod_enum.create(op.get_bind())
-    
-    tableStatus_enum = postgresql.ENUM('available', 'reserved', 'occupied', 'cleaning', name='tablestatus')
-    tableStatus_enum.create(op.get_bind())
-    
-    cleanerStatus_enum = postgresql.ENUM('assigned', 'in_progress', 'done', name='cleanerstatus')
-    cleanerStatus_enum.create(op.get_bind())
-    
-    reservationStatus_enum = postgresql.ENUM('active', 'completed', 'cancelled', name='reservationstatus')
-    reservationStatus_enum.create(op.get_bind())
+    # Create ENUM types. create_type=False on each is required: without it, SQLAlchemy
+    # re-issues CREATE TYPE for every table whose column reuses the same enum object (e.g.
+    # paymentMethod_enum is used by both `orders` and `payments` below), which fails with
+    # "type already exists" the moment a second table references it — or even on the very
+    # first table, depending on dialect DDL-event ordering. Only ever caught when this
+    # migration runs against a truly empty database (previously always built via
+    # Base.metadata.create_all() in dev, never via `alembic upgrade head` from scratch).
+    userRole_enum = postgresql.ENUM('student', 'staff', 'cleaner', 'admin', name='userrole', create_type=False)
+    userRole_enum.create(op.get_bind(), checkfirst=True)
+
+    orderStatus_enum = postgresql.ENUM('pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled', name='orderstatus', create_type=False)
+    orderStatus_enum.create(op.get_bind(), checkfirst=True)
+
+    paymentStatus_enum = postgresql.ENUM('pending', 'paid', 'refunded', name='paymentstatus', create_type=False)
+    paymentStatus_enum.create(op.get_bind(), checkfirst=True)
+
+    paymentMethod_enum = postgresql.ENUM('wallet', 'simulation', name='paymentmethod', create_type=False)
+    paymentMethod_enum.create(op.get_bind(), checkfirst=True)
+
+    tableStatus_enum = postgresql.ENUM('available', 'reserved', 'occupied', 'cleaning', name='tablestatus', create_type=False)
+    tableStatus_enum.create(op.get_bind(), checkfirst=True)
+
+    cleanerStatus_enum = postgresql.ENUM('assigned', 'in_progress', 'done', name='cleanerstatus', create_type=False)
+    cleanerStatus_enum.create(op.get_bind(), checkfirst=True)
+
+    reservationStatus_enum = postgresql.ENUM('active', 'completed', 'cancelled', name='reservationstatus', create_type=False)
+    reservationStatus_enum.create(op.get_bind(), checkfirst=True)
     
     # 1. Create users table (no dependencies)
     op.create_table(

@@ -32,7 +32,8 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 | Variable | Type | Example / Default | Notes |
 |---|---|---|---|
 | `DATABASE_URL` | str | `postgresql+asyncpg://scms:scms@localhost:5432/scms_db` | Async PG driver required |
-| `REDIS_URL` | str | `redis://localhost:6379/0` | Used for cache + pub/sub |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB` | str/int/int | `redis` / `6379` / `0` | Used to build `redis_url` when `REDIS_URL` is unset |
+| `REDIS_URL` | str | — | Full override, e.g. Upstash's `rediss://default:<password>@host:port` — takes priority over `REDIS_HOST`/`REDIS_PORT`/`REDIS_DB` (added 2026-07-19; those three alone can't express a password or TLS scheme, which Upstash requires) |
 | `SECRET_KEY` | str | 64-char random hex | JWT signing key (HS256) |
 | `ALGORITHM` | str | `HS256` | Do not change |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | int | `60` | 1 hour token lifetime |
@@ -227,6 +228,58 @@ available.
   in-memory and never touch disk at all. None of the three paths re-read a file in a later
   request, so an ephemeral filesystem never actually loses anything they depend on.
 - New dependency: `boto3==1.34.144` in `backend/requirements.txt`.
+
+---
+
+### Migration chain was never runnable end-to-end from empty (fixed 2026-07-19)
+
+`alembic upgrade head` had never actually been exercised against a genuinely empty database
+before provisioning Neon for the card-free hosting plan — dev has always been built via
+`Base.metadata.create_all()`, and the one prior alembic verification (see "Alembic was never
+actually runnable" above) only tested incremental migrations 0006/0007 against an
+already-`create_all()`-built dev DB. Running the full chain from empty on Neon surfaced six
+real, previously-latent bugs across four migration files, all now fixed:
+
+1. **Enum double-CREATE TYPE (`0001`, `0003`, `0004`).** Pattern: a migration explicitly
+   calls `enum.create(bind)`, then reuses the same (or a separately-constructed) enum object
+   as a column type inside `op.create_table(...)`. SQLAlchemy's postgres dialect
+   auto-re-issues `CREATE TYPE` on `before_create` for any embedded enum column unless
+   `create_type=False` is set on that exact object — so the type gets created twice and the
+   second attempt fails with `DuplicateObject: type "x" already exists`. Fixed in `0001`
+   (7 enums) and `0003` (2 enums, plus reusing the same object as the column type instead of
+   a separate `sa.Enum(name=...)` reference — a bare reference like that doesn't reliably
+   inherit `create_type=False` from the explicitly-created object, since it's a different
+   Python instance). `0004`'s three enums already had `create_type=False` set but on generic
+   `sa.Enum(...)` rather than `postgresql.ENUM(...)` — the postgres-dialect class is required
+   for the flag to be honored through dialect adaptation; generic `sa.Enum` silently drops it
+   in this SQLAlchemy version (2.0.23). `0009`'s two enums were never affected — each is only
+   ever created once (no explicit `.create()` call preceding the embedded column use), so
+   there's no double-creation to trigger.
+2. **`op.bulk_insert()` needs a table construct, not a bare string (`0002`).** Passing
+   `'categories'` (a str) as the first argument fails with `AttributeError: 'str' object has
+   no attribute 'insert'`. Fixed by building lightweight `sa.table(name, sa.column(...), ...)`
+   constructs for `categories`, `tables_map`, and `users` and passing those instead — the
+   standard alembic idiom for seed-data migrations. Column types on these ad-hoc tables are
+   advisory only (affect literal binding, not DDL); the real column types already exist from
+   migration `0001`.
+3. **`passlib==1.7.4` + `bcrypt>=4.1` is broken (`0002`).** `CryptContext(schemes=["bcrypt"])`
+   fails on `.hash()` with `ValueError: password cannot be longer than 72 bytes` — actually a
+   symptom of passlib's internal `detect_wrap_bug` self-test choking on newer bcrypt (which
+   removed the `__about__.__version__` attribute passlib reads). Fixed by switching this
+   migration's seed users to `pbkdf2_sha256`, matching `app/services/auth_service.py`'s
+   actual scheme — the app was never actually broken (it never used bcrypt), but this
+   migration's seeded password hashes would have been unverifiable by the real login flow
+   even if the migration had "succeeded," since the algorithms wouldn't match.
+4. **Missing `uuid-ossp` extension (`0004`).** `uuid_generate_v4()` is used as a
+   `server_default` starting in `0004` (and again in `0005`/`0008`/`0009`) but no migration
+   ever runs `CREATE EXTENSION "uuid-ossp"` — it must have only ever worked because it was
+   enabled by hand on the original dev database, outside the migration chain. Fixed by adding
+   `op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')` at the top of `0004`'s
+   `upgrade()`, the first migration that needs it.
+
+Verified by running the full chain against a real, empty Neon database: all 9 revisions apply
+cleanly, `alembic_version` lands on `0009`, 28 tables created, seed data present (5 categories,
+6 staff/cleaner users, BRACU tenant).
 
 ---
 
