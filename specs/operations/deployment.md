@@ -175,6 +175,30 @@ startup (the real key is `MEDIA_ROOT`); added the missing `BREVO_API_KEY` (the a
 provider per ADR-007) and `FRONTEND_URL` (baked into table-QR payloads; the code default is a
 placeholder domain that must be overridden in production).
 
+### TLS / reverse proxy (added 2026-07-19 — free single-VM hosting)
+
+`docker-compose.prod.yml` gained a `caddy` service (image `caddy:2-alpine`) as the sole public
+entrypoint, so the plan is to host on a single free-tier VM (e.g. Oracle Cloud Always Free) behind
+a free DNS hostname (e.g. DuckDNS) with automatic Let's Encrypt TLS — no managed load balancer or
+CDN in front.
+
+- `backend` (`8000`) and `frontend` (`3000`) no longer publish host ports — only `caddy` binds
+  `80`/`443`. This follows the same hardening pattern already used for `postgres` (network-only)
+  and `pgadmin` (loopback-only).
+- Root `Caddyfile` proxies `/api/*` and `/ws/*` to `backend:8000` and everything else to
+  `frontend:3000`, using `{$SERVER_HOST}` (from `.env`, via `env_file` on the `caddy` service) as
+  the site address — Caddy requests/renews the cert for that hostname automatically on first
+  request, no certbot cron needed.
+- Because Caddy now terminates TLS, the frontend's build-time `NEXT_PUBLIC_API_URL` /
+  `NEXT_PUBLIC_WS_URL` args changed from `http://${SERVER_HOST}:8000/...` /
+  `ws://${SERVER_HOST}:8000` to `https://${SERVER_HOST}/api/v1` / `wss://${SERVER_HOST}` — no
+  port, since 443 is the only public port. `SERVER_HOST` in `.env` must be the real public
+  hostname (e.g. `scms-bracu.duckdns.org`) for both Caddy's TLS cert and these build args to
+  resolve correctly; the `localhost` default only works for a same-machine smoke test.
+- Not yet done: Brevo account creation/sender verification (needed for OTP/invite email to
+  actually deliver — the code path has been ready since ADR-007), and off-VM Postgres/media
+  backups. Both are operator setup steps, not code changes.
+
 ---
 
 ## Database Migration Workflow (Alembic)
