@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 
 import { useTenantInfo } from '@/hooks/useTenantInfo'
 import { useStore } from '@/store/useStore'
@@ -11,6 +11,7 @@ import Logo from '@/components/layout/Logo'
 const PLATFORM_ACCENT = '#1A4D2E'
 
 export default function SiteFooter({ inset = false }: { inset?: boolean }) {
+  const pathname = usePathname()
   const params = useParams<{ tenant_slug?: string }>()
   const slug = params?.tenant_slug ?? ''
   const { tenant } = useTenantInfo(slug)
@@ -31,7 +32,8 @@ export default function SiteFooter({ inset = false }: { inset?: boolean }) {
 
   const accentColor = tenant?.brand_color ?? PLATFORM_ACCENT
 
-  if (!inset && globalFooterSuppressed) return null
+  const isChromeless = pathname === '/' || pathname === '/register-organization' || /^\/[^/]+\/register$/.test(pathname ?? '')
+  if ((!inset && globalFooterSuppressed) || isChromeless) return null
 
   return (
     <footer className="bg-[hsl(var(--header-surface))]">

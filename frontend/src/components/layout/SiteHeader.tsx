@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
 
@@ -12,6 +12,7 @@ import Logo from '@/components/layout/Logo'
 const PLATFORM_ACCENT = '#1A4D2E'
 
 export default function SiteHeader() {
+  const pathname = usePathname()
   const params = useParams<{ tenant_slug?: string }>()
   const slug = params?.tenant_slug ?? ''
   const { tenant } = useTenantInfo(slug)
@@ -33,6 +34,9 @@ export default function SiteHeader() {
   }, [])
 
   const accentColor = tenant?.brand_color ?? PLATFORM_ACCENT
+
+  const isChromeless = pathname === '/' || pathname === '/register-organization' || /^\/[^/]+\/register$/.test(pathname ?? '')
+  if (isChromeless) return null
 
   return (
     <div className="sticky top-0 z-50 bg-[hsl(var(--header-surface)/0.92)] shadow-sm backdrop-blur">

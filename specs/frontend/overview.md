@@ -512,8 +512,9 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
   fade-in transition once that data resolves. A 3px bottom accent strip renders in the tenant's own
   `brand_color` (falling back to the platform's `#1A4D2E`) — the one element tying platform and
   org branding together visually. Shows platform-only styling (accent line in platform green, no
-  pill) on non-tenant-scoped routes (`/`, `/discover`, `/register-organization`, `/m/[public_slug]`)
-  since there's no tenant to attach to. **Surface color** (fixed same day, 2026-07-11): uses
+  pill) on non-tenant-scoped routes (`/discover`, `/m/[public_slug]`) since there's no tenant to
+  attach to. **Chromeless routes** (2026-07-21, see below) render neither the header nor the footer
+  at all, so this styling question doesn't apply to them. **Surface color** (fixed same day, 2026-07-11): uses
   `bg-[hsl(var(--header-surface)/0.92)]`, a dark, desaturated shade of the brand green
   (`globals.css`'s `--header-surface: 145 45% 8%` — same hue/saturation as `--color-primary`,
   just much darker) — not Tailwind's `bg-slate-950`, which is blue-gray and clashed visibly against
@@ -525,6 +526,21 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
   tenant-scoped, and a 3px accent strip in the tenant's `brand_color` (platform green fallback) —
   but running along the **top** edge of the footer instead of the bottom, so the accent color
   bookends the page at both the header's bottom and the footer's top.
+
+**Chromeless routes — home + registration pages (added 2026-07-21):** `SiteHeader` and `SiteFooter`
+now render `null` entirely (not just platform-only styling) on three routes: `/` (home/segment
+landing), `/register-organization` (public org-onboarding wizard), and `/[tenant_slug]/register`
+(a tenant's own customer self-registration form) — matched via `usePathname()` and
+`/^\/[^/]+\/register$/` for the tenant-scoped case. Implemented as an early-`return null` inside
+each component rather than a layout-level change, because `/[tenant_slug]/(auth)/layout.tsx`
+re-exports the one shared `(auth)/layout.tsx` used by **login, forgot-password, and register
+alike** — those three pages can't be told apart at the layout level, only at the page/pathname
+level, so the exclusion has to live in the chrome components themselves. Every other pre-login page
+(tenant login, forgot-password, `/discover`, guest QR-ordering under `/m/[public_slug]`) and every
+authenticated app page are unaffected — this narrowly targets the two pages the user identified as
+belonging to their own standalone entry-flow rather than the platform's persistent shell. In
+`SiteFooter.tsx` this new check is combined with the existing `globalFooterSuppressed` early-return
+(already used by the three sidebar dashboard layouts) rather than replacing it.
 
 These sit **above** each section's existing functional nav (customer cart/wallet bar, admin sidebar,
 staff/cleaner bars) rather than replacing them — this is global platform-identity chrome, not
