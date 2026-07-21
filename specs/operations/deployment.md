@@ -316,6 +316,44 @@ after redeploy until it returned `200` with correct data.
   own "Redis storage backend recommended for multi-worker" note below was never actually
   implemented; ruled out as a red herring while debugging the 500 above, not yet fixed.
 
+### `tables_map` PK sequence left behind by seed migration (found & fixed live, 2026-07-21)
+
+Live production bug: creating a table (`POST /tables/`) 500'd for **every** restaurant-segment
+tenant, immediately on their very first "Add Table" — found while testing an unrelated frontend
+feature (single-table QR download) against a freshly self-registered test tenant. The browser
+reported it as a CORS failure (`No 'Access-Control-Allow-Origin' header`), which was a red
+herring: FastAPI's CORS middleware only attaches CORS headers to responses it actually handles,
+so an unhandled `500` reaches the browser with no CORS header at all and gets misreported as a
+CORS block instead of a server error.
+
+**Root cause:** `0002_seed_data.py`'s `upgrade()` bulk-inserts 30 rows into `tables_map` with
+explicit `table_id` values (`1`–`30`, a 6×5 demo grid for BRACU) via `op.bulk_insert()`, which
+bypasses `tables_map_table_id_seq` entirely — the sequence is never advanced to match. Every
+real `INSERT` through the app relies on `nextval()` for `table_id` and had nothing to do with
+the seed data's explicit IDs, so the sequence stayed at its initial value (`3`, from whatever
+number of `nextval()` calls happened during earlier local testing before the seed migration ran
+against Neon) while 30 real rows already occupied IDs 1–30. Confirmed directly: querying
+`SELECT last_value FROM tables_map_table_id_seq` (`3`) against `SELECT MAX(table_id) FROM
+tables_map` (`30`) on the live Neon database, then reproducing the exact failure with a raw
+`INSERT ... RETURNING table_id` — `UniqueViolationError: duplicate key value ... table_id=3`.
+`categories` and `inventory_categories` were checked too and were **not** affected (their seed
+paths don't assign explicit PKs, so their sequences stayed in sync).
+
+**Fixed two ways:**
+1. **Live, immediately:** `SELECT setval('tables_map_table_id_seq', (SELECT MAX(table_id) FROM
+   tables_map))` against the production Neon database — safe and idempotent, only moves the
+   sequence pointer, touches no rows. Verified fixed by creating a real table through the
+   deployed frontend immediately after.
+2. **In the migration source**, so a fresh database (disaster recovery, a new contributor, CI)
+   doesn't hit this on its very first real `INSERT`: `0002_seed_data.py` now runs the same
+   `setval(...)` call right after the `tables_map` `bulk_insert()`.
+
+**How to apply:** any future seed/fixture migration that `bulk_insert()`s explicit integer PKs
+into a `SERIAL`/`IDENTITY` column must re-sync that column's sequence in the same migration —
+this is a generic Postgres gotcha (`bulk_insert`/raw `INSERT` with explicit PKs never touches
+the sequence), not specific to `tables_map`. Grep for `sa.column('.*_id'` bulk-insert constructs
+if this class of bug is ever suspected elsewhere.
+
 ---
 
 ## Database Migration Workflow (Alembic)

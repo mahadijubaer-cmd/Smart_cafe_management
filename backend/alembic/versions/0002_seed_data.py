@@ -93,7 +93,14 @@ def upgrade() -> None:
             table_id += 1
     
     op.bulk_insert(tables_map_table, tables)
-    
+
+    # bulk_insert() above assigns table_id explicitly (1-30) without ever touching
+    # tables_map_table_id_seq, so the sequence stays at its initial value while real
+    # data already occupies those IDs. Every subsequent app-level INSERT (which relies
+    # on nextval()) then collides with a seeded row and 500s — found live in production,
+    # where the very first "Add Table" on a freshly registered tenant failed this way.
+    op.execute("SELECT setval('tables_map_table_id_seq', (SELECT MAX(table_id) FROM tables_map))")
+
     # Insert staff and cleaner users with hashed passwords
     # Password: "password123" hashed with bcrypt
     hashed_password = pwd_context.hash("password123")
