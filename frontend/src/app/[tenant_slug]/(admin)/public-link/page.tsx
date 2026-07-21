@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { useStore } from '@/store/useStore'
 import { isRestaurantSegment } from '@/lib/segments'
-import type { Tenant } from '@/types'
+import type { Tenant, TableMap } from '@/types'
 
 const APP_ORIGIN =
   typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL ?? '')
@@ -26,6 +27,9 @@ export default function PublicLinkPage() {
   const [enabled, setEnabled] = useState(false)
   const [publicSlug, setPublicSlug] = useState('')
   const [saving, setSaving] = useState(false)
+  const [tables, setTables] = useState<TableMap[]>([])
+  const [selectedTableId, setSelectedTableId] = useState('')
+  const [downloadingTableQr, setDownloadingTableQr] = useState(false)
 
   useEffect(() => {
     apiClient
@@ -37,6 +41,13 @@ export default function PublicLinkPage() {
       })
       .catch(() => toast.error('Could not load public-link settings.'))
       .finally(() => setLoading(false))
+
+    apiClient
+      .get<TableMap[]>('/tables/')
+      .then((res) => setTables(res.data))
+      .catch(() => {
+        // Non-fatal — the single-table QR selector just stays empty if this fails.
+      })
   }, [])
 
   const save = async (patch: Record<string, unknown>) => {
@@ -188,6 +199,49 @@ export default function PublicLinkPage() {
             >
               Download table QR sheet (PDF)
             </Button>
+
+            <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4">
+              <p className="text-sm font-medium text-card-foreground">
+                Need just one table? (e.g. reprinting a lost QR, or a table you just added)
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={selectedTableId} onValueChange={setSelectedTableId}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Choose a table" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tables.map((t) => (
+                      <SelectItem key={t.table_id} value={String(t.table_id)}>
+                        Table {t.table_number} ({t.zone})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  disabled={!selectedTableId || downloadingTableQr}
+                  onClick={async () => {
+                    setDownloadingTableQr(true)
+                    try {
+                      const res = await apiClient.get(`/qr/table/${selectedTableId}/png`, { responseType: 'blob' })
+                      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'image/png' }))
+                      const label = tables.find((t) => String(t.table_id) === selectedTableId)?.table_number ?? selectedTableId
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = `table-${label}-qr.png`
+                      link.click()
+                      window.URL.revokeObjectURL(url)
+                    } catch {
+                      toast.error('Could not generate this table’s QR code.')
+                    } finally {
+                      setDownloadingTableQr(false)
+                    }
+                  }}
+                >
+                  Download this table&apos;s QR (PNG)
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : null}

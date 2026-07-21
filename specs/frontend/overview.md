@@ -749,6 +749,27 @@ live audit of the actual page components (real headings, button labels, and fiel
 exist in `frontend/src/app/**`) plus the specs, not from generic assumption — instructions should
 never drift from what a reader actually sees on screen.
 
+## Single-table QR generation on Public Link (added 2026-07-21)
+
+`[tenant_slug]/(admin)/public-link/page.tsx`'s "Table QR codes" card (restaurant-segment tenants
+only) previously offered exactly one action — "Download table QR sheet (PDF)", a bulk export
+covering every table at once (`GET /qr/table-sheet/pdf`). There was no way to get just one specific
+table's QR without regenerating/reprinting the whole sheet (e.g. reprinting one lost/damaged QR, or
+covering a newly added table).
+
+**No backend work was needed** — `GET /qr/table/{table_id}/png` (`backend/app/routers/qr.py`,
+public, no auth) already existed and already builds the correct guest-ordering URL for one specific
+table via `qr_service.generate_table_qr_bytes()`: `{FRONTEND_URL}/m/{public_slug}?t={table_number}`,
+the same `?t=` mechanism the bulk PDF sheet already used and that guest checkout already reads to
+pre-fill/tag the order with that table. This part of the feature — an order coming back tagged with
+the specific table that was scanned — was already fully working before this change; only the
+missing frontend control was added.
+
+Added a **table selector + "Download this table's QR (PNG)"** button, alongside (not replacing) the
+existing bulk PDF button, sourced from the tenant's own `GET /tables/` list (`TableMap` — note the
+QR endpoint's path param is the numeric `table_id` primary key, not the display `table_number`
+label like "T-04", despite the endpoint's URL segment being named confusingly close to the latter).
+
 ### Shared page header: `PageHeader` (added 2026-07-12, UIX-1 — see ADR-010)
 
 `components/layout/PageHeader.tsx` replaces the ~30 hand-rolled `<h1 className="text-3xl font-black
@@ -1091,12 +1112,33 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Response interceptor: centralized error toast (except 401, handled by auth flow)
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status !== 401 && !error.config?._suppressToast) {
+      // detail is a string for most errors, but FastAPI 422s return an array of
+      // { msg, loc, ... } objects — always normalized to a string before toasting.
+      toast.error(extractErrorMessage(error.response?.data?.detail));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 ```
 
 **Key facts:**
 - No `X-Tenant-Slug` header is sent — tenant context comes from JWT only
-- No response interceptor (no automatic 401 redirect)
+- Response interceptor shows a toast for every non-401 API error (401 is handled by the login
+  redirect flow instead); a caller can opt out per-request via `config._suppressToast`
+- `detail` is normalized before toasting (`extractErrorMessage`, added 2026-07-21): FastAPI returns
+  a plain string for most errors but an **array of validation-error objects** for 422s (Pydantic
+  validation failures). Passing that array straight to `toast.error()` used to crash the whole page
+  (React refuses to render a raw object/array as a child) — found while clearing a tenant's
+  `public_slug` back to empty during unrelated manual testing, since `public_slug` has
+  `min_length=2` and an empty string trips exactly this 422 path. Any 422 anywhere in the app hit
+  the same crash; fixed once in the shared interceptor rather than per call site.
 - Token read from `localStorage` key `scms-store` → nested `state.token`
 
 ---
