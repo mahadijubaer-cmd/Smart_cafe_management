@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import MarqueeStrip from '@/components/layout/MarqueeStrip'
 
 export default function Home() {
   const tenantSlug = useStore((state) => state.tenantSlug)
@@ -11,7 +12,9 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#1A4D2E] px-6 py-16 text-center text-white">
-      <h1 className="motion-safe:animate-fade-up text-5xl font-black tracking-tight">Smart Cafe Management</h1>
+      <h1 className="motion-safe:animate-fade-up text-5xl font-black tracking-tight">
+        Smart <em className="italic text-[#E8734A]">Cafe</em> Management
+      </h1>
 
       {/* RFC-007: segment landing — cafeteria (registered accounts) vs restaurant (guest QR ordering) */}
       <div className="mt-12 grid w-full max-w-3xl gap-6 sm:grid-cols-2">
@@ -64,6 +67,11 @@ export default function Home() {
           <Link href="/register-organization">Register your organisation</Link>
         </Button>
       </div>
+
+      <MarqueeStrip
+        className="motion-safe:animate-fade-up mt-16 max-w-2xl"
+        items={['Academic Cafeterias', 'Corporate Dining', 'Food Courts', 'Real-Time Orders', 'Wallet Payments', 'QR Ordering']}
+      />
     </main>
   )
 }

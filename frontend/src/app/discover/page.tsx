@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Plus, Search } from 'lucide-react'
 import apiClient from '@/lib/api'
 import TenantCard from '@/components/auth/TenantCard'
+import MarqueeStrip from '@/components/layout/MarqueeStrip'
 import { type Segment } from '@/lib/segments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,9 +74,9 @@ function DiscoverContent() {
         />
         <div className="relative z-10">
           <h1 className="motion-safe:animate-fade-up text-4xl font-black tracking-tight">
-            {segmentFilter === 'cafeteria' && 'Find your cafeteria'}
-            {segmentFilter === 'restaurant' && 'Find your restaurant'}
-            {!segmentFilter && 'Find your organisation'}
+            {segmentFilter === 'cafeteria' && <>Find your <em className="italic text-[#E8734A]">cafeteria</em></>}
+            {segmentFilter === 'restaurant' && <>Find your <em className="italic text-[#E8734A]">restaurant</em></>}
+            {!segmentFilter && <>Find your <em className="italic text-[#E8734A]">organisation</em></>}
           </h1>
           <p
             className="motion-safe:animate-fade-up mt-3 text-white/70"
@@ -111,6 +112,11 @@ function DiscoverContent() {
               </Button>
             </div>
           )}
+
+          <MarqueeStrip
+            className="motion-safe:animate-fade-up mx-auto mt-10 max-w-2xl"
+            items={['Academic Cafeterias', 'Corporate Dining', 'Food Courts', 'Real-Time Orders', 'Wallet Payments', 'QR Ordering']}
+          />
         </div>
       </div>
 

@@ -551,6 +551,34 @@ the app, including from `/discover` itself. `Navbar.tsx`'s brand link (`/${slug}
 own in-app home) is unaffected — that's section-level navigation, not the platform-identity link
 this change concerns.
 
+**Accent-word headings + marquee strip on `/` and `/discover` (added 2026-07-21):** motion/typography
+ideas evaluated from an external reference site (arche-lab.org) and scoped deliberately narrow —
+only the two public, pre-login marketing-style pages get this treatment, not the functional app.
+Two additions, both CSS-only (no new JS dependency):
+
+- **Accent word in the hero heading**: one word gets `italic text-[#E8734A]` (the platform's existing
+  coral accent, matching `Logo.tsx`/brand assets — not the reference site's teal, to stay on SCMS's
+  own established palette rather than visually borrowing someone else's). On `app/page.tsx` this is
+  the static word "Cafe" in "Smart *Cafe* Management"; on `discover/page.tsx` it's the dynamic segment
+  noun itself ("cafeteria"/"restaurant"/"organisation" — whichever the existing conditional heading
+  logic renders).
+- **`components/layout/MarqueeStrip.tsx`**: an infinite horizontal CSS marquee (new `marquee` keyframe
+  + `animate-marquee` utility in `tailwind.config.js`, same pattern as the existing `fade-up`/`scale-in`
+  entries) listing short platform-feature tags separated by a middot, content duplicated once so the
+  loop is seamless. Rendered below the hero CTA row on both `/` and `/discover`. Gated with Tailwind's
+  `motion-safe:` variant (falls back to a static, non-scrolling row for `prefers-reduced-motion`
+  users) — the reference site's own marquee did not appear to do this, so this is a deliberate
+  accessibility improvement over the source of the idea, not a straight port.
+
+**Explicitly out of scope, and why:** the reference site also has a continuously animated canvas/SVG
+line pattern behind its entire hero. Not adopted anywhere, including here — SCMS just shipped
+kiosk/signage support (Phase 25) meant to render for hours on tablet-class hardware, where a
+persistent full-viewport background animation is a real battery/GPU cost, and it would compete for
+attention against task-focused ordering UI in a way a marketing site never has to worry about. No
+Framer Motion/GSAP/Lottie was introduced either — the reference site itself doesn't use any of those
+(verified via network-request inspection, not assumed), so there was never a case for adding a new
+animation dependency here.
+
 **Footer on fixed-sidebar pages (✅ fixed 2026-07-16 — sidebar must never cover the footer):**
 the shadcn `Sidebar` is `fixed bottom-0 top-[--site-header-height]` (full viewport height below the
 sticky header), so on the three dashboard layouts that use it — `[tenant_slug]/(admin)/layout.tsx`,

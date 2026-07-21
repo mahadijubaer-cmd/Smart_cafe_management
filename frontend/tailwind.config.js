@@ -70,11 +70,16 @@ module.exports = {
   			'scale-in': {
   				'0%': { opacity: '0', transform: 'scale(0.96)' },
   				'100%': { opacity: '1', transform: 'scale(1)' }
+  			},
+  			marquee: {
+  				'0%': { transform: 'translateX(0)' },
+  				'100%': { transform: 'translateX(-50%)' }
   			}
   		},
   		animation: {
   			'fade-up': 'fade-up 0.5s ease-out both',
-  			'scale-in': 'scale-in 0.2s ease-out both'
+  			'scale-in': 'scale-in 0.2s ease-out both',
+  			marquee: 'marquee 24s linear infinite'
   		}
   	}
   },
