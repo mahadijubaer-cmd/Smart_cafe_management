@@ -576,6 +576,12 @@ grid, so:
 All three pages now render `<SplitAuthPanel>` with their existing form JSX and hero copy passed
 through unchanged — this was a structural refactor only, no content or behavior changes.
 
+**Sized up (same day):** the initial `max-w-6xl` cap read as too small relative to the page on wide
+viewports — bumped to `max-w-[1600px]` with an added `lg:min-h-[80vh]` so the panel reads as
+occupying the page rather than floating in a sea of margin, without going fully edge-to-edge (that
+full-bleed direction was considered and explicitly declined in favor of keeping the app's existing
+card aesthetic — see the visual-style decision above).
+
 **Real logo, favicon, and discover hero art (added 2026-07-21):** the icon badge was a placeholder
 🍽 emoji, hand-duplicated independently in `SiteHeader`, `SiteFooter`, `Navbar`, and the admin
 sidebar header — no shared component existed. Replaced with `components/layout/Logo.tsx`, an inline
