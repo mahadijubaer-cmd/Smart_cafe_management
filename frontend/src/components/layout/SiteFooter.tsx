@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 
 import { useTenantInfo } from '@/hooks/useTenantInfo'
 import { useStore } from '@/store/useStore'
+import Logo from '@/components/layout/Logo'
 
 const PLATFORM_ACCENT = '#1A4D2E'
 
@@ -44,9 +45,7 @@ export default function SiteFooter({ inset = false }: { inset?: boolean }) {
           href="/discover"
           className="group flex items-center gap-2.5 rounded-full py-1 pr-3 transition-colors hover:bg-white/5"
         >
-          <span className="flex size-7 items-center justify-center rounded-full bg-primary/20 text-sm transition-transform group-hover:scale-105" aria-hidden="true">
-            🍽
-          </span>
+          <Logo theme="dark" className="size-7 transition-transform group-hover:scale-105" />
           <span className="flex flex-col leading-none">
             <span className="text-sm font-extrabold tracking-tight text-white">SCMS</span>
             <span className="hidden text-[11px] font-medium text-white/45 sm:inline">

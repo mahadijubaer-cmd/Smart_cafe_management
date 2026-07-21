@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <title>SCMS hero illustration — floating tenant/menu cards over a campus-dining gradient</title>
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F3320"/>
+      <stop offset="100%" stop-color="#20603C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E8734A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#E8734A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vignette" x1="0%" y1="100%" x2="0%" y2="55%">
+      <stop offset="0%" stop-color="#0B2717" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0B2717" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.6" fill="#F7F3EC" opacity="0.14"/>
+    </pattern>
+    <filter id="blur1" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="70"/>
+    </filter>
+    <filter id="cardShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0B2717" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bgGrad)"/>
+  <rect width="1600" height="900" fill="url(#dots)"/>
+  <circle cx="1320" cy="190" r="440" fill="url(#glow)" filter="url(#blur1)"/>
+
+  <circle cx="130" cy="770" r="260" fill="none" stroke="#F7F3EC" stroke-width="2" opacity="0.14"/>
+  <circle cx="130" cy="770" r="190" fill="none" stroke="#F7F3EC" stroke-width="2" opacity="0.11"/>
+
+  <!-- Card 1: menu / plate -->
+  <g transform="translate(250,190) rotate(-6)" filter="url(#cardShadow)">
+    <rect x="-115" y="-75" width="230" height="150" rx="20" fill="#F7F3EC"/>
+    <circle cx="-65" cy="-25" r="26" fill="none" stroke="#1A4D2E" stroke-width="5"/>
+    <circle cx="-65" cy="-25" r="14" fill="#DCEEE1"/>
+    <rect x="-15" y="-38" width="90" height="10" rx="5" fill="#1A4D2E" opacity="0.85"/>
+    <rect x="-15" y="-16" width="70" height="8" rx="4" fill="#5B6B62" opacity="0.6"/>
+    <rect x="-15" y="4" width="55" height="8" rx="4" fill="#5B6B62" opacity="0.4"/>
+  </g>
+
+  <!-- Card 2: tenant grid / discover -->
+  <g transform="translate(1300,220) rotate(5)" filter="url(#cardShadow)">
+    <rect x="-125" y="-85" width="250" height="170" rx="20" fill="#F7F3EC"/>
+    <g transform="translate(-70,-30)">
+      <rect x="-26" y="-26" width="46" height="46" rx="10" fill="#DCEEE1" stroke="#1A4D2E" stroke-width="3"/>
+      <rect x="26" y="-26" width="46" height="46" rx="10" fill="#E8734A"/>
+      <rect x="-26" y="26" width="46" height="46" rx="10" fill="#DCEEE1" stroke="#1A4D2E" stroke-width="3"/>
+      <rect x="26" y="26" width="46" height="46" rx="10" fill="#DCEEE1" stroke="#1A4D2E" stroke-width="3"/>
+    </g>
+    <rect x="30" y="-52" width="70" height="9" rx="4.5" fill="#1A4D2E" opacity="0.85"/>
+    <rect x="30" y="-30" width="55" height="7" rx="3.5" fill="#5B6B62" opacity="0.55"/>
+  </g>
+
+  <!-- Card 3: order / cup -->
+  <g transform="translate(1370,540) rotate(-4)" filter="url(#cardShadow)">
+    <rect x="-100" y="-65" width="200" height="130" rx="18" fill="#F7F3EC"/>
+    <path d="M-75 -30 L-45 -30 L-50 20 C-51 26 -69 26 -70 20 Z" fill="none" stroke="#1A4D2E" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-45 -22 C-32 -22 -32 -6 -45 -6" fill="none" stroke="#1A4D2E" stroke-width="4"/>
+    <rect x="-20" y="-34" width="80" height="9" rx="4.5" fill="#1A4D2E" opacity="0.85"/>
+    <rect x="-20" y="-12" width="60" height="7" rx="3.5" fill="#5B6B62" opacity="0.5"/>
+  </g>
+
+  <!-- Card 4: tracking / status -->
+  <g transform="translate(1160,730) rotate(6)" filter="url(#cardShadow)">
+    <rect x="-115" y="-75" width="230" height="150" rx="20" fill="#F7F3EC"/>
+    <circle cx="-65" cy="-15" r="24" fill="none" stroke="#E8734A" stroke-width="5"/>
+    <path d="M-75 -15 L-69 -8 L-55 -25" fill="none" stroke="#E8734A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="-15" y="-30" width="85" height="9" rx="4.5" fill="#1A4D2E" opacity="0.85"/>
+    <rect x="-15" y="-8" width="65" height="7" rx="3.5" fill="#5B6B62" opacity="0.5"/>
+  </g>
+
+  <!-- Card 5: monogram accent -->
+  <g transform="translate(230,650) rotate(-5)" filter="url(#cardShadow)">
+    <rect x="-95" y="-70" width="190" height="140" rx="20" fill="#F7F3EC"/>
+    <path d="M14 -30 C14 -38 5 -42 -6 -42 C-17 -42 -25 -36 -25 -28 C-25 -20 -17 -16 -6 -14 C5 -12 13 -8 13 0 C13 8 5 14 -6 14 C-17 14 -26 10 -26 2"
+          fill="none" stroke="#1A4D2E" stroke-width="8" stroke-linecap="round" transform="translate(0,10) scale(0.8)"/>
+    <circle cx="-6" cy="-46" r="4" fill="#E8734A" transform="translate(0,10) scale(0.8)"/>
+  </g>
+
+  <rect x="0" y="500" width="1600" height="400" fill="url(#vignette)"/>
+</svg>

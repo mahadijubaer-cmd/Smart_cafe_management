@@ -32,6 +32,7 @@ import type { TenantType, UserRole } from '@/types'
 import { Button } from '@/components/ui/button'
 import CommandPalette from '@/components/layout/CommandPalette'
 import SiteFooter from '@/components/layout/SiteFooter'
+import Logo from '@/components/layout/Logo'
 import {
   Sidebar,
   SidebarContent,
@@ -221,7 +222,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <SidebarHeader className="border-b px-3 py-3">
           <div className="flex w-full items-center justify-between gap-2 px-2 text-primary">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="text-xl" aria-hidden="true">🍽</span>
+              <Logo theme="light" className="size-5" />
               <span className="truncate font-bold tracking-tight group-data-[collapsible=icon]:hidden">{tenant?.name ?? slug} Admin</span>
             </div>
             <kbd className="hidden rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden lg:inline">

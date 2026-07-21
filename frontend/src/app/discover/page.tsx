@@ -64,46 +64,54 @@ function DiscoverContent() {
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-primary px-6 py-16 text-center text-white">
-        <h1 className="motion-safe:animate-fade-up text-4xl font-black tracking-tight">
-          {segmentFilter === 'cafeteria' && 'Find your cafeteria'}
-          {segmentFilter === 'restaurant' && 'Find your restaurant'}
-          {!segmentFilter && 'Find your organisation'}
-        </h1>
-        <p
-          className="motion-safe:animate-fade-up mt-3 text-white/70"
-          style={{ animationDelay: '80ms' }}
-        >
-          Search cafeterias, restaurants, and food courts on the platform.
-        </p>
-
-        <div
-          className="motion-safe:animate-fade-up mx-auto mt-8 flex max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg transition-shadow focus-within:shadow-xl"
-          style={{ animationDelay: '160ms' }}
-        >
-          <Search className="h-5 w-5 text-slate-400 shrink-0" />
-          <Input
-            type="text"
-            placeholder="Search by name or city…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-auto flex-1 border-0 bg-transparent p-0 text-slate-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-        </div>
-
-        {segmentFilter && (
-          <div
-            className="motion-safe:animate-fade-up mx-auto mt-5 max-w-md"
-            style={{ animationDelay: '240ms' }}
+      <div className="relative overflow-hidden bg-primary px-6 py-16 text-center text-white">
+        <img
+          src="/brand/hero-illustration.svg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="relative z-10">
+          <h1 className="motion-safe:animate-fade-up text-4xl font-black tracking-tight">
+            {segmentFilter === 'cafeteria' && 'Find your cafeteria'}
+            {segmentFilter === 'restaurant' && 'Find your restaurant'}
+            {!segmentFilter && 'Find your organisation'}
+          </h1>
+          <p
+            className="motion-safe:animate-fade-up mt-3 text-white/70"
+            style={{ animationDelay: '80ms' }}
           >
-            <Button asChild variant="outline" className="w-full gap-2 border-white/30 bg-white/10 text-white transition-transform hover:-translate-y-0.5 hover:bg-white/20 hover:text-white">
-              <Link href={`/register-organization?segment=${segmentFilter}`}>
-                <Plus className="h-4 w-4" />
-                {segmentFilter === 'cafeteria' ? 'Register your cafeteria' : 'Register your restaurant'}
-              </Link>
-            </Button>
+            Search cafeterias, restaurants, and food courts on the platform.
+          </p>
+
+          <div
+            className="motion-safe:animate-fade-up mx-auto mt-8 flex max-w-md items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg transition-shadow focus-within:shadow-xl"
+            style={{ animationDelay: '160ms' }}
+          >
+            <Search className="h-5 w-5 text-slate-400 shrink-0" />
+            <Input
+              type="text"
+              placeholder="Search by name or city…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-auto flex-1 border-0 bg-transparent p-0 text-slate-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
           </div>
-        )}
+
+          {segmentFilter && (
+            <div
+              className="motion-safe:animate-fade-up mx-auto mt-5 max-w-md"
+              style={{ animationDelay: '240ms' }}
+            >
+              <Button asChild variant="outline" className="w-full gap-2 border-white/30 bg-white/10 text-white transition-transform hover:-translate-y-0.5 hover:bg-white/20 hover:text-white">
+                <Link href={`/register-organization?segment=${segmentFilter}`}>
+                  <Plus className="h-4 w-4" />
+                  {segmentFilter === 'cafeteria' ? 'Register your cafeteria' : 'Register your restaurant'}
+                </Link>
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Results */}

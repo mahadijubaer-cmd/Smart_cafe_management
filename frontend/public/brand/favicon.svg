@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <title>SCMS icon — Tenant Grid (favicon / app icon)</title>
+  <rect x="15" y="15" width="60" height="60" rx="14" fill="#DCEEE1" stroke="#1A4D2E" stroke-width="4"/>
+  <rect x="85" y="15" width="60" height="60" rx="14" fill="#E8734A"/>
+  <rect x="15" y="85" width="60" height="60" rx="14" fill="#DCEEE1" stroke="#1A4D2E" stroke-width="4"/>
+  <rect x="85" y="85" width="60" height="60" rx="14" fill="#DCEEE1" stroke="#1A4D2E" stroke-width="4"/>
+  <g transform="translate(115,45)">
+    <path d="M0 -11 C6 -11 10 -6 10 -1 C10 5 0 14 0 14 C0 14 -10 5 -10 -1 C-10 -6 -6 -11 0 -11 Z" fill="#FFFFFF"/>
+    <circle cx="0" cy="-1" r="3.4" fill="#E8734A"/>
+  </g>
+</svg>

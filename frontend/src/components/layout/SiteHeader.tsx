@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
 
 import { useTenantInfo } from '@/hooks/useTenantInfo'
+import Logo from '@/components/layout/Logo'
 
 const PLATFORM_ACCENT = '#1A4D2E'
 
@@ -40,9 +41,7 @@ export default function SiteHeader() {
           href="/discover"
           className="group flex items-center gap-2.5 rounded-full py-1 pr-3 transition-colors hover:bg-white/5"
         >
-          <span className="flex size-8 items-center justify-center rounded-full bg-primary/20 text-base transition-transform group-hover:scale-105" aria-hidden="true">
-            🍽
-          </span>
+          <Logo theme="dark" className="size-8 transition-transform group-hover:scale-105" />
           <span className="flex flex-col leading-none">
             <span className="text-base font-extrabold tracking-tight text-white">SCMS</span>
             <span className="hidden text-[11px] font-medium text-white/45 sm:inline">

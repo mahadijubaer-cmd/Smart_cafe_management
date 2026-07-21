@@ -22,7 +22,7 @@ export default function RootLayout({
       <head>
         <title>Smart Cafe Management System</title>
         <meta name="description" content="SCMS - BRAC University" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg" />
       </head>
       <body className="flex min-h-screen flex-col bg-background font-sans" suppressHydrationWarning>
         <ThemeProvider>

@@ -8,6 +8,7 @@ import { LogOut, Menu, ShoppingCart, User, Wallet } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { useTenantInfo } from '@/hooks/useTenantInfo'
 import NotificationBell from '@/components/layout/NotificationBell'
+import Logo from '@/components/layout/Logo'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -117,7 +118,7 @@ export default function Navbar() {
             <SheetContent side="left" className="w-80">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2 text-primary">
-                  <span className="text-2xl" aria-hidden="true">🍽</span>
+                  <Logo theme="light" className="size-6" />
                   {orgName}
                 </SheetTitle>
               </SheetHeader>
@@ -142,7 +143,7 @@ export default function Navbar() {
           </Sheet>
 
           <Link href={`/${slug}/menu`} className="flex items-center gap-2 text-primary transition hover:opacity-90">
-            <span className="text-2xl" aria-hidden="true">🍽</span>
+            <Logo theme="light" className="size-6" />
             <span className="text-lg font-bold tracking-tight sm:text-xl">{orgName}</span>
           </Link>
         </div>
