@@ -73,6 +73,10 @@ export default function Home() {
         <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10 hover:text-white">
           <Link href="/register-organization">Register your organisation</Link>
         </Button>
+
+        <Button asChild size="lg" variant="outline" className="rounded-2xl border-white/30 bg-transparent text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10 hover:text-white">
+          <Link href="/guide">User Guide</Link>
+        </Button>
       </div>
 
       <MarqueeStrip

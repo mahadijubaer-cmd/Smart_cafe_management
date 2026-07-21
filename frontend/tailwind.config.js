@@ -74,12 +74,22 @@ module.exports = {
   			marquee: {
   				'0%': { transform: 'translateX(0)' },
   				'100%': { transform: 'translateX(-50%)' }
+  			},
+  			'accordion-down': {
+  				'0%': { height: '0' },
+  				'100%': { height: 'var(--radix-accordion-content-height)' }
+  			},
+  			'accordion-up': {
+  				'0%': { height: 'var(--radix-accordion-content-height)' },
+  				'100%': { height: '0' }
   			}
   		},
   		animation: {
   			'fade-up': 'fade-up 0.5s ease-out both',
   			'scale-in': 'scale-in 0.2s ease-out both',
-  			marquee: 'marquee 24s linear infinite'
+  			marquee: 'marquee 24s linear infinite',
+  			'accordion-down': 'accordion-down 0.2s ease-out',
+  			'accordion-up': 'accordion-up 0.2s ease-out'
   		}
   	}
   },

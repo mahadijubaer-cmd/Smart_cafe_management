@@ -23,7 +23,7 @@
 | shadcn/ui | `components/ui/*` primitives | ✅ [2026-07-08] Adopted — see below |
 | class-variance-authority | Variant styling for `components/ui/*` | — |
 | tailwind-merge / clsx | `cn()` helper (`src/lib/utils.ts`) | — |
-| @radix-ui/react-* (`slot`, `alert-dialog`, `switch`, `tooltip`, `label`, `dialog`, `dropdown-menu`, `select`, `tabs`, `popover`, `avatar`, `checkbox`, `radio-group`, `scroll-area`, `separator`, `progress`) | Accessible primitives under `components/ui/*` | — |
+| @radix-ui/react-* (`slot`, `alert-dialog`, `switch`, `tooltip`, `label`, `dialog`, `dropdown-menu`, `select`, `tabs`, `popover`, `avatar`, `checkbox`, `radio-group`, `scroll-area`, `separator`, `progress`, `accordion`) | Accessible primitives under `components/ui/*` | `accordion` added [2026-07-21] for the `/guide` FAQ — see below |
 | cmdk, sonner, next-themes | Command palette / toast / theme primitives used by shadcn's `command.tsx`/`sonner.tsx` | `sonner` is separate from the app's existing `react-hot-toast` — both currently present, see note below |
 | @dnd-kit | Drag-and-drop | ❌ Phase 16 — NOT YET INSTALLED |
 | next/font/google (Manrope, Inter) | Typography | ✅ [2026-07-11] Adopted — see below |
@@ -153,6 +153,9 @@ src/app/
   page.tsx                           → Redirects to /{defaultSlug}/login
                                         ✅ [Phase 22] Becomes segment landing (Cafeteria /
                                         Restaurant cards → tenant directory filtered by segment) — RFC-007
+  guide/page.tsx                     → ✅ [added 2026-07-21] Public, non-technical User Guide — see
+                                        "User Guide page" section below. Linked from a single
+                                        "User Guide" button on `/`.
   discover/page.tsx                  → ✅ [RFC-007] Public tenant directory (search by name/city).
                                         Surfaces a "Register your {cafeteria|restaurant}" CTA
                                         (added 2026-07-11) linking to `/register-organization?segment=…`.
@@ -698,6 +701,53 @@ hardcode `"BRACU Cafe"` — both now pull the real tenant name via `useTenantInf
 generic `"Cafe"` only if that fetch hasn't resolved yet. The `[tenant_slug]/(admin)/layout.tsx`
 sidebar also now shows the tenant's real `name` (was previously showing the raw URL slug, e.g.
 `green-fork-1782902792`, instead of `"Green Fork Bistro"`).
+
+## User Guide page (added 2026-07-21)
+
+`app/guide/page.tsx` — a public, non-technical User Guide covering the whole platform, linked from
+a single **"User Guide"** button on the homepage (`app/page.tsx`, alongside the existing "Find your
+organisation"/"Register your organisation" buttons). Not on the chromeless-routes list, so it gets
+`SiteHeader`/`SiteFooter` automatically like any other public page.
+
+**Why this exists:** the platform is feature-complete (all 25 roadmap phases shipped) but had zero
+end-user documentation — no way for a first-time visitor, a prospective business owner, or a
+confused admin to find out what SCMS does or how to use it.
+
+**Scope — 9 roles/entry-points, deliberately excluding Platform Admin:**
+guest (QR/kiosk ordering, no account), customer/student, staff/server, cleaner, tenant admin, super
+admin (franchise), food court admin, plus "registering your organization" as its own entry point
+(a business owner arrives holding none of the account-holder roles yet). Platform Admin (SCMS's own
+internal tenant-lifecycle/audit-log/cross-tenant-analytics team) is intentionally left out — it's
+not a real audience for a homepage visitor, unlike the other 9.
+
+**Structure**, audience-first (mirrors how real SaaS help centers organize things — "who are you"
+before any feature list), not an alphabetical feature dump:
+1. Hero/intro paragraph.
+2. A "Who are you?" jump-nav (8 entries, anchor-scrolls to the matching section).
+3. One section per role, same template each time: **What you can do** (1-2 sentence summary) →
+   **Step-by-step: your main flow** (numbered, quoting real on-screen button/label text so
+   instructions never mismatch what the reader actually sees) → **Everything else you can do**
+   (scannable checklist) → inline callout boxes for non-obvious gotchas (QR codes come from the
+   Public Link screen, not Tables; guest online payment is a simulation, not a real gateway;
+   cleaner assignment is fully automatic — there's no "assign" button anywhere; staff invite links
+   are shown only once; a food-court vendor can't mark their own order "delivered," only the
+   shared server role can).
+4. "How organizations differ" — the 7 tenant types and the fundamental Cafeteria-vs-Restaurant
+   split (account+wallet vs. walk-in guest ordering) that underlies why some features exist for
+   some readers and not others.
+5. FAQ — an accessible accordion (`components/ui/accordion.tsx`, new) of ~15-20 questions pulled
+   directly from the gotchas above, e.g. "Do I need an account to order?", "Is online payment real
+   or a demo?", "How do I get my table's QR code?".
+
+**New dependency**: `@radix-ui/react-accordion` (added the same way every other Radix primitive in
+this codebase was installed — `npm install` inside the frontend container, committing the resulting
+`package.json`/`package-lock.json` change). `components/ui/accordion.tsx` follows the exact
+authoring pattern of the rest of `components/ui/*`.
+
+**Content accuracy**: every step-by-step instruction and feature description was written from a
+live audit of the actual page components (real headings, button labels, and field names as they
+exist in `frontend/src/app/**`) plus the specs, not from generic assumption — instructions should
+never drift from what a reader actually sees on screen.
 
 ### Shared page header: `PageHeader` (added 2026-07-12, UIX-1 — see ADR-010)
 
