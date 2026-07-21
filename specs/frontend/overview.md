@@ -549,6 +549,20 @@ These sit **above** each section's existing functional nav (customer cart/wallet
 staff/cleaner bars) rather than replacing them — this is global platform-identity chrome, not
 in-app navigation, and the existing section-level navs still own their own navigation concerns.
 
+**Bug: stale tenant pill leaked across client-side navigation (found & fixed 2026-07-21).**
+`useTenantInfo(slug)`'s effect had an early `return` when `slug` was falsy — meaning that when
+navigating (client-side, via `<Link>`/router, not a hard reload) from a tenant-scoped page (e.g.
+`/bracu/login`) to a non-tenant page (`/discover`, `/guide`), the hook's `tenant` state was simply
+never touched again and kept whatever tenant had last loaded. Since `SiteHeader`/`SiteFooter` are
+mounted once in the root layout and persist across client-side route transitions, this showed the
+*previous* tenant's name/logo pill on pages that have nothing to do with any tenant — reported live
+in production as "BRAC University Cafeteria" appearing in the header on `/discover?segment=restaurant`
+and `/guide` after having visited a BRACU page earlier in the same browser session. Fixed by having
+the early-return branch explicitly reset `tenant`/`error` to null and `loading` to false instead of
+leaving prior state untouched. Verified by reproducing the exact client-side-navigation path (tenant
+page → home → `/discover`, and → `/guide`) both before (pill incorrectly persisted) and after
+(pill correctly absent) the fix, in both cases confirming zero console errors.
+
 ### Split-panel auth pages: `components/layout/SplitAuthPanel.tsx` (added 2026-07-21)
 
 Three pages — `register-organization/page.tsx`, `[tenant_slug]/(auth)/login/page.tsx`, and

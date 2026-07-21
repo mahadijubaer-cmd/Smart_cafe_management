@@ -14,7 +14,12 @@ export function useTenantInfo(slug: string): UseTenantInfoResult {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!slug) return
+    if (!slug) {
+      setTenant(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
 
     let cancelled = false
     setLoading(true)
