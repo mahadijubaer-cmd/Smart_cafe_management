@@ -13,8 +13,9 @@ import OtpInput from '@/components/auth/OtpInput'
 import TenantWelcomeBanner from '@/components/auth/TenantWelcomeBanner'
 import TenantSelector from '@/components/auth/TenantSelector'
 import ProfileTypeSelector from '@/components/auth/ProfileTypeSelector'
+import SplitAuthPanel from '@/components/layout/SplitAuthPanel'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardDescription, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { useTenantInfo } from '@/hooks/useTenantInfo'
@@ -209,11 +210,31 @@ export default function TenantRegisterPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-3rem)]">
-      <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
-        <div className="grid w-full gap-6 xl:grid-cols-[0.95fr_1.05fr] xl:gap-8">
-          {/* Form panel */}
-          <Card className="light motion-safe:animate-scale-in order-2 overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm lg:order-1">
+    <main className="flex min-h-[calc(100vh-3rem)] items-center px-4 py-2 lg:py-6">
+      <SplitAuthPanel
+        className="motion-safe:animate-scale-in"
+        heroSide="right"
+        hero={
+          <>
+            {tenant && !tenantLoading ? (
+              <TenantWelcomeBanner tenant={tenant} />
+            ) : (
+              <div className="h-[72px]" />
+            )}
+            <div className="mt-auto">
+              <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+                Your cafe account starts here.
+              </h1>
+              <p
+                className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
+                style={{ animationDelay: '80ms' }}
+              >
+                Order food, track your wallet and rewards, or manage your cafe — all from one account.
+              </p>
+            </div>
+          </>
+        }
+      >
             <CardContent className="pt-6">
               <StepBar current={step} invite={Boolean(inviteToken)} />
 
@@ -400,29 +421,7 @@ export default function TenantRegisterPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
-
-          {/* Right panel */}
-          <section className="order-1 flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20 md:p-10 lg:order-2">
-            {tenant && !tenantLoading ? (
-              <TenantWelcomeBanner tenant={tenant} />
-            ) : (
-              <div className="h-[72px]" />
-            )}
-            <div className="mt-auto">
-              <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
-                Your cafe account starts here.
-              </h1>
-              <p
-                className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
-                style={{ animationDelay: '80ms' }}
-              >
-                Order food, track your wallet and rewards, or manage your cafe — all from one account.
-              </p>
-            </div>
-          </section>
-        </div>
-      </div>
+      </SplitAuthPanel>
     </main>
   )
 }

@@ -10,10 +10,11 @@ import apiClient from '@/lib/api'
 import { getClaimsFromToken, getRoleFromToken } from '@/lib/auth'
 import { useStore } from '@/store/useStore'
 import OrgCategorySelector from '@/components/auth/OrgCategorySelector'
+import SplitAuthPanel from '@/components/layout/SplitAuthPanel'
 import type { Segment } from '@/lib/segments'
 import { TENANT_TYPE_META } from '@/lib/tenantTypes'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardDescription, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { TenantType } from '@/types'
@@ -171,10 +172,30 @@ function RegisterOrganizationContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto grid min-h-screen w-full max-w-6xl items-stretch gap-6 px-4 py-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8 lg:py-10">
-        {/* Form panel */}
-        <Card className="light motion-safe:animate-scale-in order-2 self-center overflow-hidden border-black/5 bg-white shadow-sm lg:order-1">
+    <main className="flex min-h-screen items-center bg-slate-50 px-4 py-6 lg:py-10">
+      <SplitAuthPanel
+        className="motion-safe:animate-scale-in"
+        heroSide="right"
+        hero={
+          <>
+            <p className="motion-safe:animate-fade-up mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
+              For business owners
+            </p>
+            <div className="mt-auto">
+              <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+                Put your cafe on the platform.
+              </h1>
+              <p
+                className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
+                style={{ animationDelay: '80ms' }}
+              >
+                Restaurants, cafeterias, franchises, and food courts — pick your category, set up your
+                organisation, and start taking orders in minutes.
+              </p>
+            </div>
+          </>
+        }
+      >
           <CardContent className="pt-6">
             <StepBar current={step} />
 
@@ -404,27 +425,7 @@ function RegisterOrganizationContent() {
               </Link>
             </div>
           </CardContent>
-        </Card>
-
-        {/* Right panel */}
-        <section className="order-1 flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20 md:p-10 lg:order-2">
-          <p className="motion-safe:animate-fade-up mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
-            For business owners
-          </p>
-          <div className="mt-auto">
-            <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
-              Put your cafe on the platform.
-            </h1>
-            <p
-              className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
-              style={{ animationDelay: '80ms' }}
-            >
-              Restaurants, cafeterias, franchises, and food courts — pick your category, set up your
-              organisation, and start taking orders in minutes.
-            </p>
-          </div>
-        </section>
-      </div>
+      </SplitAuthPanel>
     </main>
   )
 }

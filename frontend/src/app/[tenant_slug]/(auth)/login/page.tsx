@@ -12,8 +12,9 @@ import apiClient from '@/lib/api'
 import { getClaimsFromToken, getRoleFromToken, isTokenExpired } from '@/lib/auth'
 import { useStore } from '@/store/useStore'
 import OtpInput from '@/components/auth/OtpInput'
+import SplitAuthPanel from '@/components/layout/SplitAuthPanel'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import type { UserRole } from '@/types'
@@ -154,10 +155,12 @@ export default function TenantLoginPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-3rem)]">
-      <div className="flex min-h-[calc(100vh-3rem)] items-stretch py-2 lg:py-0">
-        <div className="grid w-full gap-6 xl:grid-cols-[1.08fr_0.92fr] xl:gap-8">
-          <section className="flex flex-col justify-between overflow-hidden rounded-[2rem] border border-primary/10 bg-primary p-8 text-white shadow-2xl shadow-primary/20 md:p-10">
+    <main className="flex min-h-[calc(100vh-3rem)] items-center px-4 py-2 lg:py-6">
+      <SplitAuthPanel
+        className="motion-safe:animate-scale-in"
+        heroSide="left"
+        hero={
+          <>
             <p className="motion-safe:animate-fade-up mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
               Smart Cafe Management System
             </p>
@@ -170,9 +173,9 @@ export default function TenantLoginPage() {
             >
               Sign in to manage orders, tables, cleaning workflows, and dining activity from one place.
             </p>
-          </section>
-
-          <Card className="light motion-safe:animate-scale-in self-center overflow-hidden border-white/60 bg-white/92 backdrop-blur-sm">
+          </>
+        }
+      >
             {step === 'credentials' ? (
               <div key="credentials" className="motion-safe:animate-fade-up">
                 <CardHeader>
@@ -260,9 +263,7 @@ export default function TenantLoginPage() {
                 </CardContent>
               </div>
             )}
-          </Card>
-        </div>
-      </div>
+      </SplitAuthPanel>
     </main>
   )
 }

@@ -546,6 +546,36 @@ These sit **above** each section's existing functional nav (customer cart/wallet
 staff/cleaner bars) rather than replacing them — this is global platform-identity chrome, not
 in-app navigation, and the existing section-level navs still own their own navigation concerns.
 
+### Split-panel auth pages: `components/layout/SplitAuthPanel.tsx` (added 2026-07-21)
+
+Three pages — `register-organization/page.tsx`, `[tenant_slug]/(auth)/login/page.tsx`, and
+`[tenant_slug]/(auth)/register/page.tsx` — each hand-duplicated the same layout: a CSS grid with a
+form `Card` on one side and a green hero-copy `section` on the other, separated by a `gap-6`/`gap-8`
+gutter, each independently rounded/bordered/shadowed. This read as two separate floating boxes
+rather than one cohesive panel, and — in `register-organization` and `login` specifically — the
+form `Card` additionally carried a `self-center` class while the hero `section` had no such
+override, so the two sides stretched to different heights under the parent grid's default
+`items-stretch` (a real alignment bug, not just a stylistic gap; `[tenant_slug]/register`'s `Card`
+never had this override, so it happened to already match heights, but still had the gap/separate-box
+look).
+
+Fixed by extracting the shared shape into one component rather than patching three copies
+independently (the same duplication-causes-drift problem as the pre-`Logo.tsx` emoji branding —
+`register/page.tsx` had already silently drifted from its two siblings by lacking the
+`self-center` bug they had). `SplitAuthPanel` owns the outer rounded corners/border/shadow on a
+single wrapping container; the two halves inside are plain, unstyled-corner `div`s in a `gap-0`
+grid, so:
+- The outer `overflow-hidden` alone clips both halves to the outer rounded shape, correctly in both
+  the two-column (desktop) and stacked single-column (mobile) breakpoints — no per-corner radius
+  juggling needed on the children.
+- Default grid `items-stretch` with no `self-center` anywhere makes both halves always exactly equal
+  height, driven by whichever side is taller — fixes the height bug at its source instead of
+  patching around it, and stays correct automatically as form-step content length varies (e.g.
+  `register-organization`'s three steps have different field counts).
+
+All three pages now render `<SplitAuthPanel>` with their existing form JSX and hero copy passed
+through unchanged — this was a structural refactor only, no content or behavior changes.
+
 **Real logo, favicon, and discover hero art (added 2026-07-21):** the icon badge was a placeholder
 🍽 emoji, hand-duplicated independently in `SiteHeader`, `SiteFooter`, `Navbar`, and the admin
 sidebar header — no shared component existed. Replaced with `components/layout/Logo.tsx`, an inline
