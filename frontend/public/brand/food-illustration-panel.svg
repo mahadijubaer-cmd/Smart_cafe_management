@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1300" width="900" height="1300">
+  <title>SCMS food-art illustration — auth hero panel (tall)</title>
+  <defs>
+    <linearGradient id="panelBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#153D26"/>
+      <stop offset="100%" stop-color="#1F5A38"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="1300" fill="url(#panelBg)"/>
+
+  <!-- Safe zones only: top band is clear of the top-left badge, bottom ~40% is clear of the
+       bottom-pinned heading/subtext (mt-auto). Everything below lives in the middle band
+       (roughly y 380-760) or bleeds off the top-right/side edges, away from both text zones. -->
+
+  <!-- Plate + spoon, small accent bled off the top-right corner (opposite the left-aligned badge) -->
+  <g transform="translate(860,10) rotate(10)">
+    <circle r="90" fill="none" stroke="#F7F3EC" stroke-width="10" opacity="0.7"/>
+    <g transform="translate(15,10) rotate(35)">
+      <ellipse rx="15" ry="22" fill="#E8734A"/>
+      <rect x="-4" y="18" width="8" height="68" rx="4" fill="#E8734A"/>
+    </g>
+  </g>
+
+  <!-- Cup with steam, middle band, bled off the left edge -->
+  <g transform="translate(30,420) rotate(-5)">
+    <path d="M0 10 L110 10 L97 115 C95 132 15 132 13 115 Z" fill="none" stroke="#F7F3EC" stroke-width="10" stroke-linejoin="round" opacity="0.85"/>
+    <path d="M110 26 C148 26 148 72 110 72" fill="none" stroke="#F7F3EC" stroke-width="9" opacity="0.85"/>
+    <path d="M35 -22 C22 -46 48 -57 37 -80" fill="none" stroke="#F7F3EC" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+    <path d="M74 -22 C61 -46 87 -57 76 -80" fill="none" stroke="#F7F3EC" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+  </g>
+
+  <!-- Bowl with steam, middle band, bled off the right edge -->
+  <g transform="translate(870,650) rotate(4)">
+    <path d="M-100 0 C-100 55 -50 90 0 90 C50 90 100 55 100 0" fill="none" stroke="#F7F3EC" stroke-width="12" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-105 0 L105 0" stroke="#F7F3EC" stroke-width="12" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-28 -32 C-42 -58 -14 -68 -26 -95" fill="none" stroke="#F7F3EC" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+    <path d="M28 -32 C14 -58 42 -68 26 -95" fill="none" stroke="#F7F3EC" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+  </g>
+
+  <!-- Citrus slice, small accent in the middle band -->
+  <g transform="translate(150,600) rotate(-8)">
+    <circle r="42" fill="none" stroke="#E8734A" stroke-width="6" opacity="0.65"/>
+    <circle r="42" fill="#E8734A" opacity="0.1"/>
+    <g stroke="#E8734A" stroke-width="3" opacity="0.5">
+      <line x1="0" y1="-36" x2="0" y2="36"/>
+      <line x1="-31" y1="-21" x2="31" y2="21"/>
+      <line x1="-31" y1="21" x2="31" y2="-21"/>
+    </g>
+  </g>
+</svg>

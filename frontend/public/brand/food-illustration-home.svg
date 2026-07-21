@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <title>SCMS food-art illustration — home page background</title>
+  <defs>
+    <linearGradient id="homeBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#153D26"/>
+      <stop offset="100%" stop-color="#1F5A38"/>
+    </linearGradient>
+    <radialGradient id="homeClear" cx="50%" cy="48%" r="42%">
+      <stop offset="0%" stop-color="#153D26" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#153D26" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#homeBg)"/>
+
+  <!-- Plate + spoon, top-left corner -->
+  <g transform="translate(140,130) rotate(-8)">
+    <circle r="130" fill="none" stroke="#F7F3EC" stroke-width="12" opacity="0.85"/>
+    <circle r="86" fill="#F7F3EC" opacity="0.08"/>
+    <g transform="translate(-20,10) rotate(-30)">
+      <ellipse rx="22" ry="32" fill="#E8734A"/>
+      <rect x="-6" y="26" width="12" height="100" rx="6" fill="#E8734A"/>
+    </g>
+  </g>
+
+  <!-- Cup with steam, top-right corner -->
+  <g transform="translate(1440,150) rotate(6)">
+    <path d="M-48 -8 L48 -8 L37 78 C35 94 -35 94 -37 78 Z" fill="none" stroke="#F7F3EC" stroke-width="9" stroke-linejoin="round" opacity="0.85"/>
+    <path d="M48 4 C82 4 82 46 48 46" fill="none" stroke="#F7F3EC" stroke-width="8" opacity="0.85"/>
+    <path d="M-16 -30 C-27 -52 -6 -60 -15 -82" fill="none" stroke="#F7F3EC" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+    <path d="M14 -30 C3 -52 24 -60 15 -82" fill="none" stroke="#F7F3EC" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+  </g>
+
+  <!-- Bowl with steam, bottom-left corner -->
+  <g transform="translate(190,860) rotate(-4)">
+    <path d="M-100 0 C-100 60 -50 100 0 100 C50 100 100 60 100 0" fill="none" stroke="#F7F3EC" stroke-width="12" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-105 0 L105 0" stroke="#F7F3EC" stroke-width="12" stroke-linecap="round" opacity="0.8"/>
+    <path d="M-28 -32 C-42 -58 -14 -68 -26 -95" fill="none" stroke="#F7F3EC" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+    <path d="M28 -32 C14 -58 42 -68 26 -95" fill="none" stroke="#F7F3EC" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+  </g>
+
+  <!-- Citrus slice, bottom-right corner -->
+  <g transform="translate(1420,840) rotate(12)">
+    <circle r="65" fill="none" stroke="#E8734A" stroke-width="8" opacity="0.7"/>
+    <circle r="65" fill="#E8734A" opacity="0.1"/>
+    <g stroke="#E8734A" stroke-width="4" opacity="0.55">
+      <line x1="0" y1="-55" x2="0" y2="55"/>
+      <line x1="-48" y1="-32" x2="48" y2="32"/>
+      <line x1="-48" y1="32" x2="48" y2="-32"/>
+    </g>
+  </g>
+
+  <!-- Small accent plates along the edges -->
+  <g transform="translate(60,520) rotate(-10)">
+    <circle r="50" fill="none" stroke="#F7F3EC" stroke-width="7" opacity="0.35"/>
+  </g>
+  <g transform="translate(1550,540) rotate(10)">
+    <circle r="50" fill="none" stroke="#F7F3EC" stroke-width="7" opacity="0.35"/>
+  </g>
+
+  <!-- Clear zone over the dead-center where heading/cards/buttons sit -->
+  <rect width="1600" height="1000" fill="url(#homeClear)"/>
+</svg>

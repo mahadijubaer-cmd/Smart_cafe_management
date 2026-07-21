@@ -164,15 +164,17 @@ export default function TenantLoginPage() {
             <p className="motion-safe:animate-fade-up mb-4 inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-white/90">
               Smart Cafe Management System
             </p>
-            <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
-              Welcome back to the cafe dashboard.
-            </h1>
-            <p
-              className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
-              style={{ animationDelay: '80ms' }}
-            >
-              Sign in to manage orders, tables, cleaning workflows, and dining activity from one place.
-            </p>
+            <div className="mt-auto">
+              <h1 className="motion-safe:animate-fade-up max-w-xl text-4xl font-black tracking-tight md:text-5xl lg:text-6xl">
+                Welcome back to the cafe dashboard.
+              </h1>
+              <p
+                className="motion-safe:animate-fade-up mt-4 max-w-lg text-base leading-7 text-white/80 md:text-lg"
+                style={{ animationDelay: '80ms' }}
+              >
+                Sign in to manage orders, tables, cleaning workflows, and dining activity from one place.
+              </p>
+            </div>
           </>
         }
       >

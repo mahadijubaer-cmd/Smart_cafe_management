@@ -19,8 +19,16 @@ export default function SplitAuthPanel({ hero, heroSide = 'right', children, cla
     <div
       className={`mx-auto grid w-full max-w-[1600px] overflow-hidden rounded-[2rem] border border-primary/10 bg-white shadow-2xl shadow-primary/10 lg:min-h-[80vh] ${gridCols} ${className}`}
     >
-      <div className={`order-1 ${heroOrder} flex flex-col justify-between bg-primary p-8 text-white md:p-10`}>
-        {hero}
+      <div className={`relative order-1 ${heroOrder} overflow-hidden bg-primary`}>
+        <img
+          src="/brand/food-illustration-panel.svg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 hidden h-full w-full object-cover md:block"
+        />
+        <div className="relative z-10 flex h-full flex-col justify-between p-8 text-white md:p-10">
+          {hero}
+        </div>
       </div>
       <div className={`order-2 ${formOrder} bg-white`}>{children}</div>
     </div>

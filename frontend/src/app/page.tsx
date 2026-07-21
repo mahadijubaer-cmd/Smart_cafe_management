@@ -11,7 +11,14 @@ export default function Home() {
   const hasHydrated = useStore((state) => state.hasHydrated)
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#1A4D2E] px-6 py-16 text-center text-white">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#1A4D2E] px-6 py-16 text-center text-white">
+      <img
+        src="/brand/food-illustration-home.svg"
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="relative z-10 flex w-full flex-col items-center">
       <h1 className="motion-safe:animate-fade-up text-5xl font-black tracking-tight">
         Smart <em className="italic text-[#E8734A]">Cafe</em> Management
       </h1>
@@ -72,6 +79,7 @@ export default function Home() {
         className="motion-safe:animate-fade-up mt-16 max-w-2xl"
         items={['Academic Cafeterias', 'Corporate Dining', 'Food Courts', 'Real-Time Orders', 'Wallet Payments', 'QR Ordering']}
       />
+      </div>
     </main>
   )
 }

@@ -582,6 +582,45 @@ occupying the page rather than floating in a sea of margin, without going fully 
 full-bleed direction was considered and explicitly declined in favor of keeping the app's existing
 card aesthetic — see the visual-style decision above).
 
+**Food-art illustration backgrounds (added 2026-07-21):** `SplitAuthPanel`'s hero column and the
+home page (`app/page.tsx`) both had a completely flat, plain `bg-primary`/`bg-[#1A4D2E]` background
+with no imagery — flagged as looking empty. Two new illustrations added under
+`public/brand/`, layered over the existing green as an absolutely-positioned `<img
+className="absolute inset-0 h-full w-full object-cover">` with the hero content promoted to a
+`relative z-10` wrapper (same technique already used for `/discover`'s hero art):
+- **`food-illustration-panel.svg`** — used inside `SplitAuthPanel`'s hero column (covers
+  `register-organization`, tenant `login`, and tenant `register` in one change, since all three
+  render through this one shared component). Icons scattered toward the top/side edges with a
+  clearer band across the bottom third, matching this column's `justify-between`/`mt-auto` layout
+  (badge top, heading+subtext bottom).
+- **`food-illustration-home.svg`** — used on `app/page.tsx`'s `<main>`. Icons scattered toward the
+  outer edges/corners, keeping the dead-center clear where the heading, segment cards, and buttons
+  sit (this page centers its content vertically, unlike the auth-hero column above).
+
+Deliberately **bold/visible illustrations, not a subtle texture** (confirmed with the user) — solid
+cream (`#F7F3EC`) and coral (`#E8734A`) fills at a clearly visible size, not faint low-opacity
+outlines. Icon set: reuses the plate+utensil and cup glyphs already established in
+`hero-illustration.svg`, extended with three new glyphs in the identical stroke-width/color
+language (bowl, citrus/garnish slice, steam wisps) — a fuller illustration needed more variety than
+just the two pre-existing food-relevant glyphs to avoid looking repetitive.
+
+**Placement had to account for where each page's text actually sits, not just its aspect ratio
+(live-verified, iterated once):** the auth-hero column's badge is pinned top-left (`justify-between`)
+and its heading+subtext pinned to the bottom (`mt-auto`) — but `login/page.tsx` was initially missing
+the `mt-auto` wrapper its two siblings had, so its three children spread across the *whole* column
+height instead of bottom-anchoring, and a first icon layout (corner-bled, assuming a bottom-third-only
+text zone) visibly collided with both the badge and the heading text once actually screenshotted.
+Fixed both: added the missing `mt-auto` wrapper to `login/page.tsx` for consistency with
+`register-organization`/`register`, and rebuilt `food-illustration-panel.svg` around the one zone
+that's reliably empty on all three pages regardless of exact heading length — the middle band between
+the top badge and the bottom text block — rather than the corners (which collide with the left-aligned
+badge above and the near-full-width text below). **Mobile**: at narrow/stacked viewports the hero
+column compresses enough that this middle band disappears entirely (text fills nearly the whole
+block), so `food-illustration-panel.svg` is hidden below `md:` (`hidden md:block`) — mobile keeps the
+plain solid-green background it always had. `food-illustration-home.svg` didn't need this: its icons
+sit in the far corners of a wide 1600×1000 composition, which `object-cover` naturally crops away on a
+narrow portrait viewport, leaving just the plain green + center vignette — verified, not assumed.
+
 **Real logo, favicon, and discover hero art (added 2026-07-21):** the icon badge was a placeholder
 🍽 emoji, hand-duplicated independently in `SiteHeader`, `SiteFooter`, `Navbar`, and the admin
 sidebar header — no shared component existed. Replaced with `components/layout/Logo.tsx`, an inline
