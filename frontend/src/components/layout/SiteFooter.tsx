@@ -42,7 +42,7 @@ export default function SiteFooter({ inset = false }: { inset?: boolean }) {
 
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 sm:flex-row sm:px-6 lg:px-8">
         <Link
-          href="/discover"
+          href="/"
           className="group flex items-center gap-2.5 rounded-full py-1 pr-3 transition-colors hover:bg-white/5"
         >
           <Logo theme="dark" className="size-7 transition-transform group-hover:scale-105" />

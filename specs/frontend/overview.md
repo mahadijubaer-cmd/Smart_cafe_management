@@ -506,7 +506,7 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
 
 - **`components/layout/SiteHeader.tsx`** — a sticky, blurred `h-14` bar (redesigned 2026-07-11 from
   an initial `h-9` flat strip) showing the **SCMS** platform wordmark in a rounded icon badge
-  (linking to `/discover`). When the current route has a `[tenant_slug]` param, it also fetches that
+  (linking to `/`). When the current route has a `[tenant_slug]` param, it also fetches that
   tenant's public info via the existing `useTenantInfo(slug)` hook (`GET /tenants/public/{slug}`,
   unauthenticated) and shows the org's real name + logo/color-avatar as a pill on the right, with a
   fade-in transition once that data resolves. A 3px bottom accent strip renders in the tenant's own
@@ -520,8 +520,8 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
   the green hero panels on login/register/discover.
 - **`components/layout/SiteFooter.tsx`** — mirrors `SiteHeader`'s visual language (redesigned
   2026-07-11, same day as the header): the same `--header-surface` dark-green token as the header
-  (opaque, no blur since the footer isn't sticky), the same SCMS icon-badge + wordmark on the left,
-  the same tenant name/logo pill (via `useTenantInfo`, same fade-in) on the right when
+  (opaque, no blur since the footer isn't sticky), the same SCMS icon-badge + wordmark on the left
+  (linking to `/`), the same tenant name/logo pill (via `useTenantInfo`, same fade-in) on the right when
   tenant-scoped, and a 3px accent strip in the tenant's `brand_color` (platform green fallback) —
   but running along the **top** edge of the footer instead of the bottom, so the accent color
   bookends the page at both the header's bottom and the footer's top.
@@ -529,6 +529,27 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
 These sit **above** each section's existing functional nav (customer cart/wallet bar, admin sidebar,
 staff/cleaner bars) rather than replacing them — this is global platform-identity chrome, not
 in-app navigation, and the existing section-level navs still own their own navigation concerns.
+
+**Real logo, favicon, and discover hero art (added 2026-07-21):** the icon badge was a placeholder
+🍽 emoji, hand-duplicated independently in `SiteHeader`, `SiteFooter`, `Navbar`, and the admin
+sidebar header — no shared component existed. Replaced with `components/layout/Logo.tsx`, an inline
+SVG rendering the platform's chosen brand mark (a 2×2 tenant-tile grid with one tile picked out in
+coral + a location pin — Concept B from the brand exploration, `desktop:SCMS-Brand-Assets/`),
+parameterized by a `theme: 'light' | 'dark'` prop so the same component works on both the
+`SiteHeader`/`SiteFooter` dark surface and `Navbar`/admin-sidebar's light theme-aware surface. Also
+added: a real `public/brand/favicon.svg` (the previous `<link rel="icon" href="/favicon.ico">` in
+`app/layout.tsx` pointed at a file that never existed in the repo — silently broken since the app's
+inception) and `public/brand/hero-illustration.svg`, layered behind `/discover`'s green banner via an
+absolutely-positioned `<img>` with the heading/search/CTA promoted to `relative z-10` above it.
+
+**`SiteHeader`/`SiteFooter` brand link fixed from `/discover` to `/` (2026-07-21):** the Routing
+Tree below shows `/` (`app/page.tsx`) became the real segment-landing home page as of Phase 22/
+RFC-007 (Cafeteria/Restaurant picker) — `/discover` is one step further in, the tenant *directory*
+you reach after picking a segment (or via the header's own link, previously circular when already
+on `/discover`). The global brand mark now correctly returns to the true home page from anywhere in
+the app, including from `/discover` itself. `Navbar.tsx`'s brand link (`/${slug}/menu`, a tenant's
+own in-app home) is unaffected — that's section-level navigation, not the platform-identity link
+this change concerns.
 
 **Footer on fixed-sidebar pages (✅ fixed 2026-07-16 — sidebar must never cover the footer):**
 the shadcn `Sidebar` is `fixed bottom-0 top-[--site-header-height]` (full viewport height below the

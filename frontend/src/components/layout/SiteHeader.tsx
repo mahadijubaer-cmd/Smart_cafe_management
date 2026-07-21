@@ -38,7 +38,7 @@ export default function SiteHeader() {
     <div className="sticky top-0 z-50 bg-[hsl(var(--header-surface)/0.92)] shadow-sm backdrop-blur">
       <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
-          href="/discover"
+          href="/"
           className="group flex items-center gap-2.5 rounded-full py-1 pr-3 transition-colors hover:bg-white/5"
         >
           <Logo theme="dark" className="size-8 transition-transform group-hover:scale-105" />
