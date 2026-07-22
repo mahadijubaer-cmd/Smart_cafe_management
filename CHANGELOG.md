@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Guest/QR menu pages never showed restaurant branding, platform-only (2026-07-22)
+
+`SiteHeader`/`SiteFooter` (the global chrome shown on every page) only ever resolved a tenant's
+branding pill via `tenant_slug`, a route param that doesn't exist on the guest ordering surface —
+`/m/[public_slug]/...` uses `public_slug` instead (a distinct field from a tenant's own `slug`). New
+`hooks/usePublicTenantInfo.ts` resolves it via the existing no-auth `GET /public/{public_slug}/info`
+endpoint; both components now merge whichever of `tenant_slug`/`public_slug` resolves into the same
+pill UI. Guest menu, checkout, and tracking pages now show the restaurant's real name/logo/brand
+color next to the platform's own SCMS branding, matching every tenant-scoped page.
+
 ### Improved — Guest/QR public menu: item images, QR-locked table field, optional name/phone (2026-07-22)
 
 Three fixes to the restaurant-segment public menu (`/m/{public_slug}`), found while testing it from

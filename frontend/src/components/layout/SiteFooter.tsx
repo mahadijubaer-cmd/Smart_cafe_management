@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 
 import { useTenantInfo } from '@/hooks/useTenantInfo'
+import { usePublicTenantInfo } from '@/hooks/usePublicTenantInfo'
 import { useStore } from '@/store/useStore'
 import Logo from '@/components/layout/Logo'
 
@@ -12,9 +13,13 @@ const PLATFORM_ACCENT = '#1A4D2E'
 
 export default function SiteFooter({ inset = false }: { inset?: boolean }) {
   const pathname = usePathname()
-  const params = useParams<{ tenant_slug?: string }>()
+  const params = useParams<{ tenant_slug?: string; public_slug?: string }>()
   const slug = params?.tenant_slug ?? ''
-  const { tenant } = useTenantInfo(slug)
+  const publicSlug = params?.public_slug ?? ''
+  const { tenant: tenantScoped } = useTenantInfo(slug)
+  // Guest/QR ordering routes (`/m/[public_slug]/...`) carry `public_slug`, not `tenant_slug`.
+  const { tenant: publicScoped } = usePublicTenantInfo(publicSlug)
+  const tenant = tenantScoped ?? publicScoped
   const [pillVisible, setPillVisible] = useState(false)
   // Fixed-sidebar layouts suppress the root layout's full-width instance and render their own
   // <SiteFooter inset /> inside the content column, so the sidebar never covers the footer

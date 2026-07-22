@@ -558,14 +558,12 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
   unauthenticated) and shows the org's real name + logo/color-avatar as a pill on the right, with a
   fade-in transition once that data resolves. A 3px bottom accent strip renders in the tenant's own
   `brand_color` (falling back to the platform's `#1A4D2E`) — the one element tying platform and
-  org branding together visually. Shows platform-only styling (accent line in platform green, no
-  pill) on non-tenant-scoped routes (`/discover`, `/m/[public_slug]`) since there's no tenant to
-  attach to. **Chromeless routes** (2026-07-21, see below) render neither the header nor the footer
-  at all, so this styling question doesn't apply to them. **Surface color** (fixed same day, 2026-07-11): uses
-  `bg-[hsl(var(--header-surface)/0.92)]`, a dark, desaturated shade of the brand green
-  (`globals.css`'s `--header-surface: 145 45% 8%` — same hue/saturation as `--color-primary`,
-  just much darker) — not Tailwind's `bg-slate-950`, which is blue-gray and clashed visibly against
-  the green hero panels on login/register/discover.
+  org branding together visually. **Chromeless routes** (2026-07-21, see below) render neither the
+  header nor the footer at all, so this styling question doesn't apply to them. **Surface color**
+  (fixed same day, 2026-07-11): uses `bg-[hsl(var(--header-surface)/0.92)]`, a dark, desaturated
+  shade of the brand green (`globals.css`'s `--header-surface: 145 45% 8%` — same hue/saturation as
+  `--color-primary`, just much darker) — not Tailwind's `bg-slate-950`, which is blue-gray and
+  clashed visibly against the green hero panels on login/register/discover.
 - **`components/layout/SiteFooter.tsx`** — mirrors `SiteHeader`'s visual language (redesigned
   2026-07-11, same day as the header): the same `--header-surface` dark-green token as the header
   (opaque, no blur since the footer isn't sticky), the same SCMS icon-badge + wordmark on the left
@@ -573,6 +571,21 @@ pages, auth pages, every tenant-scoped section — gets them automatically:
   tenant-scoped, and a 3px accent strip in the tenant's `brand_color` (platform green fallback) —
   but running along the **top** edge of the footer instead of the bottom, so the accent color
   bookends the page at both the header's bottom and the footer's top.
+
+**Bug: guest/QR routes (`/m/[public_slug]`) never showed the tenant pill (found & fixed
+2026-07-22).** Both components only ever read `useParams<{ tenant_slug?: string }>()` — the guest
+ordering surface's dynamic segment is `public_slug`, a completely different route param (and a
+different field on `Tenant` — a tenant's `public_slug` can differ from its own internal `slug`), so
+`slug` was always empty on `/m/[public_slug]/...` and the restaurant pill never rendered there,
+platform branding only. Fixed by adding a second hook, **`hooks/usePublicTenantInfo.ts`**
+(`GET /public/{public_slug}/info`, unauthenticated — the same endpoint the guest menu page itself
+already calls), and having both `SiteHeader`/`SiteFooter` read both `tenant_slug` and `public_slug`
+from `useParams()`, merging whichever one resolves (`tenantScoped ?? publicScoped`) into the same
+pill UI used everywhere else. `PublicTenantInfoResponse` and `TenantPublicDetailResponse` share the
+`name`/`logo_url`/`brand_color` fields the pill needs, so no UI branching was required — only the
+data-fetching source differs per route. Guest/QR pages (menu, checkout, tracking) now show the
+restaurant's real name/logo/brand-color pill next to the platform's own SCMS branding, exactly like
+every tenant-scoped page already did.
 
 **Chromeless routes — home + registration pages (added 2026-07-21):** `SiteHeader` and `SiteFooter`
 now render `null` entirely (not just platform-only styling) on three routes: `/` (home/segment

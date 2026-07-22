@@ -7,15 +7,21 @@ import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
 
 import { useTenantInfo } from '@/hooks/useTenantInfo'
+import { usePublicTenantInfo } from '@/hooks/usePublicTenantInfo'
 import Logo from '@/components/layout/Logo'
 
 const PLATFORM_ACCENT = '#1A4D2E'
 
 export default function SiteHeader() {
   const pathname = usePathname()
-  const params = useParams<{ tenant_slug?: string }>()
+  const params = useParams<{ tenant_slug?: string; public_slug?: string }>()
   const slug = params?.tenant_slug ?? ''
-  const { tenant } = useTenantInfo(slug)
+  const publicSlug = params?.public_slug ?? ''
+  const { tenant: tenantScoped } = useTenantInfo(slug)
+  // Guest/QR ordering routes (`/m/[public_slug]/...`) carry `public_slug`, not `tenant_slug` —
+  // resolved via the public, no-auth tenant-info endpoint instead (see usePublicTenantInfo).
+  const { tenant: publicScoped } = usePublicTenantInfo(publicSlug)
+  const tenant = tenantScoped ?? publicScoped
   const [pillVisible, setPillVisible] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
