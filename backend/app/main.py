@@ -20,6 +20,7 @@ from app.routers import auth, menu, orders, tables, cleaners, payments, analytic
 from app.routers import tenants, otp, inventory, qr, memo, receipts, food_court
 from app.routers import notifications, invitations, users, public, platform
 from app.routers import devices, device_api, signage, kiosk_config
+from app.routers import payment_gateways
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -104,6 +105,7 @@ app.include_router(devices.router, prefix="/api/v1")
 app.include_router(device_api.router, prefix="/api/v1")
 app.include_router(signage.router, prefix="/api/v1")
 app.include_router(kiosk_config.router, prefix="/api/v1")
+app.include_router(payment_gateways.router, prefix="/api/v1")
 app.include_router(websocket.router)
 
 # ── Static file serving ───────────────────────────────────────────────────────

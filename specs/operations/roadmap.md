@@ -238,12 +238,20 @@ Frontend (done):
   cafeteria); `/m/[public_slug]/page.tsx` hides add-to-cart/checkout entirely when
   `!isRestaurantSegment(info.tenant_type)`.
 
-**Not yet implemented (explicit follow-up, genuinely blocked on external resources):** a *real*
+**✅ Superseded 2026-07-22 (RFC-011):** the payment-gateway item below turned out not to be
+genuinely blocked — SSLCommerz and bKash both publish public sandbox credentials usable without a
+real registered business, which unblocks full end-to-end build and test now. See
+`specs/decisions/rfcs/RFC-011-payment-gateway-integration.md` for the per-tenant SSLCommerz + native
+bKash integration (admin-configured credentials, encrypted at rest per ADR-015) now underway in
+stages. Kiosk card-reader integration (below) remains genuinely blocked — needs real payment
+hardware, unlike a software-only gateway redirect.
+
+**Not yet implemented (explicit follow-up, genuinely blocked on external resources):** ~~a *real*
 payment-gateway integration (SSLCOMMERZ or similar, needs real merchant credentials) for online
 guest checkout — today `guest_checkout_mode='online'` uses a simulated payment identical in spirit
-to the existing authenticated `PaymentMethod.simulation`; kiosk card-reader integration (needs real
-hardware). These are the only two remaining RFC-007 items, and neither is buildable in this
-environment.
+to the existing authenticated `PaymentMethod.simulation`;~~ superseded by RFC-011 above. Remaining:
+kiosk card-reader integration (needs real hardware). This is now the only remaining RFC-007 item not
+buildable in this environment.
 
 **Definition of done — met:** Guest can order via `/m/{slug}` → appears in staff queue with a
 "Guest" badge → staff confirms → guest tracks live (polling) → staff marks paid at counter.

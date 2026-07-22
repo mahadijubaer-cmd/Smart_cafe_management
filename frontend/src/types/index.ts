@@ -35,7 +35,25 @@ export type OrderStatus =
   | 'cancelled'
 export type OrderSource = 'customer_app' | 'staff_pos' | 'guest_qr' | 'kiosk'
 export type PaymentStatus = 'pending' | 'paid' | 'refunded'
-export type PaymentMethod = 'wallet' | 'simulation' | 'bkash' | 'nagad' | 'card'
+export type PaymentMethod = 'wallet' | 'simulation' | 'bkash' | 'nagad' | 'card' | 'sslcommerz'
+
+// RFC-011 — per-tenant payment gateway integration
+export type GatewayType = 'sslcommerz' | 'bkash'
+
+export interface GatewayConfigMasked {
+  gateway_type: GatewayType
+  is_enabled: boolean
+  is_sandbox: boolean
+  public_identifier: string | null
+  has_credentials: boolean
+}
+
+export interface AvailableGateways {
+  wallet: boolean
+  simulation: boolean
+  sslcommerz: boolean
+  bkash: boolean
+}
 export type NotificationStatus = 'success' | 'failed' | 'info' | 'warning'
 
 export type InventoryUnit = 'kg' | 'g' | 'litre' | 'ml' | 'piece' | 'packet' | 'dozen'

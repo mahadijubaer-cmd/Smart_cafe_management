@@ -45,6 +45,7 @@ class PaymentMethod(str, enum.Enum):
     bkash = "bkash"
     nagad = "nagad"
     card = "card"
+    sslcommerz = "sslcommerz"  # RFC-011
 
 
 class Order(Base):

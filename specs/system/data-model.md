@@ -39,8 +39,17 @@ CREATE TYPE order_status AS ENUM (
 CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'refunded');
 
 CREATE TYPE payment_method AS ENUM (
-  'wallet', 'simulation', 'bkash', 'nagad', 'card'
+  'wallet', 'simulation', 'bkash', 'nagad', 'card', 'sslcommerz'
 );
+-- 'sslcommerz' added RFC-011 (2026-07-22). 'bkash' existed since migration 0003 but was
+-- never wired up until RFC-011 Stage 4. 'nagad'/'card' remain unused legacy — SSLCommerz's
+-- own hosted checkout covers those channels; the specific sub-channel a customer picks there
+-- is metadata in gateway_transactions.raw_response, not the top-level payment_method.
+
+-- RFC-011 (2026-07-22) — per-tenant payment gateway integration
+CREATE TYPE gateway_type AS ENUM ('sslcommerz', 'bkash');
+CREATE TYPE gateway_transaction_status AS ENUM ('initiated', 'pending', 'success', 'failed', 'cancelled');
+CREATE TYPE gateway_purpose AS ENUM ('order_payment', 'wallet_topup');
 
 -- Table occupancy
 CREATE TYPE table_status AS ENUM (
@@ -426,6 +435,15 @@ CREATE TABLE payments (
 
 ## Table: `wallet_transactions`
 
+> **✅ Actually implemented RFC-011 Stage 1 (2026-07-22).** This table was documented here since
+> before this RFC as "the authoritative audit trail" (`specs/modules/payments.md` WAL-3) but no
+> migration or model ever actually created it — `PaymentService.topup()` only ever did a bare
+> `user.wallet_balance += amount` with no ledger row. Spec/code drift, not a deliberate prior
+> deferral. Migration `0010_add_payment_gateways.py` creates it for real, using the exact shape
+> already documented below (kept as-is rather than redesigned, since it was already a reasonable
+> design and nothing in code contradicted it). `PaymentService.topup()` and every gateway-driven
+> wallet mutation now write a row here.
+
 ```sql
 CREATE TABLE wallet_transactions (
     txn_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -433,8 +451,60 @@ CREATE TABLE wallet_transactions (
     user_id      UUID NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
     amount       NUMERIC(10, 2) NOT NULL,    -- positive = topup/refund, negative = debit
     description  VARCHAR(255),
-    reference_id UUID,                       -- order_id or topup reference
+    reference_id UUID,                       -- order_id, or gateway_transactions.gateway_transaction_id for gateway top-ups
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## Table: `tenant_payment_gateways` — RFC-011 Stage 1 (2026-07-22)
+
+Per-tenant gateway configuration. Only the genuinely secret sub-fields are encrypted (ADR-015) —
+`public_identifier` (SSLCommerz `store_id`; bKash `username`+`app_key`, stored as a small JSON string)
+stays plaintext so the admin's masked list endpoint never needs to decrypt anything to render it.
+
+```sql
+CREATE TABLE tenant_payment_gateways (
+    gateway_config_id     UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id              UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    gateway_type           gateway_type NOT NULL,
+    is_enabled             BOOLEAN NOT NULL DEFAULT FALSE,
+    is_sandbox             BOOLEAN NOT NULL DEFAULT TRUE,
+    public_identifier      VARCHAR(150),
+    credentials_encrypted  TEXT,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, gateway_type)
+);
+```
+
+---
+
+## Table: `gateway_transactions` — RFC-011 Stage 1 (2026-07-22)
+
+Tracks the async initiate → redirect → callback/IPN → settle lifecycle a real gateway requires
+(unlike the synchronous `payments` row created today for `wallet`/`simulation`). `order_id`/`user_id`/
+`guest_token` are all nullable because no single one applies to every purpose: wallet top-up has no
+order; guest checkout has no user. `tenant_id` is the *resolved owner tenant*
+(`order_service.resolve_public_owner_tenant` for food-court guest carts), not blindly `order.tenant_id`.
+
+```sql
+CREATE TABLE gateway_transactions (
+    gateway_transaction_id  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id               UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    purpose                 gateway_purpose NOT NULL,
+    order_id                UUID REFERENCES orders(order_id),
+    user_id                 UUID REFERENCES users(user_id),
+    guest_token             UUID,
+    gateway_type            gateway_type NOT NULL,
+    amount                  NUMERIC(10, 2) NOT NULL,
+    status                  gateway_transaction_status NOT NULL DEFAULT 'initiated',
+    gateway_ref             VARCHAR(100),
+    gateway_external_ref    VARCHAR(150),
+    raw_response            JSONB,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 

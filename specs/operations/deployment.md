@@ -47,6 +47,7 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 | `MAIL_SSL_TLS` | bool | `false` | — |
 | `USE_CREDENTIALS` | bool | `true` | — |
 | `BREVO_API_KEY` | str | — | Brevo transactional email API key (`xkeysib-...`). See ADR-007 — takes priority over SMTP when set. |
+| `ENCRYPTION_KEY` | str | — | RFC-011/ADR-015. Fernet key encrypting per-tenant payment-gateway credentials at rest. Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. **Required before any tenant can save gateway credentials** — saving fails loudly (not silently) if unset. Losing/rotating this key makes existing stored credentials undecryptable; re-enter them after a rotation. |
 | `B2_ENDPOINT_URL` | str | — | Backblaze B2 S3-compatible endpoint, e.g. `https://s3.us-west-004.backblazeb2.com` |
 | `B2_KEY_ID` | str | — | B2 application key ID |
 | `B2_APPLICATION_KEY` | str | — | B2 application key secret |
@@ -84,6 +85,16 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 > `backend/app/config/email.py`, called from `main.py`'s `lifespan`) that logs a clear `ERROR` line
 > if `mail_enabled` is `True` but the credentials don't actually work — check backend startup logs
 > if OTP emails aren't arriving.
+
+> **Payment gateway sandbox credentials (RFC-011), no real merchant account needed to test:**
+> SSLCommerz publishes a public sandbox merchant account usable by anyone —
+> `store_id=testbox`, `store_password=qwerty` (sandbox base URL
+> `https://sandbox.sslcommerz.com`). bKash publishes sandbox developer credentials in their own
+> Tokenized Checkout docs (base URL `https://tokenized.sandbox.bka.sh/v1.2.0-beta`). Enter either
+> in a tenant's new Payment Settings admin page with "Sandbox mode" left on — this exercises the
+> real gateway API end-to-end without needing the tenant's own real business credentials. Each
+> tenant's real merchant credentials (once they have one) replace the sandbox values in the same
+> UI with no code change.
 
 ### Frontend (`frontend/.env.local`)
 

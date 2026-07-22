@@ -6,6 +6,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
   Box,
+  CreditCard,
   Download,
   FileText,
   History,
@@ -108,6 +109,7 @@ const NAV_DEFS: NavItem[] = [
     allowedRoles: _ADMIN_ROLES,
   },
   // ❌→✅ Phase 25.2 (RFC-010): kiosk/signage terminal registry + pairing
+  { label: 'Payment Settings', path: 'payment-settings', icon: <CreditCard />, allowedRoles: _ADMIN_ROLES },
   { label: 'Devices', path: 'devices', icon: <MonitorSmartphone />, allowedRoles: _ADMIN_ROLES },
   // ❌→✅ Phase 25.5 (RFC-010): kiosk customization + signage playlist editors w/ live preview
   { label: 'Kiosk Settings', path: 'kiosk-settings', icon: <MonitorSmartphone />, allowedRoles: _ADMIN_ROLES },

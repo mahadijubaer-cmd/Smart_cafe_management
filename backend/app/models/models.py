@@ -24,6 +24,10 @@ from app.models.inventory import (  # noqa: F401
 from app.models.device import (  # noqa: F401
     Device, DeviceType, KioskConfig, SignagePlaylist, SignageSlide, SignageSlideType,
 )
+from app.models.payment_gateway import (  # noqa: F401
+    TenantPaymentGateway, GatewayType, GatewayTransaction, GatewayPurpose, GatewayTransactionStatus,
+)
+from app.models.wallet_transaction import WalletTransaction  # noqa: F401
 
 
 # ─────────────────────────────────────────────

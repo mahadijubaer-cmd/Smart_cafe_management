@@ -9,6 +9,28 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Payment gateway integration, Stage 1: data model + admin config (2026-07-22, see RFC-011/ADR-015)
+
+Per-tenant SSLCommerz + native bKash payment gateway integration, previously listed on the roadmap as
+"genuinely blocked on real merchant credentials" — both gateways publish public sandbox credentials
+usable without a real business, which unblocks full build-and-test now. This stage: data model,
+credential encryption, and admin configuration only — no consumer checkout changes yet (Stages 2–4).
+
+- New tables `tenant_payment_gateways` and `gateway_transactions` (async gateway session lifecycle);
+  `wallet_transactions` **actually implemented** for the first time — it was documented in
+  `specs/system/data-model.md` since before this RFC as the wallet system's "authoritative audit
+  trail" but no migration or model ever created it, and `PaymentService.topup()` never wrote to it.
+  Retrofitted onto the existing top-up path now, before any gateway complexity.
+- New `backend/app/core/crypto.py` (Fernet, new `ENCRYPTION_KEY` setting) encrypts only the
+  genuinely secret sub-fields of a tenant's gateway credentials at rest — fails loudly if
+  `ENCRYPTION_KEY` is unset, deliberately unlike this codebase's existing "quietly degrade" pattern
+  for optional integrations (B2/mail/Brevo), since silently storing a merchant password in plaintext
+  isn't an acceptable degraded mode.
+- New admin page `payment-settings` (mirrors the existing `public-link` page's pattern) and
+  `GET/PUT/DELETE /payment-gateways/me`, `GET /payment-gateways/available` endpoints.
+- No subscription-tier gating (available to every tier) and no changes to the existing
+  `wallet`/`simulation` payment paths — confirmed decisions, not oversights.
+
 ### Fix — Dark mode consistency audit (2026-07-22, see ADR-014)
 
 User-reported "dark mode doesn't work on many pages" traced to two categories of gap, not one

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Order, Payment, RewardLog, User
 from app.models.order import PaymentMethod, PaymentStatus
+from app.models.wallet_transaction import WalletTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,13 @@ class PaymentService:
                         detail="Insufficient wallet balance",
                     )
                 user.wallet_balance = Decimal(str(user.wallet_balance)) - net_amount
+                db.add(WalletTransaction(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    amount=-net_amount,
+                    description="Order payment",
+                    reference_id=order.order_id,
+                ))
 
             payment = Payment(
                 tenant_id=tenant_id,
@@ -101,6 +109,12 @@ class PaymentService:
             if not user:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
             user.wallet_balance = Decimal(str(user.wallet_balance)) + amount
+            db.add(WalletTransaction(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                amount=amount,
+                description="Wallet top-up (simulation)",
+            ))
             await db.commit()
         except Exception:
             await db.rollback()

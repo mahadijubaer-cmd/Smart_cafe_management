@@ -36,6 +36,9 @@ from app.models.models import (  # noqa: F401
     InventoryMovement,
     PurchaseOrder,
     PurchaseOrderItem,
+    TenantPaymentGateway,
+    GatewayTransaction,
+    WalletTransaction,
 )
 
 config = context.config

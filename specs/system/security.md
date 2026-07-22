@@ -217,6 +217,32 @@ this boundary before implementation.
 
 ---
 
+## 8b. Payment Gateway Credential Encryption (RFC-011 / ADR-015)
+
+A new secret class: each tenant's own SSLCommerz/bKash merchant credentials, stored in
+`tenant_payment_gateways.credentials_encrypted`.
+
+- **Format:** Fernet symmetric encryption (`cryptography.fernet`), keyed by a new platform-wide
+  `ENCRYPTION_KEY` setting — see ADR-015 for why Fernet and why platform-wide rather than per-tenant.
+- **Split storage:** only the genuinely secret sub-fields are encrypted (SSLCommerz `store_password`;
+  bKash `app_secret`/`password`). Non-secret identifiers (`store_id`, bKash `username`/`app_key`) are
+  plaintext in `public_identifier` — the admin's masked-list `GET /payment-gateways/me` never
+  decrypts anything to render.
+- **Fail-loud, not quiet-degrade:** unlike this codebase's existing optional-integration pattern
+  (B2/mail/Brevo, which run fine unconfigured), a credential save with `ENCRYPTION_KEY` unset is a
+  hard error — never silently persists plaintext.
+- **Never returned decrypted via any API response**, including the admin's own config endpoints —
+  decryption happens only server-side, immediately before a live gateway API call.
+
+**PCI-DSS scoping statement (KSK-2):** payment gateway checkout is a **redirect to the gateway's own
+hosted page** (SSLCommerz Session API, bKash Tokenized Checkout) — SCMS itself never receives, stores,
+or transmits cardholder data or mobile-banking credentials at any point; the browser navigates away to
+the gateway and back. This keeps SCMS out of PCI-DSS scope for the same reason KSK-1 does for kiosks —
+no cardholder data ever reaches this system. Any future in-app card-entry form (rather than a hosted
+redirect) would require re-evaluating this boundary.
+
+---
+
 ## 9. Secrets Management
 
 | Secret | Env Var | Minimum |
@@ -225,6 +251,7 @@ this boundary before implementation.
 | Database password | `POSTGRES_PASSWORD` | 16 characters recommended |
 | Redis password | `REDIS_PASSWORD` | — (optional) |
 | Email SMTP credentials | `MAIL_USERNAME`, `MAIL_PASSWORD` | — |
+| Tenant payment-gateway credential encryption key (RFC-011/ADR-015) | `ENCRYPTION_KEY` | Fernet key — `Fernet.generate_key()` |
 
 Rules:
 - `.env` is in `.gitignore` — never commit it

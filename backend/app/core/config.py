@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # when set: Brevo's API is more reliable in practice than raw SMTP credentials.
     BREVO_API_KEY: str = ""
 
+    # Payment gateway credential encryption (RFC-011, ADR-015). Fernet key encrypting each
+    # tenant's own SSLCommerz/bKash secrets at rest. Generate:
+    # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Deliberately no "quietly degrade" fallback like b2_enabled/mail_enabled below — a gateway
+    # credential save fails loudly (app/core/crypto.py) if this is unset.
+    ENCRYPTION_KEY: str = ""
+
     # Object storage — Backblaze B2 (S3-compatible), for tenant logos / menu item images.
     # Only these two upload paths need it: QR codes are generated and consumed within a
     # single request and never re-read from disk (see app/services/qr_service.py). When
