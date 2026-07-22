@@ -4,6 +4,42 @@
 
 ---
 
+## `order_items.subtotal` was never a real generated column in production — every order placement failed (found + fixed 2026-07-22)
+
+**Severity: critical.** Confirmed zero rows ever existed in production's `order_items` (and therefore
+`orders`) tables before this fix — no customer order had ever been successfully placed in
+production since it went live, on any tenant. Found as a side effect of live-verifying RFC-011
+Stage 2 (a completely unrelated feature) — the very first real order placement attempt 500'd.
+
+**Root cause, self-documented and never actually closed:** `OrderItem.subtotal`
+(`backend/app/models/order.py`) is a SQLAlchemy `Computed("quantity * unit_price", persisted=True)`
+column — this tells the ORM the *database* computes this value, so SQLAlchemy never includes it in
+`INSERT` statements. Migration `0003_add_tenants_and_multitenant.py` added `subtotal` as a **plain**
+`NOT NULL` column (backfilled once, at migration time, for pre-existing rows only) with a comment
+acknowledging the gap directly: *"PostgreSQL generated columns can't be added via ALTER TABLE
+easily; add as a regular column and populate it, then manage via app layer. Actual computed column
+exists only on fresh schema via `create_all`."* "Manage via app layer" was never implemented — the
+model still relies entirely on the database computing it. Every database built via the real
+migration chain (production; any fresh disaster-recovery restore) has been missing this since
+migration `0003`; only local dev (built via `Base.metadata.create_all()`, which creates the
+*current* model shape directly, bypassing migrations) ever had a working generated column.
+
+**Also incorrect:** the 0003 comment's premise. PostgreSQL 12+ (this project runs 15) supports
+adding a real `GENERATED ALWAYS AS (...) STORED` column via a plain `ALTER TABLE` — no special
+handling needed.
+
+**Fix:** `0011_fix_order_items_subtotal_generated.py` drops the plain column and re-adds it as a
+true generated column. Safe with no data-loss risk here specifically (confirmed zero existing rows
+in both `orders` and `order_items` in production before applying), but note this migration is
+**not safe in general** for a database with existing `order_items` rows whose stored `subtotal`
+values might disagree with a fresh `quantity * unit_price` computation — this deployment had no
+such risk only because no order had ever succeeded.
+
+**Verified fixed live**: placed a real order against production immediately after applying the
+migration — succeeded with `subtotal` correctly computed, confirmed via the API response.
+
+---
+
 ## Render: a linked-looking Environment Group can silently not be linked (found 2026-07-22, RFC-011 Stage 1)
 
 Adding `ENCRYPTION_KEY` to a Render **Environment Group** ("SCMS Platform") and confirming its value

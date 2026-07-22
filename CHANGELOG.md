@@ -9,6 +9,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — order_items.subtotal was never a real generated column in production; no order had ever been placed (2026-07-22)
+
+**Critical, found live while verifying an unrelated feature (RFC-011 Stage 2).** Confirmed zero
+rows ever existed in production's `orders`/`order_items` tables — every customer order placement
+had been failing since production went live. Root cause: migration `0003` added `subtotal` as a
+plain `NOT NULL` column (with a comment self-acknowledging the gap) while the `OrderItem` model
+uses SQLAlchemy's `Computed(...)`, which never sends a value in `INSERT`s, assuming the database
+computes it — only true for a database built via local dev's `create_all()`, never through the
+actual migration chain. Fixed with migration `0011`, applied directly to production and verified
+by placing a real order immediately after. Full incident writeup in
+`specs/operations/deployment.md`.
+
 ### Added — Payment gateway integration, Stage 2: SSLCommerz for authenticated checkout (2026-07-22, see RFC-011)
 
 Real money can now move through SCMS for the first time — a customer choosing SSLCommerz at

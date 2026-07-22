@@ -305,6 +305,10 @@ CREATE TABLE order_items (
 );
 ```
 
+> **✅ Spec was always correct here — the migration chain wasn't** (fixed 2026-07-22, migration
+> `0011`). See `specs/operations/deployment.md` for the full incident: production's real
+> `order_items.subtotal` was a plain column, not generated, causing every order placement to fail.
+
 **Notes:**
 - `unit_price` = snapshot of `menu_items.price` at order time
 - `subtotal` is a PostgreSQL GENERATED column — never set by application code
