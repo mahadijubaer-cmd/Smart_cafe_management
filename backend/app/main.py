@@ -119,6 +119,18 @@ async def health_check():
     return {"status": "ok", "service": "SCMS API", "version": "3.1.0"}
 
 
+# TEMPORARY — diagnostic only, never returns the actual secret value. Added to debug a
+# live production report that ENCRYPTION_KEY (set in Render's dashboard) wasn't reaching
+# the running process. Remove once RFC-011 Stage 1 is confirmed working in production.
+@app.get("/api/v1/health/config-check")
+async def config_check():
+    return {
+        "encryption_key_present": bool(settings.ENCRYPTION_KEY),
+        "encryption_key_length": len(settings.ENCRYPTION_KEY),
+        "environment": settings.ENVIRONMENT,
+    }
+
+
 @app.get("/")
 async def root():
     return {
