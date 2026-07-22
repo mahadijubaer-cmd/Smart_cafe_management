@@ -1,6 +1,38 @@
 # Deployment & Configuration
 
-**Last verified:** 2026-07-11
+**Last verified:** 2026-07-22
+
+---
+
+## Render: a linked-looking Environment Group can silently not be linked (found 2026-07-22, RFC-011 Stage 1)
+
+Adding `ENCRYPTION_KEY` to a Render **Environment Group** ("SCMS Platform") and confirming its value
+in that group's own dashboard page is **not sufficient** — if the group was never actually attached
+to the backend web service, the variable never reaches the running container, with **no error or
+warning anywhere in Render's UI**. The service's own **Environment** tab (`service → Environment`,
+distinct from the standalone "Environment Groups" section) is the only page that shows what a
+given service *actually* resolves at runtime; a "Create environment group" button there (rather
+than "Manage linked group") is itself a sign that no group is currently linked.
+
+**Symptom that exposed this:** a new required secret (`ENCRYPTION_KEY`) was added to the group and
+confirmed correct there, then the backend service was manually redeployed three separate times —
+every deploy went genuinely live (confirmed via the Events log, each showing "Deploy live" for the
+new commit), yet a temporary diagnostic endpoint added specifically to check
+(`GET /api/v1/health/config-check`, reporting only `bool(settings.ENCRYPTION_KEY)` and its length,
+never the value — removed once resolved) kept reporting the key as absent. Meanwhile other
+variables that happened to already be set **directly on the service itself** (not via the group) —
+`DATABASE_URL`, `BREVO_API_KEY`, `ENVIRONMENT`, etc. — worked correctly the whole time, which is
+what made this look like a code bug or a deploy-timing issue at first rather than a linking gap.
+
+**Fix:** add the variable directly on the service's own Environment tab rather than (or in addition
+to) any shared group. A direct edit there reliably triggers its own "Environment updated" deploy
+event (confirmed in the Events log), unlike a group-only edit.
+
+**Rule going forward:** when a new required secret needs to reach a Render service, verify it
+appears on **that service's own Environment tab** after saving — not just on the Environment
+Group's page — before assuming it's live. If in doubt, a temporary diagnostic endpoint reporting
+presence/length (never the value) of a suspect setting is a fast, safe way to confirm what the
+running process actually sees, rather than iterating on redeploys blind.
 
 ---
 

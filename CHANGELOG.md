@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Ops — Render environment group was never linked to the backend service (2026-07-22)
+
+`ENCRYPTION_KEY` (required for RFC-011 Stage 1) was added to a Render Environment Group and
+confirmed correct there, but three subsequent redeploys still didn't pick it up — a temporary
+diagnostic endpoint (added and removed the same day) confirmed the running process never saw it,
+while other variables set directly on the service worked fine the whole time. Root cause: the
+group was never actually linked to this service — Render shows no error for this anywhere. Fixed
+by adding the variable directly on the service's own Environment tab. Full detail and the rule to
+follow next time in `specs/operations/deployment.md`.
+
 ### Added — Payment gateway integration, Stage 1: data model + admin config (2026-07-22, see RFC-011/ADR-015)
 
 Per-tenant SSLCommerz + native bKash payment gateway integration, previously listed on the roadmap as
