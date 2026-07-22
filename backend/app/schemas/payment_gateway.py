@@ -64,3 +64,10 @@ class GuestGatewayInitiateRequest(BaseModel):
 class GatewayInitiateResponse(BaseModel):
     gateway_transaction_id: str
     redirect_url: str
+
+
+class GatewayTestResponse(BaseModel):
+    """RFC-011 Stage 5 — POST /payment-gateways/me/{gateway_type}/test. Always 200; a failed
+    connectivity check is a normal response shape, not a server error."""
+    success: bool
+    message: str

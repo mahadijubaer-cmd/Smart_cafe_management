@@ -12,6 +12,7 @@ from app.core.crypto import decrypt_json, encrypt_json
 from app.models.payment_gateway import GatewayType, TenantPaymentGateway
 from app.schemas.payment_gateway import GatewayConfigMasked, GatewayConfigUpsert
 from app.services.gateways.base import GatewayClient
+from app.services.gateways.bkash_gateway import BkashGateway
 from app.services.gateways.sslcommerz_gateway import SSLCommerzGateway
 
 
@@ -23,6 +24,14 @@ def build_gateway_client(gateway_type: GatewayType, config: dict) -> GatewayClie
         return SSLCommerzGateway(
             store_id=config["store_id"],
             store_password=config["store_password"],
+            is_sandbox=config.get("is_sandbox", True),
+        )
+    if gateway_type == GatewayType.bkash:
+        return BkashGateway(
+            app_key=config["app_key"],
+            app_secret=config["app_secret"],
+            username=config["username"],
+            password=config["password"],
             is_sandbox=config.get("is_sandbox", True),
         )
     raise HTTPException(status_code=400, detail=f"Gateway '{gateway_type.value}' is not yet supported")
@@ -108,11 +117,26 @@ async def delete_config(db: AsyncSession, tenant_id: UUID, gateway_type: Gateway
 
 
 async def get_decrypted_config(db: AsyncSession, tenant_id: UUID, gateway_type: GatewayType) -> dict | None:
-    """Server-only — the returned dict may contain real secrets. Never expose via an API response."""
+    """Server-only — the returned dict may contain real secrets. Never expose via an API response.
+    Requires `is_enabled=true` — used by checkout/settlement, where a disabled gateway must never
+    be payable. See `get_decrypted_config_any` for the Stage 5 "test connection" use case, which
+    intentionally does NOT gate on `is_enabled`."""
     row = await _get_row(db, tenant_id, gateway_type)
     if row is None or not row.is_enabled or not row.credentials_encrypted:
         return None
+    return _decrypt_row(row, gateway_type)
 
+
+async def get_decrypted_config_any(db: AsyncSession, tenant_id: UUID, gateway_type: GatewayType) -> dict | None:
+    """RFC-011 Stage 5 / PAY-15 — same as `get_decrypted_config` but ignores `is_enabled`, so an
+    admin can test credentials before switching a gateway live. Server-only, same secrecy contract."""
+    row = await _get_row(db, tenant_id, gateway_type)
+    if row is None or not row.credentials_encrypted:
+        return None
+    return _decrypt_row(row, gateway_type)
+
+
+def _decrypt_row(row: TenantPaymentGateway, gateway_type: GatewayType) -> dict:
     secrets = decrypt_json(row.credentials_encrypted)
     public_fields = _PUBLIC_FIELDS[gateway_type]
     if row.public_identifier:
@@ -122,6 +146,28 @@ async def get_decrypted_config(db: AsyncSession, tenant_id: UUID, gateway_type: 
             secrets.update(json.loads(row.public_identifier))
     secrets["is_sandbox"] = row.is_sandbox
     return secrets
+
+
+def build_gateway_callback_urls(
+    gateway_type: GatewayType, backend_url: str, gateway_transaction_id
+) -> tuple[str, str, str, str]:
+    """Returns `(success_url, fail_url, cancel_url, ipn_url)` for `GatewayClient.initiate()`.
+
+    bKash registers exactly one `callbackURL` (outcome discriminated via a `?status=` query param
+    on redirect, not separate paths — see `bkash_gateway.py` and payments.md PAY-14), so all three
+    URL slots collapse to the single `bkash-callback` route; `ipn_url` is unused by bKash (no
+    separate IPN concept) but returned anyway for interface uniformity across gateway types.
+    """
+    if gateway_type == GatewayType.bkash:
+        callback = f"{backend_url}/api/v1/payments/gateway/{gateway_transaction_id}/bkash-callback"
+        return callback, callback, callback, callback
+    base_callback = f"{backend_url}/api/v1/payments/gateway/{gateway_transaction_id}/callback"
+    return (
+        f"{base_callback}/success",
+        f"{base_callback}/fail",
+        f"{base_callback}/cancel",
+        f"{backend_url}/api/v1/payments/gateway/ipn",
+    )
 
 
 async def _get_enabled_gateway_types(db: AsyncSession, tenant_id: UUID) -> set[GatewayType]:

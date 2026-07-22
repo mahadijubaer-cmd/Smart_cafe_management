@@ -158,12 +158,18 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 > **Payment gateway sandbox credentials (RFC-011), no real merchant account needed to test:**
 > SSLCommerz publishes a public sandbox merchant account usable by anyone —
 > `store_id=testbox`, `store_password=qwerty` (sandbox base URL
-> `https://sandbox.sslcommerz.com`). bKash publishes sandbox developer credentials in their own
-> Tokenized Checkout docs (base URL `https://tokenized.sandbox.bka.sh/v1.2.0-beta`). Enter either
-> in a tenant's new Payment Settings admin page with "Sandbox mode" left on — this exercises the
-> real gateway API end-to-end without needing the tenant's own real business credentials. Each
-> tenant's real merchant credentials (once they have one) replace the sandbox values in the same
-> UI with no code change.
+> `https://sandbox.sslcommerz.com`) — **confirmed working**, used for this project's own real,
+> unmocked live-production smoke tests of Stages 2 and 3 (2026-07-22). Enter it in a tenant's
+> Payment Settings admin page with "Sandbox mode" left on to exercise the real SSLCommerz API
+> end-to-end without needing a real business account. bKash's Tokenized Checkout (v1.2.0-beta,
+> sandbox base URL `https://tokenized.sandbox.bka.sh/v1.2.0-beta`) requires **registering as a
+> bKash sandbox developer** to get an app_key/app_secret/username/password — unlike SSLCommerz,
+> there is no single universally-published test credential set this project has verified working;
+> Stage 4's bKash integration was built and unit-tested against the documented API contract with
+> mocked HTTP calls, but has **not** been smoke-tested against bKash's real sandbox servers.
+> Get real sandbox credentials from bKash's developer portal before relying on it live. Each
+> tenant's real merchant credentials (once they have one, for either gateway) replace the sandbox
+> values in the same UI with no code change.
 
 ### Frontend (`frontend/.env.local`)
 

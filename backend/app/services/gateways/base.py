@@ -28,6 +28,13 @@ class GatewayValidationResult:
     raw_response: dict = field(default_factory=dict)
 
 
+@dataclass
+class GatewayTestResult:
+    """Result of a live "Test connection" check (RFC-011 Stage 5, PAY-15) — never a stub."""
+    success: bool
+    message: str
+
+
 class GatewayClient:
     async def initiate(
         self,
@@ -45,4 +52,7 @@ class GatewayClient:
         raise NotImplementedError
 
     async def validate(self, *, val_id: str, tran_id: str) -> GatewayValidationResult:
+        raise NotImplementedError
+
+    async def test_connection(self) -> GatewayTestResult:
         raise NotImplementedError

@@ -187,8 +187,8 @@ unimplemented; `simulation` is a placeholder value, not a claim that a real tran
 |---|---|
 | `wallet` | ✓ Active — uses internal wallet balance |
 | `simulation` | ✓ Active — test mode, always succeeds |
-| `sslcommerz` | 🚧 RFC-011 in progress — real gateway, per-tenant configured (Stage 2: authenticated checkout; Stage 3: guest checkout + wallet top-up) |
-| `bkash` | 🚧 RFC-011 in progress — native bKash Tokenized Checkout, per-tenant configured (Stage 4) |
+| `sslcommerz` | ✅ Active — real gateway, per-tenant configured (authenticated + guest checkout) |
+| `bkash` | ✅ Active — native bKash Tokenized Checkout, per-tenant configured (Stage 4) |
 | `nagad` | ❌ Enum value only, unused legacy — SSLCommerz's own hosted checkout covers this channel |
 | `card` | ❌ Enum value only, unused legacy — SSLCommerz's own hosted checkout covers this channel |
 
@@ -209,13 +209,23 @@ tables (see `specs/system/data-model.md`), Fernet credential encryption (`specs/
 (`POST /payments/gateway/{initiate,{id}/callback/{outcome},ipn}` — the existing `wallet`/
 `simulation` paths, `POST /payments/pay`/`POST /payments/topup`, remain completely unchanged).
 
-**Stage 3 (this update) delivers:** the same real-gateway checkout for **guest/QR ordering**
-(restaurant-segment tenants, `guest_checkout_mode='online'`) — see
-`specs/modules/public-surface.md`'s `GET /public/{public_slug}/payment-methods` and
-`POST /public/orders/{guest_token}/pay/gateway/initiate` for the full endpoint spec; this file only
-adds the settlement-side business rules (PAY-10, PAY-13) since the callback/IPN endpoints
-themselves are shared with Stage 2, not duplicated. Wallet top-up gateway payment is **not** in
-this stage — deferred, not yet scheduled. Native bKash ships in Stage 4.
+**Stage 3** delivered the same real-gateway checkout for **guest/QR ordering** (restaurant-segment
+tenants, `guest_checkout_mode='online'`) — see `specs/modules/public-surface.md`'s
+`GET /public/{public_slug}/payment-methods` and `POST /public/orders/{guest_token}/pay/gateway/initiate`
+for the full endpoint spec; this file only adds the settlement-side business rules (PAY-10, PAY-13)
+since the callback/IPN endpoints themselves are shared with Stage 2, not duplicated. Wallet top-up
+gateway payment is **not** in this stage — deferred, not yet scheduled.
+
+**Stage 4 (this update) delivers:** native bKash Tokenized Checkout (v1.2.0-beta) as the second
+`GatewayClient` implementation (`services/gateways/bkash_gateway.py`). Every existing endpoint —
+`POST /payments/gateway/initiate`, `POST /public/orders/{guest_token}/pay/gateway/initiate`, the
+callback/IPN settlement helpers — works unchanged for `gateway_type=bkash`; `build_gateway_client`
+in `gateway_configs_service.py` gained one new branch. The **only** new route is
+`GET /payments/gateway/{gateway_transaction_id}/bkash-callback` (see below and PAY-14) — bKash's
+redirect shape genuinely differs from SSLCommerz's and can't reuse the same path.
+
+**Stage 5 (this update) delivers:** a real `POST /payment-gateways/me/{gateway_type}/test`
+connectivity check (PAY-15) — previously a stub in the RFC's plan, not previously implemented at all.
 
 ### `GET /api/v1/payment-gateways/me`
 
@@ -300,7 +310,7 @@ render dynamically instead of a hardcoded list.
 | Field | Type | Notes |
 |---|---|---|
 | `order_id` | UUID | Must belong to the authenticated user, `payment_status='pending'` |
-| `gateway_type` | `sslcommerz` \| `bkash` | Must be enabled+configured for the caller's tenant (`bkash` 400s until Stage 4) |
+| `gateway_type` | `sslcommerz` \| `bkash` | Must be enabled+configured for the caller's tenant |
 
 **Business logic:**
 1. Load the order (404 if missing, 403 if not the caller's, 400 if already paid — same checks as
@@ -365,6 +375,63 @@ gateways generally expect a `200` acknowledgement regardless of the payment's ow
 
 ---
 
+### `GET /api/v1/payments/gateway/{gateway_transaction_id}/bkash-callback` — Stage 4
+
+**Auth:** None — browser-redirect landing point, bKash's equivalent of the SSLCommerz callback
+above. Rate-limited `20/minute` per IP, same as the SSLCommerz callback.
+
+bKash's Tokenized Checkout registers exactly **one** `callbackURL` at Create Payment time (not three
+like SSLCommerz), and redirects the browser back to it via a plain `GET` with `?paymentID=...&status=
+success|failure|cancel` appended — a genuinely different shape from SSLCommerz's POST-form,
+per-outcome-URL callback, hence a dedicated route rather than reusing
+`POST /payments/gateway/{id}/callback/{outcome}`.
+
+**Business logic:**
+1. Read `paymentID` and `status` from the query string.
+2. Load the `gateway_transactions` row with a row lock (identical to the SSLCommerz callback).
+3. `status=success` → `_settle_success` (shared helper) — internally calls
+   `BkashGateway.validate(val_id=paymentID, ...)`, which calls bKash's **Execute Payment** API
+   (`POST /tokenized/checkout/execute/{paymentID}`) — for bKash, Execute *is* the verification step
+   (PAY-14), there is no separate "query only" call in the settlement path.
+4. `status=failure`/`cancel` → `_settle_non_success` with the corresponding outcome — no Execute
+   call made (nothing to execute on an abandoned/failed attempt).
+5. Same shared `_build_frontend_redirect` as every other gateway — `order_id` vs `guest_token`
+   branch is identical to SSLCommerz's.
+
+**Response:** `303` redirect to the frontend tracking page with `?payment=success|failed|cancelled`,
+identical shape to the SSLCommerz callback.
+
+---
+
+### `POST /api/v1/payment-gateways/me/{gateway_type}/test` — Stage 5
+
+**Auth:** Required | **Roles:** same as the config CRUD endpoints above.
+
+A real connectivity check against the tenant's saved credentials — makes one genuine call to the
+configured gateway (sandbox or live, per the saved `is_sandbox` flag), not a stub. Works even if
+the gateway row is currently `is_enabled=false` (an admin should be able to test before switching a
+gateway live) — the only requirement is that credentials have been saved at all.
+
+**Business logic:**
+1. Load the tenant's decrypted config for `gateway_type`, ignoring `is_enabled`
+   (`get_decrypted_config_any` — distinct from the `is_enabled`-gated getter used by checkout/
+   settlement) — `400` if no credentials have ever been saved for this gateway type.
+2. `sslcommerz`: calls the real Session API with a nominal payload (amount `10`, dummy callback
+   URLs never actually visited) — `SUCCESS` response ⇒ credentials valid. This does create one
+   real, immediately-abandoned SSLCommerz session (harmless — indistinguishable from any customer
+   who opens checkout and never pays).
+3. `bkash`: calls Grant Token only, with the saved `app_key`/`app_secret`/`username`/`password` — a
+   returned `id_token` ⇒ credentials valid. No payment/session is created by this check.
+4. Any network error or gateway-side rejection is caught and reported as a failure with the
+   gateway's own message, never raised as a `500`.
+
+**Response `200`:** `{ "success": true, "message": "..." }` or `{ "success": false, "message": "..." }`.
+Always `200` — a failed connectivity check is a normal, expected response shape, not a server error.
+
+**Errors:** `400` no credentials saved for this gateway type yet.
+
+---
+
 ## Business Rules — Payment Gateway Integration (RFC-011)
 
 **PAY-6:** Gateway credentials are encrypted at rest (ADR-015) and never returned decrypted by any
@@ -394,3 +461,21 @@ simulated guest-payment precedent (WAL-5). Only *authenticated* order-gateway se
 regardless of gateway configuration.
 
 **PAY-12:** No subscription-tier gating — every tier may configure and enable both gateway types.
+
+**PAY-14:** ✅ Enforced from Stage 4. bKash's Execute Payment call (`POST
+/tokenized/checkout/execute/{paymentID}`) is both the finalize step **and** the PAY-7 verification
+step — unlike SSLCommerz, where a separate `validationserverAPI` call verifies a payment already
+finalized on SSLCommerz's side. `BkashGateway.validate()` calls Execute exactly once per settlement
+attempt (the existing row-lock + terminal-status check from PAY-8 already prevents a second Execute
+call for the same `gateway_transactions` row — bKash's own API also rejects a duplicate Execute for
+an already-executed `paymentID`, so this is defense in depth, not the only safeguard). bKash's own
+callback shape (single `callbackURL`, `GET` redirect with `?paymentID=&status=` query params) is
+different enough from SSLCommerz's (three POST-form URLs) that it gets its own route
+(`GET /payments/gateway/{id}/bkash-callback`) rather than reusing
+`POST /payments/gateway/{id}/callback/{outcome}` — both routes funnel into the same shared
+`_settle_success`/`_settle_non_success`/`_build_frontend_redirect` helpers, so PAY-7/8/10/13 all
+apply identically regardless of which gateway triggered settlement.
+
+**PAY-15:** ✅ Enforced from Stage 5. `POST /payment-gateways/me/{gateway_type}/test` performs a
+genuine live call against the configured gateway (not a stub) and never requires `is_enabled=true`
+first — an admin can verify credentials before switching a gateway live.

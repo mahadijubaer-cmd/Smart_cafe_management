@@ -1,7 +1,7 @@
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,7 @@ from app.core.dependencies import (
 from app.core.limiter import limiter
 from app.models.models import Order, Payment, Tenant, User
 from app.models.order import PaymentStatus
-from app.models.payment_gateway import GatewayPurpose, GatewayTransaction, GatewayTransactionStatus
+from app.models.payment_gateway import GatewayPurpose, GatewayTransaction, GatewayTransactionStatus, GatewayType
 from app.schemas.payment import PaymentCreate, PaymentHistoryResponse, PaymentResponse, TopupRequest
 from app.schemas.payment_gateway import GatewayInitiateRequest, GatewayInitiateResponse
 from app.services import gateway_configs_service
@@ -214,16 +214,18 @@ async def initiate_gateway_payment(
     tran_id = gtx.gateway_transaction_id.hex
     gtx.gateway_ref = tran_id
 
-    base_callback = f"{settings.BACKEND_URL}/api/v1/payments/gateway/{gtx.gateway_transaction_id}/callback"
+    success_url, fail_url, cancel_url, ipn_url = gateway_configs_service.build_gateway_callback_urls(
+        data.gateway_type, settings.BACKEND_URL, gtx.gateway_transaction_id
+    )
     gateway_client = build_gateway_client(data.gateway_type, config)
     try:
         session = await gateway_client.initiate(
             tran_id=tran_id,
             amount=net_amount,
-            success_url=f"{base_callback}/success",
-            fail_url=f"{base_callback}/fail",
-            cancel_url=f"{base_callback}/cancel",
-            ipn_url=f"{settings.BACKEND_URL}/api/v1/payments/gateway/ipn",
+            success_url=success_url,
+            fail_url=fail_url,
+            cancel_url=cancel_url,
+            ipn_url=ipn_url,
             customer_name=current_user.full_name,
             customer_email=current_user.email,
             customer_phone=current_user.phone or "",
@@ -261,6 +263,36 @@ async def gateway_payment_callback(
         settled = await _settle_success(db, gtx, form_data)
         payment_flag = "success" if settled else "failed"
     else:
+        await _settle_non_success(db, gtx, outcome, form_data)
+        payment_flag = "cancelled" if outcome == "cancel" else "failed"
+
+    redirect_url = await _build_frontend_redirect(db, gtx, payment_flag)
+    return RedirectResponse(redirect_url, status_code=303)
+
+
+@router.get("/gateway/{gateway_transaction_id}/bkash-callback")
+@limiter.limit("20/minute")
+async def bkash_payment_callback(
+    request: Request,
+    gateway_transaction_id: UUID,
+    paymentID: str = Query(default=""),
+    status: str = Query(default=""),
+    db: AsyncSession = Depends(get_db),
+):
+    """RFC-011 Stage 4 / PAY-14 — bKash's own callback shape: a single `callbackURL` registered at
+    Create Payment time, redirected to via GET with `?paymentID=&status=success|failure|cancel`
+    (unlike SSLCommerz's three POST-form URLs, hence a dedicated route). Funnels into the same
+    shared settlement helpers as the SSLCommerz callback above."""
+    form_data = {"val_id": paymentID, "paymentID": paymentID, "status": status}
+    gtx = await _load_gateway_transaction_for_update(db, gateway_transaction_id)
+    if not gtx:
+        return RedirectResponse(settings.FRONTEND_URL, status_code=303)
+
+    if status == "success":
+        settled = await _settle_success(db, gtx, form_data)
+        payment_flag = "success" if settled else "failed"
+    else:
+        outcome = "cancel" if status == "cancel" else "fail"
         await _settle_non_success(db, gtx, outcome, form_data)
         payment_flag = "cancelled" if outcome == "cancel" else "failed"
 

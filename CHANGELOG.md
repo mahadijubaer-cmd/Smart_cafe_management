@@ -9,6 +9,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Payment gateway integration, Stages 4-5: native bKash + real "Test connection" (2026-07-22, see RFC-011)
+
+**Stage 4** — native bKash Tokenized Checkout (v1.2.0-beta) as a second `GatewayClient`
+implementation, alongside SSLCommerz. Every existing endpoint from Stages 2-3 works unchanged for
+`gateway_type=bkash` — `build_gateway_client` gained one new branch. The only new route is
+`GET /payments/gateway/{id}/bkash-callback`, since bKash redirects the browser back via a single
+`callbackURL` + `?paymentID=&status=` query string (a `GET`), genuinely different from SSLCommerz's
+three POST-form callback URLs — both funnel into the same shared settlement helpers. bKash's Execute
+Payment call is both the finalize step and the PAY-7 verification step (PAY-14). Unlike SSLCommerz's
+publicly-known `testbox`/`qwerty` sandbox pair, this stage's tests are mocked only — bKash requires
+registering as a sandbox developer for real credentials, not smoke-tested live this session.
+
+**Stage 5** — real `POST /payment-gateways/me/{gateway_type}/test` connectivity check (PAY-15):
+SSLCommerz calls its real Session API with a nominal payload; bKash calls Grant Token only. Both
+report success/failure with the gateway's own message, never a stub.
+
 ### Added — Payment gateway integration, Stage 3: SSLCommerz for guest/QR checkout (2026-07-22, see RFC-011)
 
 Restaurant-segment guest ordering (no account, scan-to-order) now gets the same real SSLCommerz

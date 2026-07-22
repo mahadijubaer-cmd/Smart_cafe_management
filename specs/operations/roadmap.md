@@ -238,13 +238,17 @@ Frontend (done):
   cafeteria); `/m/[public_slug]/page.tsx` hides add-to-cart/checkout entirely when
   `!isRestaurantSegment(info.tenant_type)`.
 
-**✅ Superseded 2026-07-22 (RFC-011):** the payment-gateway item below turned out not to be
-genuinely blocked — SSLCommerz and bKash both publish public sandbox credentials usable without a
-real registered business, which unblocks full end-to-end build and test now. See
-`specs/decisions/rfcs/RFC-011-payment-gateway-integration.md` for the per-tenant SSLCommerz + native
-bKash integration (admin-configured credentials, encrypted at rest per ADR-015) now underway in
-stages. Kiosk card-reader integration (below) remains genuinely blocked — needs real payment
-hardware, unlike a software-only gateway redirect.
+**✅ Superseded 2026-07-22 (RFC-011), all 5 stages complete:** the payment-gateway item below turned
+out not to be genuinely blocked for SSLCommerz — it publishes a public sandbox merchant account
+(`store_id=testbox`) usable without a real registered business, which unblocked full end-to-end
+build **and live production smoke-testing** (both authenticated and guest checkout, real sandbox
+card payments). Native bKash was also built against its documented Tokenized Checkout API and is
+unit-tested (mocked), but — unlike SSLCommerz — bKash has no single universally-published sandbox
+credential pair; live smoke-testing it needs real bKash sandbox developer credentials, not yet
+obtained. See `specs/decisions/rfcs/RFC-011-payment-gateway-integration.md` for the full per-tenant
+SSLCommerz + native bKash integration (admin-configured credentials, encrypted at rest per ADR-015).
+Kiosk card-reader integration (below) remains genuinely blocked — needs real payment hardware,
+unlike a software-only gateway redirect.
 
 **Not yet implemented (explicit follow-up, genuinely blocked on external resources):** ~~a *real*
 payment-gateway integration (SSLCOMMERZ or similar, needs real merchant credentials) for online

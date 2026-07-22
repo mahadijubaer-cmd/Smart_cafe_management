@@ -305,12 +305,14 @@ src/app/
                                         breadcrumb (Inventory › Central Inventory)
       public-link/page.tsx           → ✅ [Phase 22 — Implemented 2026-07-05] Toggle public menu,
                                         edit public_slug, download table-QR PDF sheet — RFC-007
-      payment-settings/page.tsx      → 🚧 [RFC-011, Stage 1 — 2026-07-22] Per-tenant SSLCommerz/
-                                        bKash credential configuration (masked, never shows a
-                                        decrypted secret), enable + sandbox/live toggles per
-                                        gateway. Mirrors public-link/page.tsx's load/save/toast
-                                        pattern exactly (GET/PUT /payment-gateways/me). NAV_DEFS
-                                        entry gated by the same _ADMIN_ROLES set.
+      payment-settings/page.tsx      → ✅ [RFC-011 — 2026-07-22] Per-tenant SSLCommerz/bKash
+                                        credential configuration (masked, never shows a decrypted
+                                        secret), enable + sandbox/live toggles per gateway, plus a
+                                        "Test connection" button per gateway (Stage 5,
+                                        POST .../me/{gateway_type}/test) reporting a real
+                                        success/failure message. Mirrors public-link/page.tsx's
+                                        load/save/toast pattern (GET/PUT /payment-gateways/me).
+                                        NAV_DEFS entry gated by the same _ADMIN_ROLES set.
       outlets/page.tsx                → ✅ [Phase 23 — Implemented 2026-07-05] Franchise brand
                                         self-service: list + create franchise_outlet tenants.
                                         Nav item only rendered when tenant_type===franchise_brand

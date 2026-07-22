@@ -10,8 +10,10 @@ from app.schemas.payment_gateway import (
     AvailableGatewayResponse,
     GatewayConfigMasked,
     GatewayConfigUpsert,
+    GatewayTestResponse,
 )
 from app.services import gateway_configs_service
+from app.services.gateway_configs_service import build_gateway_client
 
 router = APIRouter(prefix="/payment-gateways", tags=["payment-gateways"])
 
@@ -53,6 +55,24 @@ async def delete_my_gateway(
     found = await gateway_configs_service.delete_config(db, ctx.tenant_id, gateway_type)
     if not found:
         raise HTTPException(status_code=404, detail="Gateway not configured")
+
+
+@router.post("/me/{gateway_type}/test", response_model=GatewayTestResponse)
+async def test_my_gateway(
+    gateway_type: GatewayType,
+    ctx: TenantContext = Depends(get_tenant_context),
+    _: User = Depends(require_role(*_SETTINGS_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """RFC-011 Stage 5 / PAY-15 — a real connectivity check, not a stub. Ignores `is_enabled` so an
+    admin can verify credentials before switching a gateway live."""
+    config = await gateway_configs_service.get_decrypted_config_any(db, ctx.tenant_id, gateway_type)
+    if not config:
+        raise HTTPException(status_code=400, detail="No credentials saved for this gateway yet")
+
+    client = build_gateway_client(gateway_type, config)
+    result = await client.test_connection()
+    return GatewayTestResponse(success=result.success, message=result.message)
 
 
 @router.get("/available", response_model=AvailableGatewayResponse)

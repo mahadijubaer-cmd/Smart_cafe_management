@@ -48,6 +48,7 @@ export default function PaymentSettingsPage() {
     bkash: emptyForm(),
   })
   const [saving, setSaving] = useState<GatewayType | null>(null)
+  const [testing, setTesting] = useState<GatewayType | null>(null)
 
   const load = async () => {
     try {
@@ -113,6 +114,24 @@ export default function PaymentSettingsPage() {
       // apiClient interceptor shows the error toast
     } finally {
       setSaving(null)
+    }
+  }
+
+  const testConnection = async (gatewayType: GatewayType) => {
+    setTesting(gatewayType)
+    try {
+      const res = await apiClient.post<{ success: boolean; message: string }>(
+        `/payment-gateways/me/${gatewayType}/test`
+      )
+      if (res.data.success) {
+        toast.success(res.data.message)
+      } else {
+        toast.error(res.data.message)
+      }
+    } catch {
+      // apiClient interceptor shows the error toast (e.g. no credentials saved yet)
+    } finally {
+      setTesting(null)
     }
   }
 
@@ -185,9 +204,19 @@ export default function PaymentSettingsPage() {
             </FieldDescription>
           </Field>
 
-          <Button disabled={saving === 'sslcommerz'} onClick={() => save('sslcommerz')}>
-            Save SSLCommerz settings
-          </Button>
+          <div className="flex gap-3">
+            <Button disabled={saving === 'sslcommerz'} onClick={() => save('sslcommerz')}>
+              Save SSLCommerz settings
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={testing === 'sslcommerz' || !configs.sslcommerz?.has_credentials}
+              onClick={() => testConnection('sslcommerz')}
+            >
+              {testing === 'sslcommerz' ? 'Testing…' : 'Test connection'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -261,9 +290,19 @@ export default function PaymentSettingsPage() {
             </FieldDescription>
           </Field>
 
-          <Button disabled={saving === 'bkash'} onClick={() => save('bkash')}>
-            Save bKash settings
-          </Button>
+          <div className="flex gap-3">
+            <Button disabled={saving === 'bkash'} onClick={() => save('bkash')}>
+              Save bKash settings
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={testing === 'bkash' || !configs.bkash?.has_credentials}
+              onClick={() => testConnection('bkash')}
+            >
+              {testing === 'bkash' ? 'Testing…' : 'Test connection'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

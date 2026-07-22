@@ -1,14 +1,13 @@
-"""Tests for SSLCommerz gateway checkout (RFC-011 Stage 2).
+"""Tests for native bKash gateway checkout (RFC-011 Stage 4).
 
 Covers:
-  POST /payments/gateway/initiate
-  POST /payments/gateway/{id}/callback/{outcome}
-  POST /payments/gateway/ipn
-  Idempotency (PAY-8) and amount-verification (PAY-7)
+  POST /payments/gateway/initiate (gateway_type=bkash)
+  GET  /payments/gateway/{id}/bkash-callback
+  Idempotency (PAY-8) and amount-verification via Execute Payment (PAY-7/PAY-14)
 
-httpx calls to SSLCommerz's own API are mocked here so the committed suite runs
-offline/deterministically — the real sandbox was exercised manually during
-development (see CHANGELOG), not as part of this automated suite.
+httpx calls to bKash's own API are mocked here — bKash has no universally-published
+public sandbox credential pair the way SSLCommerz's testbox/qwerty is, so this suite
+is unit-tested against the documented API contract only, not smoke-tested live.
 """
 from __future__ import annotations
 
@@ -30,7 +29,7 @@ from app.models.models import Order, Payment
 from app.models.order import OrderSource, PaymentStatus
 from app.models.payment_gateway import GatewayTransaction, GatewayTransactionStatus
 from app.models.user import User, UserRole
-from app.services.gateways.base import GatewaySession, GatewayTestResult, GatewayValidationResult
+from app.services.gateways.base import GatewaySession, GatewayValidationResult
 from tests.conftest import SLUG_ALPHA, TEST_PASSWORD, get_token
 
 
@@ -49,14 +48,14 @@ async def admin_token(async_client: AsyncClient, tenants: dict, db_session: Asyn
         user_id=uuid.uuid4(),
         tenant_id=alpha.tenant_id,
         full_name="Alpha Admin",
-        email="ssl.admin@alpha.com",
+        email="bkash.admin@alpha.com",
         password_hash=hash_password(TEST_PASSWORD),
         role=UserRole.tenant_admin,
         is_active=True,
     )
     db_session.add(admin)
     await db_session.commit()
-    return await get_token(async_client, "ssl.admin@alpha.com", SLUG_ALPHA)
+    return await get_token(async_client, "bkash.admin@alpha.com", SLUG_ALPHA)
 
 
 @pytest_asyncio.fixture
@@ -65,8 +64,8 @@ async def customer(db_session: AsyncSession, tenants: dict) -> User:
     customer = User(
         user_id=uuid.uuid4(),
         tenant_id=alpha.tenant_id,
-        full_name="Ssl Customer",
-        email="ssl.customer@alpha.com",
+        full_name="Bkash Customer",
+        email="bkash.customer@alpha.com",
         password_hash=hash_password(TEST_PASSWORD),
         role=UserRole.customer,
         is_active=True,
@@ -92,7 +91,7 @@ async def pending_order(db_session: AsyncSession, tenants: dict, customer: User)
         user_id=customer.user_id,
         order_source=OrderSource.customer_app,
         time_slot=datetime.now(timezone.utc) + timedelta(hours=1),
-        total_amount=Decimal("250.00"),
+        total_amount=Decimal("400.00"),
         discount_amount=Decimal("0.00"),
         payment_status=PaymentStatus.pending,
     )
@@ -102,32 +101,30 @@ async def pending_order(db_session: AsyncSession, tenants: dict, customer: User)
     return order
 
 
-async def _enable_sslcommerz(async_client: AsyncClient, admin_token: str) -> None:
+async def _enable_bkash(async_client: AsyncClient, admin_token: str) -> None:
     resp = await async_client.put(
-        "/api/v1/payment-gateways/me/sslcommerz",
-        json={"is_enabled": True, "is_sandbox": True, "store_id": "testbox", "store_password": "qwerty"},
+        "/api/v1/payment-gateways/me/bkash",
+        json={
+            "is_enabled": True,
+            "is_sandbox": True,
+            "username": "sandboxTokenizedUser02",
+            "app_key": "test-app-key",
+            "app_secret": "test-app-secret",
+            "password": "test-password",
+        },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
 
 
-# ─── POST /payments/gateway/initiate ─────────────────────────────────────────
+_GRANT_RESPONSE = {"statusCode": "0000", "id_token": "fake-id-token", "expires_in": "3600"}
+
+
+# ─── POST /payments/gateway/initiate (bkash) ─────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_initiate_requires_configured_gateway(
-    async_client: AsyncClient, tenants: dict, customer_token: str, pending_order: Order
-):
-    resp = await async_client.post(
-        "/api/v1/payments/gateway/initiate",
-        json={"order_id": str(pending_order.order_id), "gateway_type": "sslcommerz"},
-        headers={"Authorization": f"Bearer {customer_token}"},
-    )
-    assert resp.status_code == 400
-
-
-@pytest.mark.asyncio
-async def test_initiate_success_creates_transaction_and_redirect(
+async def test_bkash_initiate_success_creates_transaction_and_redirect(
     async_client: AsyncClient,
     tenants: dict,
     db_session: AsyncSession,
@@ -135,70 +132,62 @@ async def test_initiate_success_creates_transaction_and_redirect(
     customer_token: str,
     pending_order: Order,
 ):
-    await _enable_sslcommerz(async_client, admin_token)
+    await _enable_bkash(async_client, admin_token)
 
     with patch(
-        "app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.initiate",
-        new=AsyncMock(return_value=GatewaySession(redirect_url="https://sandbox.sslcommerz.com/fake-session")),
+        "app.services.gateways.bkash_gateway.BkashGateway.initiate",
+        new=AsyncMock(return_value=GatewaySession(redirect_url="https://tokenized.sandbox.bka.sh/fake-session")),
     ):
         resp = await async_client.post(
             "/api/v1/payments/gateway/initiate",
-            json={"order_id": str(pending_order.order_id), "gateway_type": "sslcommerz"},
+            json={"order_id": str(pending_order.order_id), "gateway_type": "bkash"},
             headers={"Authorization": f"Bearer {customer_token}"},
         )
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["redirect_url"] == "https://sandbox.sslcommerz.com/fake-session"
+    assert body["redirect_url"] == "https://tokenized.sandbox.bka.sh/fake-session"
 
     result = await db_session.execute(select(GatewayTransaction))
     rows = result.scalars().all()
     assert len(rows) == 1
+    assert rows[0].gateway_type.value == "bkash"
     assert rows[0].order_id == pending_order.order_id
     assert rows[0].status == GatewayTransactionStatus.initiated
-    assert Decimal(str(rows[0].amount)) == Decimal("250.00")
+    assert Decimal(str(rows[0].amount)) == Decimal("400.00")
 
 
 @pytest.mark.asyncio
-async def test_initiate_already_paid_order_rejected(
-    async_client: AsyncClient,
-    tenants: dict,
-    db_session: AsyncSession,
-    admin_token: str,
-    customer_token: str,
-    pending_order: Order,
+async def test_bkash_initiate_rejected_when_not_configured(
+    async_client: AsyncClient, tenants: dict, customer_token: str, pending_order: Order
 ):
-    await _enable_sslcommerz(async_client, admin_token)
-    pending_order.payment_status = PaymentStatus.paid
-    await db_session.commit()
-
     resp = await async_client.post(
         "/api/v1/payments/gateway/initiate",
-        json={"order_id": str(pending_order.order_id), "gateway_type": "sslcommerz"},
+        json={"order_id": str(pending_order.order_id), "gateway_type": "bkash"},
         headers={"Authorization": f"Bearer {customer_token}"},
     )
     assert resp.status_code == 400
 
 
-# ─── Settlement (callback + IPN) ──────────────────────────────────────────────
+# ─── GET /payments/gateway/{id}/bkash-callback ───────────────────────────────
 
 
 async def _initiate(async_client, admin_token, customer_token, pending_order) -> str:
-    await _enable_sslcommerz(async_client, admin_token)
+    await _enable_bkash(async_client, admin_token)
     with patch(
-        "app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.initiate",
-        new=AsyncMock(return_value=GatewaySession(redirect_url="https://sandbox.sslcommerz.com/fake")),
+        "app.services.gateways.bkash_gateway.BkashGateway.initiate",
+        new=AsyncMock(return_value=GatewaySession(redirect_url="https://tokenized.sandbox.bka.sh/fake")),
     ):
         resp = await async_client.post(
             "/api/v1/payments/gateway/initiate",
-            json={"order_id": str(pending_order.order_id), "gateway_type": "sslcommerz"},
+            json={"order_id": str(pending_order.order_id), "gateway_type": "bkash"},
             headers={"Authorization": f"Bearer {customer_token}"},
         )
     return resp.json()["gateway_transaction_id"]
 
 
 @pytest.mark.asyncio
-async def test_callback_success_marks_paid(
+async def test_bkash_callback_success_marks_paid(
     async_client: AsyncClient,
     tenants: dict,
     db_session: AsyncSession,
@@ -209,14 +198,14 @@ async def test_callback_success_marks_paid(
     gtx_id = await _initiate(async_client, admin_token, customer_token, pending_order)
 
     with patch(
-        "app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.validate",
+        "app.services.gateways.bkash_gateway.BkashGateway.validate",
         new=AsyncMock(return_value=GatewayValidationResult(
-            success=True, verified_amount=Decimal("250.00"), external_ref="bank_ref_123"
+            success=True, verified_amount=Decimal("400.00"), external_ref="TRX123ABC"
         )),
     ):
-        resp = await async_client.post(
-            f"/api/v1/payments/gateway/{gtx_id}/callback/success",
-            data={"val_id": "val-123", "status": "VALID"},
+        resp = await async_client.get(
+            f"/api/v1/payments/gateway/{gtx_id}/bkash-callback",
+            params={"paymentID": "TR0011abc123", "status": "success"},
         )
 
     assert resp.status_code in (302, 303, 307)
@@ -228,16 +217,16 @@ async def test_callback_success_marks_paid(
     gtx_result = await db_session.execute(select(GatewayTransaction))
     gtx = gtx_result.scalar_one()
     assert gtx.status == GatewayTransactionStatus.success
-    assert gtx.gateway_external_ref == "bank_ref_123"
+    assert gtx.gateway_external_ref == "TRX123ABC"
 
     payment_result = await db_session.execute(select(Payment).where(Payment.order_id == pending_order.order_id))
     payment = payment_result.scalar_one()
-    assert payment.transaction_ref == "bank_ref_123"
-    assert Decimal(str(payment.amount)) == Decimal("250.00")
+    assert payment.transaction_ref == "TRX123ABC"
+    assert Decimal(str(payment.amount)) == Decimal("400.00")
 
 
 @pytest.mark.asyncio
-async def test_callback_amount_mismatch_rejected(
+async def test_bkash_callback_amount_mismatch_rejected(
     async_client: AsyncClient,
     tenants: dict,
     db_session: AsyncSession,
@@ -245,18 +234,18 @@ async def test_callback_amount_mismatch_rejected(
     customer_token: str,
     pending_order: Order,
 ):
-    """PAY-7: a validated amount that doesn't match must never mark the order paid."""
+    """PAY-7/PAY-14: Execute Payment's own verified amount must match — a mismatch is rejected."""
     gtx_id = await _initiate(async_client, admin_token, customer_token, pending_order)
 
     with patch(
-        "app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.validate",
+        "app.services.gateways.bkash_gateway.BkashGateway.validate",
         new=AsyncMock(return_value=GatewayValidationResult(
-            success=True, verified_amount=Decimal("1.00"), external_ref="bank_ref_tampered"
+            success=True, verified_amount=Decimal("1.00"), external_ref="TRX_TAMPERED"
         )),
     ):
-        resp = await async_client.post(
-            f"/api/v1/payments/gateway/{gtx_id}/callback/success",
-            data={"val_id": "val-123", "status": "VALID"},
+        resp = await async_client.get(
+            f"/api/v1/payments/gateway/{gtx_id}/bkash-callback",
+            params={"paymentID": "TR0011abc123", "status": "success"},
         )
 
     assert "payment=failed" in resp.headers["location"]
@@ -268,7 +257,7 @@ async def test_callback_amount_mismatch_rejected(
 
 
 @pytest.mark.asyncio
-async def test_callback_cancel_marks_cancelled_no_payment(
+async def test_bkash_callback_cancel_marks_cancelled_no_payment(
     async_client: AsyncClient,
     tenants: dict,
     db_session: AsyncSession,
@@ -278,7 +267,10 @@ async def test_callback_cancel_marks_cancelled_no_payment(
 ):
     gtx_id = await _initiate(async_client, admin_token, customer_token, pending_order)
 
-    resp = await async_client.post(f"/api/v1/payments/gateway/{gtx_id}/callback/cancel", data={})
+    resp = await async_client.get(
+        f"/api/v1/payments/gateway/{gtx_id}/bkash-callback",
+        params={"paymentID": "TR0011abc123", "status": "cancel"},
+    )
     assert "payment=cancelled" in resp.headers["location"]
 
     gtx_result = await db_session.execute(select(GatewayTransaction))
@@ -290,7 +282,7 @@ async def test_callback_cancel_marks_cancelled_no_payment(
 
 
 @pytest.mark.asyncio
-async def test_duplicate_settlement_is_idempotent(
+async def test_bkash_duplicate_settlement_is_idempotent(
     async_client: AsyncClient,
     tenants: dict,
     db_session: AsyncSession,
@@ -298,50 +290,58 @@ async def test_duplicate_settlement_is_idempotent(
     customer_token: str,
     pending_order: Order,
 ):
-    """PAY-8: a callback followed by an IPN for the same transaction must not double-settle."""
+    """PAY-8: a second callback delivery for the same transaction must not double-execute/settle."""
     gtx_id = await _initiate(async_client, admin_token, customer_token, pending_order)
 
     validate_mock = AsyncMock(return_value=GatewayValidationResult(
-        success=True, verified_amount=Decimal("250.00"), external_ref="bank_ref_dup"
+        success=True, verified_amount=Decimal("400.00"), external_ref="TRX_DUP"
     ))
-    with patch("app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.validate", new=validate_mock):
-        first = await async_client.post(
-            f"/api/v1/payments/gateway/{gtx_id}/callback/success",
-            data={"val_id": "val-123", "status": "VALID"},
+    with patch("app.services.gateways.bkash_gateway.BkashGateway.validate", new=validate_mock):
+        first = await async_client.get(
+            f"/api/v1/payments/gateway/{gtx_id}/bkash-callback",
+            params={"paymentID": "TR0011abc123", "status": "success"},
         )
         assert "payment=success" in first.headers["location"]
 
-        # Simulate the IPN arriving after the callback already settled it.
-        ipn_resp = await async_client.post(
-            "/api/v1/payments/gateway/ipn",
-            data={"tran_id": uuid.UUID(gtx_id).hex, "val_id": "val-123", "status": "VALID"},
+        second = await async_client.get(
+            f"/api/v1/payments/gateway/{gtx_id}/bkash-callback",
+            params={"paymentID": "TR0011abc123", "status": "success"},
         )
-        assert ipn_resp.status_code == 200
+        assert "payment=success" in second.headers["location"]
 
-    # validate() must only have been called once — the second settlement attempt short-circuits
-    # on the terminal-status check before ever calling the gateway again.
+    # validate() (which internally calls Execute) must only have been invoked once.
     assert validate_mock.await_count == 1
 
     payment_result = await db_session.execute(select(Payment).where(Payment.order_id == pending_order.order_id))
     assert len(payment_result.scalars().all()) == 1
 
 
-# ─── POST /payment-gateways/me/sslcommerz/test (RFC-011 Stage 5) ─────────────
+# ─── POST /payment-gateways/me/{gateway_type}/test ───────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_test_connection_sslcommerz_success(async_client: AsyncClient, tenants: dict, admin_token: str):
-    await _enable_sslcommerz(async_client, admin_token)
+async def test_test_connection_requires_saved_credentials(
+    async_client: AsyncClient, tenants: dict, admin_token: str
+):
+    resp = await async_client.post(
+        "/api/v1/payment-gateways/me/bkash/test",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
 
-    # Mirrors this file's own convention for initiate/validate: the gateway class method itself is
-    # mocked, not the httpx call inside it — patching httpx.AsyncClient.post globally would also
-    # intercept this test's own ASGI-transport client (both are httpx.AsyncClient instances).
+
+@pytest.mark.asyncio
+async def test_test_connection_bkash_success(
+    async_client: AsyncClient, tenants: dict, admin_token: str
+):
+    await _enable_bkash(async_client, admin_token)
+
     with patch(
-        "app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.test_connection",
-        new=AsyncMock(return_value=GatewayTestResult(success=True, message="Credentials verified.")),
+        "app.services.gateways.bkash_gateway.BkashGateway._grant_token",
+        new=AsyncMock(return_value="fake-id-token"),
     ):
         resp = await async_client.post(
-            "/api/v1/payment-gateways/me/sslcommerz/test",
+            "/api/v1/payment-gateways/me/bkash/test",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
     assert resp.status_code == 200
@@ -349,18 +349,49 @@ async def test_test_connection_sslcommerz_success(async_client: AsyncClient, ten
 
 
 @pytest.mark.asyncio
-async def test_test_connection_sslcommerz_bad_credentials(async_client: AsyncClient, tenants: dict, admin_token: str):
-    await _enable_sslcommerz(async_client, admin_token)
+async def test_test_connection_bkash_bad_credentials(
+    async_client: AsyncClient, tenants: dict, admin_token: str
+):
+    await _enable_bkash(async_client, admin_token)
 
     with patch(
-        "app.services.gateways.sslcommerz_gateway.SSLCommerzGateway.test_connection",
-        new=AsyncMock(return_value=GatewayTestResult(success=False, message="Invalid store credential")),
+        "app.services.gateways.bkash_gateway.BkashGateway._grant_token",
+        new=AsyncMock(return_value=None),
     ):
         resp = await async_client.post(
-            "/api/v1/payment-gateways/me/sslcommerz/test",
+            "/api/v1/payment-gateways/me/bkash/test",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["success"] is False
-    assert body["message"] == "Invalid store credential"
+    assert resp.json()["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_test_connection_works_even_when_disabled(
+    async_client: AsyncClient, tenants: dict, admin_token: str
+):
+    """PAY-15: an admin can test credentials before switching a gateway live."""
+    resp = await async_client.put(
+        "/api/v1/payment-gateways/me/bkash",
+        json={
+            "is_enabled": False,
+            "is_sandbox": True,
+            "username": "sandboxTokenizedUser02",
+            "app_key": "test-app-key",
+            "app_secret": "test-app-secret",
+            "password": "test-password",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+    with patch(
+        "app.services.gateways.bkash_gateway.BkashGateway._grant_token",
+        new=AsyncMock(return_value="fake-id-token"),
+    ):
+        test_resp = await async_client.post(
+            "/api/v1/payment-gateways/me/bkash/test",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert test_resp.status_code == 200
+    assert test_resp.json()["success"] is True

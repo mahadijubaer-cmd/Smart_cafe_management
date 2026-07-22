@@ -268,7 +268,16 @@ stage below is implemented (this project's standing spec-first workflow):
   row for guest settlement); guest checkout UI + guest tracking-page `?payment=` banner; tests
   (mocked + real sandbox network smoke-tested). Wallet top-up gateway payment deferred, not
   scheduled to a stage yet.
-- **Stage 4** — Native bKash gateway client, same endpoints/UI extended to the second gateway type;
-  tests.
-- **Stage 5** — Real "Test connection" implementation; docs polish.
+- [x] **Stage 4** — Native bKash gateway client (`services/gateways/bkash_gateway.py`): Tokenized
+  Checkout v1.2.0-beta (grant token → create → execute). Reuses every Stage 2/3 endpoint unchanged —
+  `build_gateway_client` gained a `bkash` branch, the only new route is
+  `GET /payments/gateway/{id}/bkash-callback` (bKash redirects via a single `callbackURL` +
+  `?paymentID=&status=` query string, unlike SSLCommerz's three POST-form URLs — see PAY-14). Tests
+  mocked (bKash publishes no universally-known public sandbox credential pair the way SSLCommerz's
+  `testbox`/`qwerty` is — unlike Stage 2/3, this stage's live-sandbox smoke test is deferred until
+  real or user-supplied bKash sandbox credentials are available; see PAY-14 note).
+- [x] **Stage 5** — Real "Test connection" implementation
+  (`POST /payment-gateways/me/{gateway_type}/test`, PAY-15): SSLCommerz calls the real Session API
+  with a nominal payload; bKash calls Grant Token only (no payment created). Docs polish (this file,
+  `payments.md`, `deployment.md`, `CHANGELOG.md`).
 - [x] `CHANGELOG.md` updated per stage

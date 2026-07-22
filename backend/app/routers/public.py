@@ -253,16 +253,18 @@ async def initiate_guest_gateway_payment(
     tran_id = gtx.gateway_transaction_id.hex
     gtx.gateway_ref = tran_id
 
-    base_callback = f"{settings.BACKEND_URL}/api/v1/payments/gateway/{gtx.gateway_transaction_id}/callback"
+    success_url, fail_url, cancel_url, ipn_url = gateway_configs_service.build_gateway_callback_urls(
+        data.gateway_type, settings.BACKEND_URL, gtx.gateway_transaction_id
+    )
     gateway_client = build_gateway_client(data.gateway_type, config)
     try:
         session = await gateway_client.initiate(
             tran_id=tran_id,
             amount=net_amount,
-            success_url=f"{base_callback}/success",
-            fail_url=f"{base_callback}/fail",
-            cancel_url=f"{base_callback}/cancel",
-            ipn_url=f"{settings.BACKEND_URL}/api/v1/payments/gateway/ipn",
+            success_url=success_url,
+            fail_url=fail_url,
+            cancel_url=cancel_url,
+            ipn_url=ipn_url,
             customer_name=orders[0].guest_name or "Guest",
             customer_email="",
             customer_phone=orders[0].guest_phone or "",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 import logging
+import uuid
 
 import httpx
 
@@ -16,6 +17,7 @@ from app.services.gateways.base import (
     GatewayClient,
     GatewayInitiationError,
     GatewaySession,
+    GatewayTestResult,
     GatewayValidationResult,
 )
 
@@ -106,3 +108,39 @@ class SSLCommerzGateway(GatewayClient):
             external_ref=data.get("bank_tran_id") or val_id,
             raw_response=data,
         )
+
+    async def test_connection(self) -> GatewayTestResult:
+        """RFC-011 Stage 5 / PAY-15 — a real Session API call with a nominal payload. Creates one
+        genuine, immediately-abandoned SSLCommerz session (harmless — indistinguishable from any
+        customer who opens checkout and never pays); there is no separate auth-only endpoint."""
+        payload = {
+            "store_id": self.store_id,
+            "store_passwd": self.store_password,
+            "total_amount": "10.00",
+            "currency": "BDT",
+            "tran_id": f"test-connection-{uuid.uuid4().hex}",
+            "success_url": "https://example.com/",
+            "fail_url": "https://example.com/",
+            "cancel_url": "https://example.com/",
+            "shipping_method": "NO",
+            "product_name": "Connection test",
+            "product_category": "Test",
+            "product_profile": "general",
+            "cus_name": "Test",
+            "cus_email": "test@example.com",
+            "cus_add1": "N/A",
+            "cus_city": "Dhaka",
+            "cus_postcode": "1000",
+            "cus_country": "Bangladesh",
+            "cus_phone": "01700000000",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                response = await client.post(f"{self.base_url}/gwprocess/v4/api.php", data=payload)
+            data = response.json()
+        except httpx.HTTPError as exc:
+            return GatewayTestResult(success=False, message=f"Could not reach SSLCommerz: {exc}")
+
+        if data.get("status") == "SUCCESS":
+            return GatewayTestResult(success=True, message="Credentials verified — session created successfully.")
+        return GatewayTestResult(success=False, message=data.get("failedreason") or "SSLCommerz rejected the credentials.")
