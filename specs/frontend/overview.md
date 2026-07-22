@@ -190,9 +190,18 @@ src/app/
   > per-request, so they're unaffected.
 
   m/[public_slug]/                   → ✅ [Phase 22 — Implemented 2026-07-05] Public surface, no auth — RFC-007
-    page.tsx                         → Public menu + cart + guest checkout (name+phone);
-                                        `?mode=kiosk` = fullscreen locked kiosk variant.
-                                        🚧 [RFC-011 Stage 3 — 2026-07-22] the single hardcoded "Pay
+    page.tsx                         → Public menu + cart + guest checkout (name+phone, both
+                                        optional — PUB-9); `?mode=kiosk` = fullscreen locked kiosk
+                                        variant. Item cards show an image banner (emoji fallback via
+                                        `CATEGORY_ICONS` when no `image_url`), an `is_homemade`
+                                        badge, and `prep_time_mins`, matching the authenticated
+                                        menu's `MenuItemCard` visual pattern (2026-07-22). The
+                                        checkout sheet's table-number field is a locked, read-only
+                                        confirmation whenever `?t=` is present (a real table QR was
+                                        scanned) and only falls back to an editable, required input
+                                        when it's absent (2026-07-22) — see `public-surface.md`'s
+                                        "Table QR Payload" section.
+                                        ✅ [RFC-011 Stage 3] the single hardcoded "Pay
                                         online now" button is now a dynamic method list (fetches
                                         `GET /public/{public_slug}/payment-methods`); choosing a
                                         real gateway calls
@@ -201,10 +210,13 @@ src/app/
                                         hosted checkout URL, same pattern as the authenticated
                                         checkout page (Stage 2). Simulated "Pay online now" stays
                                         as the always-available fallback.
-    track/[guestToken]/page.tsx      → Guest order tracking (live via public WS). 🚧 [RFC-011
+    track/[guestToken]/page.tsx      → Guest order tracking (live via public WS). ✅ [RFC-011
                                         Stage 3] reads `?payment=success|failed|cancelled` on mount
                                         and shows a toast, mirroring the authenticated tracking
-                                        page's Stage 2 banner.
+                                        page's Stage 2 banner. Header line joins guest name + table
+                                        (both optional/nullable) with `.filter(Boolean).join(' · ')`
+                                        rather than string interpolation, so an absent guest name
+                                        never leaves a stray leading separator (2026-07-22).
 
   > **✅ Dark mode fixed 2026-07-16 (QA browser pass):** both `m/[public_slug]` pages hardcoded
   > light-only Tailwind colors (`bg-slate-50` page background, `bg-white` sticky bars,

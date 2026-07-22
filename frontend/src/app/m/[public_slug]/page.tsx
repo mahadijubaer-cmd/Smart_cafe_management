@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
+import { CATEGORY_ICONS } from '@/lib/category'
 import { isRestaurantSegment } from '@/lib/segments'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -162,6 +163,17 @@ export default function PublicMenuPage() {
     return activeCategoryId ? menu.items.filter((item) => item.category_id === activeCategoryId) : menu.items
   }, [menu, isFoodCourt, activeVendorId, activeCategoryId])
 
+  const categoryNameById = useMemo(() => {
+    const map = new Map<number, string>()
+    menu?.categories.forEach((cat) => map.set(cat.category_id, cat.name))
+    return map
+  }, [menu])
+
+  const emojiFallback = (item: PublicMenuItem) => {
+    const categoryName = categoryNameById.get(item.category_id)
+    return (categoryName && CATEGORY_ICONS[categoryName]) || '🍽️'
+  }
+
   const addToCart = (item: PublicMenuItem) => {
     setCart((current) => {
       const existing = current.find((line) => line.item.item_id === item.item_id)
@@ -188,18 +200,14 @@ export default function PublicMenuPage() {
       toast.error('Enter your table number')
       return
     }
-    if (!guestName.trim() || !guestPhone.trim()) {
-      toast.error('Name and phone are required')
-      return
-    }
 
     setSubmitting(true)
     try {
       const res = await apiClient.post<GuestOrderGroup>(`/public/${slug}/orders`, {
         items: cart.map((line) => ({ item_id: line.item.item_id, quantity: line.quantity })),
         table_number: tableNumber.trim(),
-        guest_name: guestName.trim(),
-        guest_phone: guestPhone.trim(),
+        guest_name: guestName.trim() || undefined,
+        guest_phone: guestPhone.trim() || undefined,
         is_kiosk: isKiosk,
       })
       toast.success(
@@ -437,17 +445,38 @@ export default function PublicMenuPage() {
         {visibleItems.map((item) => {
           const line = cart.find((l) => l.item.item_id === item.item_id)
           return (
-            <Card key={item.item_id} className="rounded-2xl p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-bold text-foreground">{item.name}</h3>
-                  {isFoodCourt && item.vendor_name ? (
-                    <Badge variant="secondary" className="mt-1">{item.vendor_name}</Badge>
-                  ) : null}
-                </div>
-                <p className="font-extrabold text-primary">{formatCurrency(Number(item.price))}</p>
+            <Card key={item.item_id} className="overflow-hidden rounded-2xl p-0 shadow-sm">
+              <div className="relative h-36 w-full overflow-hidden bg-muted">
+                {item.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-4xl">
+                    <span aria-hidden="true">{emojiFallback(item)}</span>
+                  </div>
+                )}
+                {item.is_homemade ? (
+                  <Badge className="absolute left-2 top-2 bg-amber-400 text-amber-950 hover:bg-amber-400">
+                    🏠 Homemade
+                  </Badge>
+                ) : null}
               </div>
-              {item.description ? <p className="mt-1 text-sm text-muted-foreground">{item.description}</p> : null}
+
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-foreground">{item.name}</h3>
+                    {isFoodCourt && item.vendor_name ? (
+                      <Badge variant="secondary" className="mt-1">{item.vendor_name}</Badge>
+                    ) : null}
+                  </div>
+                  <p className="font-extrabold text-primary">{formatCurrency(Number(item.price))}</p>
+                </div>
+                {item.description ? <p className="mt-1 text-sm text-muted-foreground">{item.description}</p> : null}
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <span aria-hidden="true">⏱</span>
+                  <span>{item.prep_time_mins} min</span>
+                </p>
 
               {canOrder ? (
               <div className="mt-4 flex justify-end">
@@ -480,6 +509,7 @@ export default function PublicMenuPage() {
                 )}
               </div>
               ) : null}
+              </div>
             </Card>
           )
         })}
@@ -510,15 +540,22 @@ export default function PublicMenuPage() {
           <div className="flex flex-col mt-4 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="guest-table">Table number</Label>
-              <Input
-                id="guest-table"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                placeholder="e.g. T-04"
-              />
+              {initialTable ? (
+                <div className="flex items-center justify-between rounded-md border border-input bg-muted px-3 py-2">
+                  <span className="text-sm font-semibold text-foreground">Table {tableNumber}</span>
+                  <span className="text-xs text-muted-foreground">Detected from QR code</span>
+                </div>
+              ) : (
+                <Input
+                  id="guest-table"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  placeholder="e.g. T-04"
+                />
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="guest-name">Your name</Label>
+              <Label htmlFor="guest-name">Your name (optional)</Label>
               <Input
                 id="guest-name"
                 value={guestName}
@@ -526,7 +563,7 @@ export default function PublicMenuPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="guest-phone">Phone number</Label>
+              <Label htmlFor="guest-phone">Phone number (optional)</Label>
               <Input
                 id="guest-phone"
                 value={guestPhone}

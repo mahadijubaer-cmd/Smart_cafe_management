@@ -44,8 +44,11 @@ class PublicTenantInfoResponse(BaseModel):
 class GuestOrderCreate(BaseModel):
     items: list[OrderItemCreate] = Field(..., min_length=1)
     table_number: str = Field(..., min_length=1, max_length=10)
-    guest_name: str = Field(..., min_length=1, max_length=80)
-    guest_phone: str = Field(..., min_length=7, max_length=20)
+    # PUB-9: optional — a guest may order without giving contact info, matching every other
+    # part of the codebase that already treats it as optional (kiosk, staff POS, gateway payment
+    # fallbacks).
+    guest_name: str | None = Field(default=None, max_length=80)
+    guest_phone: str | None = Field(default=None, max_length=20)
     special_notes: str | None = None
     is_kiosk: bool = False
 

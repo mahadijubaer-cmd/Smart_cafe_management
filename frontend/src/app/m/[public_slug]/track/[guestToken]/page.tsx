@@ -178,16 +178,16 @@ export default function GuestOrderTrackPage() {
   const isMultiVendor = group.orders.length > 1
   const guestName = group.orders[0]?.guest_name
   const tableLabel = group.orders[0]?.table_number ?? group.orders[0]?.table_id
+  // guest_name is optional (PUB-9) — join only the parts that exist so an absent name never
+  // leaves a stray leading " · " separator.
+  const headerLine = [guestName, tableLabel ? `Table ${tableLabel}` : null].filter(Boolean).join(' · ')
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="mx-auto max-w-md">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">
-              {guestName}
-              {tableLabel ? ` · Table ${tableLabel}` : ''}
-            </p>
+            <p className="text-sm text-muted-foreground">{headerLine}</p>
             {isMultiVendor ? (
               <p className="text-xs text-muted-foreground">{group.orders.length} tickets from different stalls</p>
             ) : null}

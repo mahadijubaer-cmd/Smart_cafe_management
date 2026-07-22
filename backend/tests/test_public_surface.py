@@ -162,6 +162,28 @@ async def test_public_order_qr_404_for_unknown_token(async_client: AsyncClient):
     assert resp.status_code == 404
 
 
+async def test_guest_order_create_without_name_or_phone(
+    async_client: AsyncClient, db_session: AsyncSession, tenants: dict[str, Tenant]
+):
+    """PUB-9: guest_name/guest_phone are optional — a guest may order without providing either."""
+    beta = tenants["beta"]
+    await _enable_public_menu(db_session, beta, "beta-diner")
+    item = await _seed_menu(db_session, beta)
+    await _seed_table(db_session, beta, "T-01")
+
+    resp = await async_client.post(
+        "/api/v1/public/beta-diner/orders",
+        json={
+            "items": [{"item_id": str(item.item_id), "quantity": 1}],
+            "table_number": "T-01",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    order = _first_order(resp.json())
+    assert order["guest_name"] is None
+    assert order["guest_phone"] is None
+
+
 async def test_guest_order_online_payment_when_enabled(
     async_client: AsyncClient, db_session: AsyncSession, tenants: dict[str, Tenant]
 ):

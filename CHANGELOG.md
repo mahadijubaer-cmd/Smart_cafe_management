@@ -9,6 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Improved — Guest/QR public menu: item images, QR-locked table field, optional name/phone (2026-07-22)
+
+Three fixes to the restaurant-segment public menu (`/m/{public_slug}`), found while testing it from
+a genuine customer perspective. (1) Item cards now show an image banner (emoji fallback when no
+`image_url`), an `is_homemade` badge, and prep time — matching the authenticated menu's
+`MenuItemCard`; the data was already in the API response, just unused by this page. (2) The
+checkout sheet's table-number field is now a locked, read-only confirmation whenever the link
+carries `?t=` (a real table QR was scanned) instead of an editable box that looked like it still
+needed filling in; it only falls back to an editable, required input when opened via a bare link
+with no table param. (3) `guest_name`/`guest_phone` are now fully optional (PUB-9), matching every
+other part of the codebase that already treats guest contact info as optional (kiosk, staff POS,
+the gateway-payment fallback code). Also fixed a cosmetic bug on the guest tracking page that left
+a stray leading " · " separator when no guest name was given.
+
 ### Added — Payment gateway integration, Stages 4-5: native bKash + real "Test connection" (2026-07-22, see RFC-011)
 
 **Stage 4** — native bKash Tokenized Checkout (v1.2.0-beta) as a second `GatewayClient`

@@ -80,8 +80,8 @@ Returns branding (`name`, `logo_url`, `brand_color`), `address`, `city`, `phone`
 |---|---|---|---|
 | `items` | list[OrderItemCreate] | Yes | `min_length=1`, same shape as `OrderCreate.items` |
 | `table_number` | str | Yes | Must exist on the resolved tenant's (or food-court parent's) `tables_map` (PUB-5) |
-| `guest_name` | str | Yes | 1–80 chars |
-| `guest_phone` | str | Yes | Digits, 7–20 chars |
+| `guest_name` | str \| null | No | Max 80 chars — optional contact info (PUB-9) |
+| `guest_phone` | str \| null | No | Max 20 chars — optional contact info (PUB-9) |
 | `special_notes` | str \| null | No | — |
 | `is_kiosk` | bool | No | Sets `order_source='kiosk'` instead of `'guest_qr'` |
 
@@ -392,6 +392,16 @@ looked up from `menu_items.tenant_id` and checked against that food court's own 
 different tenant entirely, or a vendor removed from this food court) is rejected with `404` — the
 client-supplied cart can never smuggle in a foreign tenant's item.
 
+### PUB-9: Guest Name/Phone Are Optional
+✅ [2026-07-22] `guest_name`/`guest_phone` on `POST /{public_slug}/orders` are optional — a guest may
+place and pay for an order without providing either. This matches every other part of the codebase
+that already treats guest contact info as optional: the nullable `orders.guest_name`/`guest_phone`
+columns, the kiosk flow's `"Kiosk"` fallback, staff POS's guest orders, the staff `OrderQueue`'s
+`Guest{name ? ...}` display, and the gateway-payment code's `guest_name or "Guest"` fallback
+(`modules/payments.md`). `table_number` is unaffected — still required, still validated against
+`tables_map` (PUB-5) regardless of whether the customer typed it or it was pre-filled from a
+scanned table QR (see "Table QR Payload" below).
+
 ---
 
 ## Table QR Payload
@@ -406,3 +416,12 @@ https://<domain>/m/{public_slug}?t={table_number}
 time (PUB-5), not at QR-generation time. There is no `outlet_slug` param — each outlet (and each
 food court) is already its own tenant with its own `public_slug`, so `public_slug` alone identifies
 the correct ordering surface.
+
+**Frontend behavior (2026-07-22):** `m/[public_slug]/page.tsx` reads `?t=` into `initialTable` on
+mount. When present (a real table QR was scanned), the checkout sheet shows the table as a **locked,
+read-only confirmation** instead of an editable field — the customer never has to type a table
+number the QR already told the server. When absent (the customer opened the bare `/m/{slug}` link,
+e.g. from a website rather than a scan), the field falls back to an editable, required `Input`,
+since staff still need to know where to deliver the order and there's no other source for it in
+that case. Either way the value sent to the API is the same `table_number` string, validated the
+same way (PUB-5) — this is purely a client-side UX distinction, not a different backend contract.

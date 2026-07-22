@@ -297,8 +297,8 @@ export interface PublicTenantInfoResponse {
 export interface GuestOrderCreate {
   items: { item_id: string; quantity: number }[]
   table_number: string
-  guest_name: string
-  guest_phone: string
+  guest_name?: string
+  guest_phone?: string
   special_notes?: string
   is_kiosk?: boolean
 }
