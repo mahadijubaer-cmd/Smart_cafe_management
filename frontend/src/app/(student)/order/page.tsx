@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import apiClient from '@/lib/api'
 import { useStore } from '@/store/useStore'
-import type { CartItem, Order, TableMap, User } from '@/types'
+import type { AvailableGateways, CartItem, GatewayType, Order, TableMap, User } from '@/types'
 
 type OrderStep = 1 | 2 | 3 | 4
 
@@ -197,7 +197,13 @@ export default function StudentOrderPage() {
   const [activeStep, setActiveStep] = useState<OrderStep>(1)
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null)
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'simulation'>('wallet')
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'simulation' | GatewayType>('wallet')
+  const [availableGateways, setAvailableGateways] = useState<AvailableGateways>({
+    wallet: true,
+    simulation: true,
+    sslcommerz: false,
+    bkash: false,
+  })
   const [specialNotes, setSpecialNotes] = useState('')
   const [tables, setTables] = useState<TableMap[]>([])
   const [redeemPoints, setRedeemPoints] = useState(false)
@@ -236,6 +242,23 @@ export default function StudentOrderPage() {
 
     void syncProfile()
   }, [setUser])
+
+  useEffect(() => {
+    let mounted = true
+
+    apiClient
+      .get<AvailableGateways>('/payment-gateways/available')
+      .then((response) => {
+        if (mounted) setAvailableGateways(response.data)
+      })
+      .catch(() => {
+        // Non-fatal — falls back to wallet/simulation only, which are always valid.
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const selectedTable = useMemo(() => tables.find((table) => table.table_id === selectedTableId) ?? null, [selectedTableId, tables])
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.item.price * item.quantity, 0), [cart])
@@ -310,15 +333,28 @@ export default function StudentOrderPage() {
 
       const order = orderResponse.data as Order
 
-      await apiClient.post('/payments/pay', {
-        order_id: order.order_id,
-        method: paymentMethod,
-      })
+      if (paymentMethod === 'wallet' || paymentMethod === 'simulation') {
+        await apiClient.post('/payments/pay', {
+          order_id: order.order_id,
+          method: paymentMethod,
+        })
 
-      await syncProfile()
+        await syncProfile()
+        clearCart()
+        toast.success('Order confirmed successfully')
+        router.push(`/${slug}/track/${order.order_id}`)
+        return
+      }
+
+      // Real gateway (RFC-011 Stage 2): the order already exists regardless of payment
+      // outcome, so clear the cart now and do a full-page navigation to the gateway's
+      // hosted checkout — it redirects back to the tracking page once done.
+      const initiateResponse = await apiClient.post('/payments/gateway/initiate', {
+        order_id: order.order_id,
+        gateway_type: paymentMethod,
+      })
       clearCart()
-      toast.success('Order confirmed successfully')
-      router.push(`/${slug}/track/${order.order_id}`)
+      window.location.href = initiateResponse.data.redirect_url
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Unable to place the order')
     } finally {
@@ -438,6 +474,38 @@ export default function StudentOrderPage() {
                               className="h-5 w-5 accent-primary"
                             />
                           </label>
+
+                          {availableGateways.sslcommerz ? (
+                            <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+                              <span>
+                                <span className="block font-semibold text-foreground">Pay with SSLCommerz</span>
+                                <span className="block text-xs text-muted-foreground">Card, mobile banking, or net banking</span>
+                              </span>
+                              <input
+                                type="radio"
+                                name="payment-method"
+                                checked={paymentMethod === 'sslcommerz'}
+                                onChange={() => setPaymentMethod('sslcommerz')}
+                                className="h-5 w-5 accent-primary"
+                              />
+                            </label>
+                          ) : null}
+
+                          {availableGateways.bkash ? (
+                            <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+                              <span>
+                                <span className="block font-semibold text-foreground">Pay with bKash</span>
+                                <span className="block text-xs text-muted-foreground">Redirects to bKash's checkout page</span>
+                              </span>
+                              <input
+                                type="radio"
+                                name="payment-method"
+                                checked={paymentMethod === 'bkash'}
+                                onChange={() => setPaymentMethod('bkash')}
+                                className="h-5 w-5 accent-primary"
+                              />
+                            </label>
+                          ) : null}
                         </div>
                       </div>
 

@@ -80,6 +80,7 @@ All values read via `backend/app/core/config.py` using `pydantic-settings`.
 | `USE_CREDENTIALS` | bool | `true` | — |
 | `BREVO_API_KEY` | str | — | Brevo transactional email API key (`xkeysib-...`). See ADR-007 — takes priority over SMTP when set. |
 | `ENCRYPTION_KEY` | str | — | RFC-011/ADR-015. Fernet key encrypting per-tenant payment-gateway credentials at rest. Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. **Required before any tenant can save gateway credentials** — saving fails loudly (not silently) if unset. Losing/rotating this key makes existing stored credentials undecryptable; re-enter them after a rotation. |
+| `BACKEND_URL` | str | `http://localhost:8001` (dev) | RFC-011 Stage 2. The backend's own **externally-reachable** base URL — distinct from `FRONTEND_URL`. Used only to build SSLCommerz/bKash callback and IPN URLs (`{BACKEND_URL}/api/v1/payments/gateway/...`), which the gateway's own servers call directly — never reachable in local dev unless tunneled (e.g. ngrok), since `localhost` isn't publicly routable. **Must be set to the real public backend URL in production** (e.g. `https://smart-cafe-management-0ony.onrender.com`) or gateway callbacks/IPNs silently fail to reach anywhere real. |
 | `B2_ENDPOINT_URL` | str | — | Backblaze B2 S3-compatible endpoint, e.g. `https://s3.us-west-004.backblazeb2.com` |
 | `B2_KEY_ID` | str | — | B2 application key ID |
 | `B2_APPLICATION_KEY` | str | — | B2 application key secret |

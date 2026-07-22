@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.payment_gateway import GatewayType
@@ -44,6 +46,7 @@ class AvailableGatewayResponse(BaseModel):
 
 
 class GatewayInitiateRequest(BaseModel):
+    order_id: UUID
     gateway_type: GatewayType
 
 

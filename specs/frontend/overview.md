@@ -231,8 +231,20 @@ src/app/
     
     (customer)/                      → Roles: customer, student
       menu/page.tsx                  → Browse categories + items
-      order/page.tsx                 → Cart review + checkout
-      track/[orderId]/page.tsx       → Order status + QR + receipt
+      order/page.tsx                 → Cart review + checkout. 🚧 [RFC-011 Stage 2 — 2026-07-22]
+                                        payment-method radio list is now dynamic (fetches
+                                        `GET /payment-gateways/available` on mount instead of
+                                        hardcoding wallet/simulation only); choosing a real gateway
+                                        calls `POST /payments/gateway/initiate` then does a full
+                                        `window.location.href` navigation to the returned hosted
+                                        checkout URL, instead of the existing `POST /payments/pay`
+                                        + client-side route push used for wallet/simulation.
+      track/[orderId]/page.tsx       → Order status + QR + receipt. 🚧 [RFC-011 Stage 2] reads a new
+                                        `?payment=success|failed|cancelled` query param on mount
+                                        (set by the backend's gateway-callback redirect) and shows a
+                                        toast — the page's own data fetch already reflects the real
+                                        `payment_status` regardless, this is just the one-time
+                                        arrival banner.
       wallet/page.tsx                → Balance + topup
       profile/page.tsx               → User profile
     

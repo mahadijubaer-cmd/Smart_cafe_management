@@ -243,23 +243,27 @@ feature flag for this capability.
 **SPEC CHANGES FIRST — no code until all spec checkboxes are ticked**, applied per-stage as each
 stage below is implemented (this project's standing spec-first workflow):
 
-- [ ] `specs/modules/payments.md` updated (Stage 1: tables + encryption note; full endpoint/rule
-      detail added incrementally per stage)
-- [ ] `specs/system/data-model.md` updated (Stage 1: three new tables)
-- [ ] `specs/system/security.md` updated (Stage 1: tenant secret encryption, cross-ref ADR-015)
-- [ ] `specs/decisions/adrs/ADR-015-tenant-secret-encryption.md` written (Stage 1)
-- [ ] `specs/frontend/overview.md` updated (Stage 1: new admin page + routing tree entry)
-- [ ] `specs/operations/deployment.md` updated (Stage 1: `ENCRYPTION_KEY`, sandbox setup instructions)
+- [x] `specs/modules/payments.md` updated (Stage 1: tables + encryption note; Stage 2: full
+      `/payments/gateway/*` endpoint + PAY-7/PAY-8 detail)
+- [x] `specs/system/data-model.md` updated (Stage 1: three new tables)
+- [x] `specs/system/security.md` updated (Stage 1: tenant secret encryption, cross-ref ADR-015)
+- [x] `specs/decisions/adrs/ADR-015-tenant-secret-encryption.md` written (Stage 1)
+- [x] `specs/frontend/overview.md` updated (Stage 1: new admin page + routing tree entry; Stage 2:
+      checkout UI + tracking-page banner)
+- [x] `specs/operations/deployment.md` updated (Stage 1: `ENCRYPTION_KEY`; Stage 2: `BACKEND_URL`)
 - [ ] `specs/modules/public-surface.md` updated (Stage 3: guest gateway endpoints)
-- [ ] `specs/operations/roadmap.md` updated (mark the "genuinely blocked" item superseded)
-- **Stage 1** — Alembic migration; `TenantPaymentGateway`/`GatewayTransaction`/`WalletTransaction`
-  models; `crypto.py`; `gateway_configs_service.py`; `payment_gateways.py` router (config CRUD +
-  `available`); admin Payment Settings page + nav entry; `topup()` writes `WalletTransaction`; tests.
-- **Stage 2** — SSLCommerz gateway client; `/payments/gateway/*` endpoints for authenticated order
-  checkout; checkout UI + tracking-page banner; tests.
+- [x] `specs/operations/roadmap.md` updated (mark the "genuinely blocked" item superseded)
+- [x] **Stage 1** — ✅ Implemented & verified live in production 2026-07-22. Alembic migration;
+  `TenantPaymentGateway`/`GatewayTransaction`/`WalletTransaction` models; `crypto.py`;
+  `gateway_configs_service.py`; `payment_gateways.py` router (config CRUD + `available`); admin
+  Payment Settings page + nav entry; `topup()` writes `WalletTransaction`; tests.
+- [x] **Stage 2** — SSLCommerz gateway client (`services/gateways/{base,sslcommerz_gateway}.py`);
+  `POST /payments/gateway/{initiate,{id}/callback/{outcome},ipn}`; checkout UI (dynamic method list,
+  `window.location.href` redirect) + tracking-page `?payment=` banner; tests (mocked + real sandbox
+  network smoke-tested).
 - **Stage 3** — SSLCommerz for guest checkout (food-court owner-tenant resolution) + wallet top-up;
   frontend for both; tests.
 - **Stage 4** — Native bKash gateway client, same endpoints/UI extended to the second gateway type;
   tests.
 - **Stage 5** — Real "Test connection" implementation; docs polish.
-- [ ] `CHANGELOG.md` updated per stage
+- [x] `CHANGELOG.md` updated per stage

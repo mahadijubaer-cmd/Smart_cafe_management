@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Media / static files
     MEDIA_ROOT: str = "/app/media"
     FRONTEND_URL: str = "https://scms.bracu.ac.bd"
+    # RFC-011 Stage 2 — the backend's own externally-reachable base URL, used only to build
+    # payment-gateway callback/IPN URLs (called by the gateway's servers, not the browser).
+    # Distinct from FRONTEND_URL. Must be a real public URL in production or gateway
+    # callbacks/IPNs have nowhere real to reach.
+    BACKEND_URL: str = "http://localhost:8001"
 
     # Email / OTP — SMTP (fastapi-mail) fallback path
     MAIL_USERNAME: str = ""

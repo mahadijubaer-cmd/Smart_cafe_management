@@ -199,13 +199,15 @@ added incrementally per stage below.
 
 ---
 
-## Payment Gateway Integration (RFC-011, ADR-015) — Stage 1 status: data model + admin config
+## Payment Gateway Integration (RFC-011, ADR-015)
 
-**Stage 1 (this update) delivers:** `tenant_payment_gateways` / `gateway_transactions` /
-`wallet_transactions` tables (see `specs/system/data-model.md`), Fernet credential encryption
-(`specs/system/security.md` §8b, ADR-015), and the admin config CRUD endpoints below. **No consumer
-checkout flow changes yet** — `POST /payments/pay`/`POST /payments/topup` are unchanged; real gateway
-checkout ships in Stages 2–4.
+**Stage 1** delivered `tenant_payment_gateways` / `gateway_transactions` / `wallet_transactions`
+tables (see `specs/system/data-model.md`), Fernet credential encryption (`specs/system/security.md`
+§8b, ADR-015), and the admin config CRUD endpoints below — no consumer checkout flow changes yet.
+
+**Stage 2 (this update) delivers:** real SSLCommerz checkout for **authenticated order payment**
+(the existing `wallet`/`simulation` paths — `POST /payments/pay`, `POST /payments/topup` — remain
+completely unchanged). Guest checkout and wallet top-up follow in Stage 3; native bKash in Stage 4.
 
 ### `GET /api/v1/payment-gateways/me`
 
@@ -281,17 +283,91 @@ render dynamically instead of a hardcoded list.
 
 ---
 
+### `POST /api/v1/payments/gateway/initiate` — Stage 2
+
+**Auth:** Required | **Roles:** `customer`, `student`
+
+**Request body:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `order_id` | UUID | Must belong to the authenticated user, `payment_status='pending'` |
+| `gateway_type` | `sslcommerz` \| `bkash` | Must be enabled+configured for the caller's tenant (`bkash` 400s until Stage 4) |
+
+**Business logic:**
+1. Load the order (404 if missing, 403 if not the caller's, 400 if already paid — same checks as
+   `POST /payments/pay`).
+2. Load the tenant's decrypted gateway config (server-only, never logged) — `400` if not
+   enabled/configured (mirrors `available`'s own definition of "supported").
+3. Create a `gateway_transactions` row (`status='initiated'`, `amount` = order total minus discount).
+4. Call the gateway's Session API with `tran_id` = this row's ID as 32-char hex (no dashes — safely
+   within every gateway's tran_id length limit) and callback URLs built from a new `BACKEND_URL`
+   setting (the backend's own externally-reachable base URL — distinct from `FRONTEND_URL`, since
+   these URLs are called by the gateway's servers, not the browser):
+   - `success_url`/`fail_url`/`cancel_url`: `{BACKEND_URL}/api/v1/payments/gateway/{gateway_transaction_id}/callback/{outcome}`
+   - `ipn_url`: `{BACKEND_URL}/api/v1/payments/gateway/ipn`
+5. On a gateway-side session-init failure: mark the row `failed`, `502`.
+
+**Response `200`:** `GatewayInitiateResponse` — `{ "gateway_transaction_id": "...", "redirect_url": "https://sandbox.sslcommerz.com/..." }`. The frontend does a full-page navigation (`window.location.href`) to `redirect_url` — this is a hosted-checkout redirect, not an API call the SPA stays on.
+
+**Errors:** `404` order not found · `403` not the caller's order · `400` already paid, or gateway not configured · `502` gateway session-init failed.
+
+---
+
+### `POST /api/v1/payments/gateway/{gateway_transaction_id}/callback/{outcome}` — Stage 2
+
+**Auth:** None — this is the browser-redirect landing point after the customer completes (or
+abandons) the gateway's hosted page. Rate-limited `20/minute` per IP (`slowapi`, same mechanism as
+`otp.py`) since real end users hit this, unlike the IPN endpoint below.
+
+**Path params:** `gateway_transaction_id` (UUID) · `outcome` ∈ `success` \| `fail` \| `cancel`
+(anything else → `404`)
+
+**Business logic:**
+1. Parse the gateway's POSTed form body (SSLCommerz redirects the browser here via an
+   auto-submitting form, not a plain GET).
+2. Load the `gateway_transactions` row **with a row lock** (`SELECT ... FOR UPDATE`) — serializes
+   against a concurrent IPN delivery for the same row (PAY-8).
+3. If already in a terminal status (`success`/`failed`/`cancelled`): skip re-settlement, just
+   redirect (idempotent — a customer refreshing the landing page, or IPN having already settled it,
+   must not re-process).
+4. `outcome=success`: verify via the gateway's own validation API (PAY-7) — checks `status`,
+   confirms the validated `amount` matches the row's `amount` exactly, before marking `success` and
+   (for `purpose=order_payment`) creating the matching `payments` row + flipping
+   `orders.payment_status='paid'` (same shape as `PaymentService.pay_order`, so
+   `GET /payments/history` needs no changes).
+5. `outcome=fail`/`cancel`: marks the row `failed`/`cancelled`, no `payments` row created (mirrors
+   guest checkout's existing precedent of not writing a `payments` row for a non-settled attempt).
+6. Redirects (`303 See Other`) to the frontend: `{FRONTEND_URL}/{tenant_slug}/track/{order_id}?payment={success|failed|cancelled}`.
+
+---
+
+### `POST /api/v1/payments/gateway/ipn` — Stage 2
+
+**Auth:** None (server-to-server webhook — the gateway calls this directly, no browser involved).
+**Not** `slowapi`-limited (PAY-7/8's rationale: throttling here risks rate-limiting the gateway's own
+retry behavior, which is the opposite of what's wanted — idempotency, not rate-limiting, is the
+defense).
+
+**Business logic:** same settlement path as the callback endpoint's `success` branch (row-locked,
+idempotent, validates via the gateway's own API before trusting anything) — reachable independently
+of whether the browser ever completes its own redirect back (e.g. the customer closed the tab on the
+gateway's page). Always returns `{"status": "ok"}` (or `"ignored"` for an unrecognized `tran_id`) —
+gateways generally expect a `200` acknowledgement regardless of the payment's own outcome.
+
+---
+
 ## Business Rules — Payment Gateway Integration (RFC-011)
 
 **PAY-6:** Gateway credentials are encrypted at rest (ADR-015) and never returned decrypted by any
 API response, including the admin's own config endpoints.
 
-**PAY-7:** A gateway callback/IPN is never trusted without independent server-to-server verification
-against the gateway's own validation API, amount included. *(Enforced starting Stage 2 — no
-callback/IPN endpoints exist yet in Stage 1.)*
+**PAY-7:** ✅ Enforced from Stage 2. A gateway callback/IPN is never trusted without independent
+server-to-server verification against the gateway's own validation API, amount included exactly.
 
-**PAY-8:** IPN settlement is idempotent — a `gateway_transactions` row already in a terminal status
-is never re-settled by a duplicate delivery. *(Stage 2+.)*
+**PAY-8:** ✅ Enforced from Stage 2. IPN/callback settlement is idempotent — a `gateway_transactions`
+row already in a terminal status is never re-settled by a duplicate delivery, enforced via
+`SELECT ... FOR UPDATE` row locking so a concurrent callback+IPN race can't double-settle either.
 
 **PAY-9:** Every `wallet_balance` mutation writes a `wallet_transactions` row — closes the
 previously-stale WAL-3 claim below, retrofitted in Stage 1 onto the *existing* synchronous

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Order, Payment, RewardLog, User
 from app.models.order import PaymentMethod, PaymentStatus
+from app.models.payment_gateway import GatewayTransaction
 from app.models.wallet_transaction import WalletTransaction
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,40 @@ class PaymentService:
             raise
         await db.refresh(user)
         return user
+
+    async def complete_gateway_order_payment(
+        self, db: AsyncSession, gtx: GatewayTransaction
+    ) -> Payment | None:
+        """Called after a gateway_transactions row has already been marked 'success' (RFC-011
+        Stage 2) — creates the matching `payments` row and flips the order paid, same shape as
+        pay_order's synchronous wallet/simulation path, so GET /payments/history needs no changes.
+        Caller (payments.py's settlement helpers) already holds a row lock on `gtx` and has already
+        verified the gateway's own validation API confirmed the exact amount (PAY-7/PAY-8) — this
+        method does not re-verify, it only records the outcome.
+        """
+        result = await db.execute(
+            select(Order).where(Order.order_id == gtx.order_id).with_for_update()
+        )
+        order = result.scalar_one_or_none()
+        if not order or order.payment_status != PaymentStatus.pending:
+            return None  # already settled by a concurrent path, or the order vanished
+
+        payment_method = PaymentMethod(gtx.gateway_type.value)
+        payment = Payment(
+            tenant_id=gtx.tenant_id,
+            order_id=gtx.order_id,
+            user_id=gtx.user_id,
+            amount=gtx.amount,
+            method=payment_method,
+            status="success",
+            transaction_ref=gtx.gateway_external_ref or str(gtx.gateway_transaction_id),
+        )
+        order.payment_status = PaymentStatus.paid
+        order.payment_method = payment_method
+        db.add(payment)
+        await db.commit()
+        await db.refresh(payment)
+        return payment
 
     async def earn_reward_points(
         self,

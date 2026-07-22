@@ -9,6 +9,30 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Payment gateway integration, Stage 2: SSLCommerz for authenticated checkout (2026-07-22, see RFC-011)
+
+Real money can now move through SCMS for the first time — a customer choosing SSLCommerz at
+checkout is redirected to SSLCommerz's actual hosted payment page (sandbox or live, per the
+tenant's own configuration from Stage 1) and the order is genuinely marked paid only after
+independent server-to-server verification. `wallet`/`simulation` checkout is completely unchanged.
+
+- New `backend/app/services/gateways/{base,sslcommerz_gateway}.py` — a small gateway-client
+  interface (`initiate`/`validate`) that Stage 4's native bKash client will also implement, so the
+  router/settlement code doesn't need to change per gateway.
+- New `POST /payments/gateway/initiate`, `POST /payments/gateway/{id}/callback/{outcome}`,
+  `POST /payments/gateway/ipn`. The callback and IPN endpoints share one settlement path, row-locked
+  (`SELECT ... FOR UPDATE`) so a browser-redirect callback and a server-to-server IPN racing for the
+  same transaction can't double-settle it (PAY-8) — and neither ever trusts the raw payload without
+  calling the gateway's own validation API and checking the verified amount matches exactly (PAY-7).
+- New `BACKEND_URL` setting — the backend's own externally-reachable base URL, needed because
+  gateway callback/IPN URLs are called by the gateway's servers, not the browser (distinct from the
+  existing `FRONTEND_URL`).
+- Checkout UI (`(student)/order/page.tsx`) now fetches which methods are actually available instead
+  of hardcoding wallet/simulation; the tracking page shows a one-time success/failed/cancelled
+  banner read from the callback redirect's query param.
+- Verified against SSLCommerz's real public sandbox (not just mocks) end-to-end in production, using
+  a throwaway self-registered tenant, cleaned up after.
+
 ### Ops — Render environment group was never linked to the backend service (2026-07-22)
 
 `ENCRYPTION_KEY` (required for RFC-011 Stage 1) was added to a Render Environment Group and

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { BellRing, Check, CheckCheck, Circle, Clock3, Coffee, Loader2, PackageCheck, PartyPopper, Sparkles, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -213,6 +213,7 @@ function TimelineStepCard({
 export default function StudentTrackOrderPage() {
   const params = useParams<{ orderId: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const user = useStore((state) => state.user)
   const token = useStore((state) => state.token)
   const tenantSlug = useStore((state) => state.tenantSlug)
@@ -256,6 +257,20 @@ export default function StudentTrackOrderPage() {
       mounted = false
     }
   }, [params.orderId])
+
+  // RFC-011 Stage 2 — one-time arrival banner from the gateway callback's redirect.
+  // The order's own real payment_status (from loadOrder above) is always the source of
+  // truth; this is just surfacing the immediate outcome of the redirect that just happened.
+  useEffect(() => {
+    const payment = searchParams.get('payment')
+    if (payment === 'success') {
+      toast.success('Payment successful!')
+    } else if (payment === 'failed') {
+      toast.error('Payment failed. Please try again or choose a different payment method.')
+    } else if (payment === 'cancelled') {
+      toast('Payment was cancelled.')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (!order || initializedOrderIdRef.current === order.order_id) {
