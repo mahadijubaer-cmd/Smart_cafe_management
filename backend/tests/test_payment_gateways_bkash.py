@@ -367,6 +367,28 @@ async def test_test_connection_bkash_bad_credentials(
 
 
 @pytest.mark.asyncio
+async def test_grant_token_survives_non_json_gateway_response():
+    """Regression: bKash's real sandbox returned a non-JSON response for invalid credentials,
+    which `response.json()` raised on (a bare ValueError, not httpx.HTTPError) — reproduced live
+    against production 2026-07-22, surfaced as an unhandled 500 (misreported by the browser as a
+    CORS error, since a 500 never gets CORS headers attached). `_grant_token` must degrade to
+    `None`, not crash — tested directly (not through the API) so this doesn't need to patch
+    `httpx.AsyncClient.post` globally, which would also intercept the test client's own requests.
+    """
+    from app.services.gateways.bkash_gateway import BkashGateway
+
+    class _NonJsonResponse:
+        def json(self):
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+    gateway = BkashGateway(app_key="k", app_secret="s", username="u", password="p", is_sandbox=True)
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=_NonJsonResponse())):
+        result = await gateway.test_connection()
+
+    assert result.success is False
+
+
+@pytest.mark.asyncio
 async def test_test_connection_works_even_when_disabled(
     async_client: AsyncClient, tenants: dict, admin_token: str
 ):

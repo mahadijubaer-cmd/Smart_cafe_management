@@ -70,9 +70,14 @@ class SSLCommerzGateway(GatewayClient):
             "cus_country": "Bangladesh",
             "cus_phone": customer_phone or "01700000000",
         }
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            response = await client.post(f"{self.base_url}/gwprocess/v4/api.php", data=payload)
-        data = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                response = await client.post(f"{self.base_url}/gwprocess/v4/api.php", data=payload)
+            data = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            # ValueError also covers response.json()'s JSONDecodeError — a malformed/non-JSON
+            # response from SSLCommerz must surface as a clean initiation failure, not a raw 500.
+            raise GatewayInitiationError(f"Could not reach SSLCommerz: {exc}") from exc
 
         if data.get("status") != "SUCCESS" or not data.get("GatewayPageURL"):
             logger.warning("SSLCommerz session init failed: %s", data.get("failedreason") or data)
@@ -87,11 +92,14 @@ class SSLCommerzGateway(GatewayClient):
             "store_passwd": self.store_password,
             "format": "json",
         }
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            response = await client.get(
-                f"{self.base_url}/validator/api/validationserverAPI.php", params=params
-            )
-        data = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                response = await client.get(
+                    f"{self.base_url}/validator/api/validationserverAPI.php", params=params
+                )
+            data = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            return GatewayValidationResult(success=False, raw_response={"error": str(exc)})
 
         status_ok = data.get("status") in ("VALID", "VALIDATED")
         tran_id_matches = data.get("tran_id") == tran_id
@@ -138,7 +146,7 @@ class SSLCommerzGateway(GatewayClient):
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 response = await client.post(f"{self.base_url}/gwprocess/v4/api.php", data=payload)
             data = response.json()
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             return GatewayTestResult(success=False, message=f"Could not reach SSLCommerz: {exc}")
 
         if data.get("status") == "SUCCESS":

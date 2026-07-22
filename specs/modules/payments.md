@@ -479,3 +479,14 @@ apply identically regardless of which gateway triggered settlement.
 **PAY-15:** ✅ Enforced from Stage 5. `POST /payment-gateways/me/{gateway_type}/test` performs a
 genuine live call against the configured gateway (not a stub) and never requires `is_enabled=true`
 first — an admin can verify credentials before switching a gateway live.
+
+> **Bug found and fixed during Stage 4/5 live verification (2026-07-22):** both gateway clients'
+> `response.json()` calls only had `except httpx.HTTPError` around them — a malformed/non-JSON
+> response (reproduced live: bKash's real sandbox, given deliberately invalid credentials, returned
+> a body `response.json()` couldn't parse) raises a bare `ValueError`/`JSONDecodeError`, which that
+> `except` clause didn't catch, escaping as an unhandled `500`. The browser reported this as a CORS
+> error (a 500 never gets CORS headers attached, so the browser blames CORS instead of showing the
+> real error — same failure-reporting pattern documented in `operations/deployment.md`'s Render
+> env-var incidents). Fixed by widening every such `except` to `(httpx.HTTPError, ValueError)` in
+> both `sslcommerz_gateway.py` and `bkash_gateway.py`, across `initiate()`/`validate()`/
+> `test_connection()` — not just the one call site that happened to be exercised live.

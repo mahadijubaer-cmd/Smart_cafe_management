@@ -43,17 +43,23 @@ class BkashGateway(GatewayClient):
         self.base_url = _SANDBOX_BASE if is_sandbox else _LIVE_BASE
 
     async def _grant_token(self, client: httpx.AsyncClient) -> str | None:
-        response = await client.post(
-            f"{self.base_url}/tokenized/checkout/token/grant",
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "username": self.username,
-                "password": self.password,
-            },
-            json={"app_key": self.app_key, "app_secret": self.app_secret},
-        )
-        data = response.json()
+        """Returns `None` on any failure (network error, non-JSON/error response) — every call
+        site already treats a missing token as "credentials didn't work", so collapsing every
+        failure mode to `None` here means the network/parsing robustness only has to live once."""
+        try:
+            response = await client.post(
+                f"{self.base_url}/tokenized/checkout/token/grant",
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "username": self.username,
+                    "password": self.password,
+                },
+                json={"app_key": self.app_key, "app_secret": self.app_secret},
+            )
+            data = response.json()
+        except (httpx.HTTPError, ValueError):
+            return None
         return data.get("id_token")
 
     async def initiate(
@@ -77,25 +83,28 @@ class BkashGateway(GatewayClient):
             if not id_token:
                 raise GatewayInitiationError("bKash token grant failed — check app credentials")
 
-            response = await client.post(
-                f"{self.base_url}/tokenized/checkout/create",
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Authorization": id_token,
-                    "X-APP-Key": self.app_key,
-                },
-                json={
-                    "mode": "0011",
-                    "payerReference": (customer_phone or "01700000000")[:20],
-                    "callbackURL": success_url,
-                    "amount": str(amount),
-                    "currency": "BDT",
-                    "intent": "sale",
-                    "merchantInvoiceNumber": tran_id[:24],
-                },
-            )
-            data = response.json()
+            try:
+                response = await client.post(
+                    f"{self.base_url}/tokenized/checkout/create",
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Authorization": id_token,
+                        "X-APP-Key": self.app_key,
+                    },
+                    json={
+                        "mode": "0011",
+                        "payerReference": (customer_phone or "01700000000")[:20],
+                        "callbackURL": success_url,
+                        "amount": str(amount),
+                        "currency": "BDT",
+                        "intent": "sale",
+                        "merchantInvoiceNumber": tran_id[:24],
+                    },
+                )
+                data = response.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                raise GatewayInitiationError(f"Could not reach bKash: {exc}") from exc
 
         if data.get("statusCode") != "0000" or not data.get("bkashURL"):
             logger.warning("bKash create-payment failed: %s", data.get("statusMessage") or data)
@@ -112,17 +121,20 @@ class BkashGateway(GatewayClient):
             if not id_token:
                 return GatewayValidationResult(success=False, raw_response={"error": "token grant failed"})
 
-            response = await client.post(
-                f"{self.base_url}/tokenized/checkout/execute/{payment_id}",
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Authorization": id_token,
-                    "X-APP-Key": self.app_key,
-                },
-                json={},
-            )
-            data = response.json()
+            try:
+                response = await client.post(
+                    f"{self.base_url}/tokenized/checkout/execute/{payment_id}",
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Authorization": id_token,
+                        "X-APP-Key": self.app_key,
+                    },
+                    json={},
+                )
+                data = response.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                return GatewayValidationResult(success=False, raw_response={"error": str(exc)})
 
         amount: Decimal | None = None
         try:
@@ -140,12 +152,11 @@ class BkashGateway(GatewayClient):
         )
 
     async def test_connection(self) -> GatewayTestResult:
-        """RFC-011 Stage 5 / PAY-15 — Grant Token only, no payment is created."""
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                id_token = await self._grant_token(client)
-        except httpx.HTTPError as exc:
-            return GatewayTestResult(success=False, message=f"Could not reach bKash: {exc}")
+        """RFC-011 Stage 5 / PAY-15 — Grant Token only, no payment is created. `_grant_token`
+        already collapses every failure mode (network error, bad credentials, malformed
+        response) to `None`, so there's nothing further to catch here."""
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            id_token = await self._grant_token(client)
 
         if id_token:
             return GatewayTestResult(success=True, message="Credentials verified — token granted successfully.")
