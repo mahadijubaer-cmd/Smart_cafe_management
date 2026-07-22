@@ -119,7 +119,7 @@ export default function PublicLinkPage() {
               <p className="font-semibold text-card-foreground">Guest checkout mode</p>
               <p className="text-sm text-muted-foreground">
                 {tenant?.guest_checkout_mode === 'online'
-                  ? 'Guests can pay online or at the counter. Online payment is a simulated gateway for now (no real card processing) — see roadmap for real payment integration.'
+                  ? 'Guests can pay online (via any gateway you enable in Payment Settings, or a simulated demo payment) or at the counter.'
                   : 'Guests always pay at the counter after staff confirms the order.'}
               </p>
             </div>
