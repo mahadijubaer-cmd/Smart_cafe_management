@@ -251,7 +251,7 @@ stage below is implemented (this project's standing spec-first workflow):
 - [x] `specs/frontend/overview.md` updated (Stage 1: new admin page + routing tree entry; Stage 2:
       checkout UI + tracking-page banner)
 - [x] `specs/operations/deployment.md` updated (Stage 1: `ENCRYPTION_KEY`; Stage 2: `BACKEND_URL`)
-- [ ] `specs/modules/public-surface.md` updated (Stage 3: guest gateway endpoints)
+- [x] `specs/modules/public-surface.md` updated (Stage 3: guest gateway endpoints)
 - [x] `specs/operations/roadmap.md` updated (mark the "genuinely blocked" item superseded)
 - [x] **Stage 1** — ✅ Implemented & verified live in production 2026-07-22. Alembic migration;
   `TenantPaymentGateway`/`GatewayTransaction`/`WalletTransaction` models; `crypto.py`;
@@ -261,8 +261,13 @@ stage below is implemented (this project's standing spec-first workflow):
   `POST /payments/gateway/{initiate,{id}/callback/{outcome},ipn}`; checkout UI (dynamic method list,
   `window.location.href` redirect) + tracking-page `?payment=` banner; tests (mocked + real sandbox
   network smoke-tested).
-- **Stage 3** — SSLCommerz for guest checkout (food-court owner-tenant resolution) + wallet top-up;
-  frontend for both; tests.
+- [x] **Stage 3** — SSLCommerz for guest/QR checkout (food-court owner-tenant resolution, PAY-10);
+  `GET /public/{public_slug}/payment-methods`,
+  `POST /public/orders/{guest_token}/pay/gateway/initiate`; guest-session settlement shares the
+  Stage 2 callback/IPN endpoints, branching on `guest_token` vs `order_id` (PAY-13, no `payments`
+  row for guest settlement); guest checkout UI + guest tracking-page `?payment=` banner; tests
+  (mocked + real sandbox network smoke-tested). Wallet top-up gateway payment deferred, not
+  scheduled to a stage yet.
 - **Stage 4** — Native bKash gateway client, same endpoints/UI extended to the second gateway type;
   tests.
 - **Stage 5** — Real "Test connection" implementation; docs polish.

@@ -205,9 +205,17 @@ added incrementally per stage below.
 tables (see `specs/system/data-model.md`), Fernet credential encryption (`specs/system/security.md`
 §8b, ADR-015), and the admin config CRUD endpoints below — no consumer checkout flow changes yet.
 
-**Stage 2 (this update) delivers:** real SSLCommerz checkout for **authenticated order payment**
-(the existing `wallet`/`simulation` paths — `POST /payments/pay`, `POST /payments/topup` — remain
-completely unchanged). Guest checkout and wallet top-up follow in Stage 3; native bKash in Stage 4.
+**Stage 2** delivered real SSLCommerz checkout for **authenticated order payment**
+(`POST /payments/gateway/{initiate,{id}/callback/{outcome},ipn}` — the existing `wallet`/
+`simulation` paths, `POST /payments/pay`/`POST /payments/topup`, remain completely unchanged).
+
+**Stage 3 (this update) delivers:** the same real-gateway checkout for **guest/QR ordering**
+(restaurant-segment tenants, `guest_checkout_mode='online'`) — see
+`specs/modules/public-surface.md`'s `GET /public/{public_slug}/payment-methods` and
+`POST /public/orders/{guest_token}/pay/gateway/initiate` for the full endpoint spec; this file only
+adds the settlement-side business rules (PAY-10, PAY-13) since the callback/IPN endpoints
+themselves are shared with Stage 2, not duplicated. Wallet top-up gateway payment is **not** in
+this stage — deferred, not yet scheduled. Native bKash ships in Stage 4.
 
 ### `GET /api/v1/payment-gateways/me`
 
@@ -373,8 +381,14 @@ row already in a terminal status is never re-settled by a duplicate delivery, en
 previously-stale WAL-3 claim below, retrofitted in Stage 1 onto the *existing* synchronous
 `topup()`, before any gateway complexity.
 
-**PAY-10:** Food-court guest carts resolve the owner tenant (`resolve_public_owner_tenant`) for
-gateway lookup, not the vendor's own `tenant_id`. *(Stage 3.)*
+**PAY-10:** ✅ Enforced from Stage 3. Food-court guest carts resolve the owner tenant
+(`resolve_public_owner_tenant`) for gateway lookup, not the vendor's own `tenant_id` — see
+`modules/public-surface.md`'s `POST /public/orders/{guest_token}/pay/gateway/initiate`.
+
+**PAY-13:** Guest-session gateway settlement never creates a `payments` row — it flips
+`payment_status`/`payment_method` directly on every payable sibling order, mirroring the existing
+simulated guest-payment precedent (WAL-5). Only *authenticated* order-gateway settlement creates a
+`payments` row (so `GET /payments/history`, a customer-account-only endpoint, needs no changes).
 
 **PAY-11:** Real gateways are additive — `wallet`/`simulation` remain available on every tenant
 regardless of gateway configuration.

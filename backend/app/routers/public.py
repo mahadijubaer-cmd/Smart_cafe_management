@@ -25,8 +25,10 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.core.segments import is_restaurant_segment
-from app.models.order import Order
+from app.models.order import Order, OrderStatus, PaymentStatus
+from app.models.payment_gateway import GatewayPurpose, GatewayTransaction, GatewayTransactionStatus
 from app.models.tenant import Tenant, TenantType
+from app.schemas.payment_gateway import GatewayInitiateResponse, GuestGatewayInitiateRequest
 from app.schemas.public import (
     GuestOrderCreate,
     GuestOrderGroupResponse,
@@ -34,7 +36,9 @@ from app.schemas.public import (
     PublicMenuResponse,
     PublicTenantInfoResponse,
 )
-from app.services import menu_service, qr_service
+from app.services import gateway_configs_service, menu_service, qr_service
+from app.services.gateway_configs_service import build_gateway_client
+from app.services.gateways.base import GatewayInitiationError
 from app.services.order_service import OrderService
 from app.services.ws_pubsub import publish_event
 
@@ -186,6 +190,92 @@ async def pay_public_order_online(guest_token: str, response: Response, db: Asyn
             },
         )
     return await _group_response(db, orders)
+
+
+# ── RFC-011 Stage 3 — real gateway checkout (guest/QR session) ─────────────────────────────────
+
+
+@router.get("/{public_slug}/payment-methods")
+async def get_public_payment_methods(public_slug: str, db: AsyncSession = Depends(get_db)):
+    """Which payment methods a guest checking out at this venue can choose — lets the guest
+    checkout UI render dynamically instead of a single hardcoded "Pay online now" button."""
+    tenant = await _resolve_public_tenant(public_slug, db)
+    return await gateway_configs_service.get_guest_available_methods(db, tenant)
+
+
+@router.post("/orders/{guest_token}/pay/gateway/initiate", response_model=GatewayInitiateResponse)
+async def initiate_guest_gateway_payment(
+    guest_token: str,
+    data: GuestGatewayInitiateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Real-gateway counterpart to the simulated pay_public_order_online above — same
+    "pays the whole guest session in one action" semantics (PUB-6), same owner-tenant
+    resolution as the QR/pay endpoints (PAY-10: a food-court vendor's guest session resolves
+    gateway config from the parent, since the guest entered via the parent's public menu)."""
+    orders = await order_service.get_guest_order_group(db, guest_token)  # 404s + PUB-4 expiry
+
+    payable = [
+        o for o in orders
+        if getattr(o.status, "value", o.status) != OrderStatus.cancelled.value
+        and getattr(o.payment_status, "value", o.payment_status) != PaymentStatus.paid.value
+    ]
+    if not payable:
+        raise HTTPException(status_code=400, detail="This order was cancelled or already paid")
+
+    owner_tenant = await order_service.resolve_public_owner_tenant(db, orders[0])
+    if not owner_tenant or owner_tenant.guest_checkout_mode != "online":
+        raise HTTPException(
+            status_code=400,
+            detail="Online payment is not enabled for this venue — pay at the counter instead",
+        )
+
+    config = await gateway_configs_service.get_decrypted_config(db, owner_tenant.tenant_id, data.gateway_type)
+    if not config:
+        raise HTTPException(status_code=400, detail="This payment method isn't available for this order")
+
+    net_amount = sum(
+        (Decimal(str(o.total_amount)) - Decimal(str(o.discount_amount)) for o in payable),
+        Decimal("0.00"),
+    )
+    gtx = GatewayTransaction(
+        tenant_id=owner_tenant.tenant_id,
+        purpose=GatewayPurpose.order_payment,
+        guest_token=orders[0].guest_token,
+        gateway_type=data.gateway_type,
+        amount=net_amount,
+        status=GatewayTransactionStatus.initiated,
+    )
+    db.add(gtx)
+    await db.commit()
+    await db.refresh(gtx)
+
+    tran_id = gtx.gateway_transaction_id.hex
+    gtx.gateway_ref = tran_id
+
+    base_callback = f"{settings.BACKEND_URL}/api/v1/payments/gateway/{gtx.gateway_transaction_id}/callback"
+    gateway_client = build_gateway_client(data.gateway_type, config)
+    try:
+        session = await gateway_client.initiate(
+            tran_id=tran_id,
+            amount=net_amount,
+            success_url=f"{base_callback}/success",
+            fail_url=f"{base_callback}/fail",
+            cancel_url=f"{base_callback}/cancel",
+            ipn_url=f"{settings.BACKEND_URL}/api/v1/payments/gateway/ipn",
+            customer_name=orders[0].guest_name or "Guest",
+            customer_email="",
+            customer_phone=orders[0].guest_phone or "",
+        )
+    except GatewayInitiationError as exc:
+        gtx.status = GatewayTransactionStatus.failed
+        await db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    await db.commit()
+    return GatewayInitiateResponse(
+        gateway_transaction_id=str(gtx.gateway_transaction_id), redirect_url=session.redirect_url
+    )
 
 
 @router.get("/orders/{guest_token}/qr")

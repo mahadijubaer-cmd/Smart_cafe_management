@@ -9,6 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Payment gateway integration, Stage 3: SSLCommerz for guest/QR checkout (2026-07-22, see RFC-011)
+
+Restaurant-segment guest ordering (no account, scan-to-order) now gets the same real SSLCommerz
+checkout Stage 2 gave authenticated customers. New `GET /public/{public_slug}/payment-methods` and
+`POST /public/orders/{guest_token}/pay/gateway/initiate` — the settlement endpoints themselves
+(callback/IPN) are **shared with Stage 2**, not duplicated: they now branch on whether a
+`gateway_transactions` row has an `order_id` (authenticated — creates a `payments` row) or a
+`guest_token` (this stage — marks every payable sibling order paid directly, no `payments` row,
+mirroring the existing simulated guest-payment precedent). Food-court guest carts resolve gateway
+config from the parent tenant, not the vendor (PAY-10) — same resolution already used for
+`guest_checkout_mode` itself. Guest checkout UI gets the same dynamic method list + redirect
+pattern as the authenticated checkout page; guest tracking page gets the same `?payment=` banner.
+Wallet top-up gateway payment remains out of scope, not yet scheduled to a stage.
+
 ### Fix — order_items.subtotal was never a real generated column in production; no order had ever been placed (2026-07-22)
 
 **Critical, found live while verifying an unrelated feature (RFC-011 Stage 2).** Confirmed zero

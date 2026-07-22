@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 
 import apiClient from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
@@ -88,9 +89,21 @@ function TicketCard({ order }: { order: GuestOrder }) {
 
 export default function GuestOrderTrackPage() {
   const params = useParams<{ public_slug: string; guestToken: string }>()
+  const searchParams = useSearchParams()
   const [group, setGroup] = useState<GuestOrderGroup | null>(null)
   const [error, setError] = useState(false)
   const [live, setLive] = useState(false)
+
+  useEffect(() => {
+    const payment = searchParams.get('payment')
+    if (payment === 'success') {
+      toast.success('Payment successful!')
+    } else if (payment === 'failed') {
+      toast.error('Payment failed. Please try again or choose a different payment method.')
+    } else if (payment === 'cancelled') {
+      toast('Payment was cancelled.')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     let cancelled = false

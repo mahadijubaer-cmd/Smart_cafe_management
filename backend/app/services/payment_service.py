@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Order, Payment, RewardLog, User
-from app.models.order import PaymentMethod, PaymentStatus
+from app.models.order import OrderStatus, PaymentMethod, PaymentStatus
 from app.models.payment_gateway import GatewayTransaction
 from app.models.wallet_transaction import WalletTransaction
 
@@ -156,6 +156,31 @@ class PaymentService:
         await db.commit()
         await db.refresh(payment)
         return payment
+
+    async def complete_gateway_guest_session_payment(
+        self, db: AsyncSession, gtx: GatewayTransaction
+    ) -> list[Order]:
+        """RFC-011 Stage 3 / PAY-13 — guest-session counterpart to
+        complete_gateway_order_payment above. Marks every payable sibling order in the
+        guest session paid directly, no `payments` row — mirrors the existing simulated
+        guest-payment precedent (order_service.pay_guest_order_online, WAL-5), which
+        also never creates a `payments` row for guest orders. Caller already holds the
+        gtx row lock and has already verified the gateway's own validation API (PAY-7).
+        """
+        result = await db.execute(
+            select(Order).where(Order.guest_token == gtx.guest_token).with_for_update()
+        )
+        orders = list(result.scalars().all())
+        payment_method = PaymentMethod(gtx.gateway_type.value)
+        for order in orders:
+            if (
+                order.status != OrderStatus.cancelled
+                and order.payment_status != PaymentStatus.paid
+            ):
+                order.payment_status = PaymentStatus.paid
+                order.payment_method = payment_method
+        await db.commit()
+        return orders
 
     async def earn_reward_points(
         self,

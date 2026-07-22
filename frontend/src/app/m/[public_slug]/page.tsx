@@ -19,7 +19,14 @@ import {
   SheetDescription,
   SheetFooter,
 } from '@/components/ui/sheet'
-import type { GuestOrderGroup, PublicMenuItem, PublicMenuResponse, PublicTenantInfoResponse } from '@/types'
+import type {
+  AvailableGateways,
+  GatewayType,
+  GuestOrderGroup,
+  PublicMenuItem,
+  PublicMenuResponse,
+  PublicTenantInfoResponse,
+} from '@/types'
 
 interface GuestCartLine {
   item: PublicMenuItem
@@ -57,6 +64,13 @@ export default function PublicMenuPage() {
   const [placedGroup, setPlacedGroup] = useState<GuestOrderGroup | null>(null)
   const [qrData, setQrData] = useState<string | null>(null)
   const [payingOnline, setPayingOnline] = useState(false)
+  const [availableMethods, setAvailableMethods] = useState<AvailableGateways>({
+    wallet: false,
+    simulation: false,
+    sslcommerz: false,
+    bkash: false,
+  })
+  const [payMethod, setPayMethod] = useState<'simulation' | GatewayType>('simulation')
 
   const isFoodCourt = Boolean(menu?.vendors && menu.vendors.length > 0)
   // Cafeteria-segment tenants may publish a read-only public menu (RFC-007 Phase D) —
@@ -85,6 +99,19 @@ export default function PublicMenuPage() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
+      })
+
+    apiClient
+      .get<AvailableGateways>(`/public/${slug}/payment-methods`)
+      .then((res) => {
+        if (cancelled) return
+        setAvailableMethods(res.data)
+        if (res.data.sslcommerz) setPayMethod('sslcommerz')
+        else if (res.data.bkash) setPayMethod('bkash')
+        else setPayMethod('simulation')
+      })
+      .catch(() => {
+        // Non-fatal — the pay-online button simply won't render if this never resolves.
       })
 
     return () => {
@@ -199,20 +226,33 @@ export default function PublicMenuPage() {
     if (!placedGroup) return
     setPayingOnline(true)
     try {
-      const res = await apiClient.post<GuestOrderGroup>(`/public/orders/${placedGroup.guest_token}/pay`)
-      setPlacedGroup(res.data)
-      toast.success('Payment received — thank you!')
+      if (payMethod === 'simulation') {
+        const res = await apiClient.post<GuestOrderGroup>(`/public/orders/${placedGroup.guest_token}/pay`)
+        setPlacedGroup(res.data)
+        toast.success('Payment received — thank you!')
+        return
+      }
+
+      // Real gateway (RFC-011 Stage 3): full-page navigation to the gateway's hosted
+      // checkout — it redirects back to the guest tracking page once done, so no need
+      // to reset payingOnline on this path.
+      const initiateResponse = await apiClient.post(`/public/orders/${placedGroup.guest_token}/pay/gateway/initiate`, {
+        gateway_type: payMethod,
+      })
+      window.location.href = initiateResponse.data.redirect_url
+      return
     } catch {
       // apiClient's interceptor already shows a toast for the error detail
-    } finally {
-      setPayingOnline(false)
     }
+    setPayingOnline(false)
   }
 
   if (placedGroup) {
     const trackingPath = `/m/${slug}/track/${placedGroup.guest_token}`
     const allPaid = placedGroup.orders.every((o) => o.payment_status === 'paid')
-    const canPayOnline = info?.guest_checkout_mode === 'online' && !allPaid
+    const canPayOnline = !allPaid && availableMethods.simulation
+    const gatewayOptions = (['sslcommerz', 'bkash'] as const).filter((g) => availableMethods[g])
+    const showMethodPicker = canPayOnline && gatewayOptions.length > 0
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-6 py-10 text-center">
         <Card className="w-full max-w-sm rounded-2xl p-6 shadow-sm">
@@ -240,15 +280,45 @@ export default function PublicMenuPage() {
           ) : null}
 
           {canPayOnline ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePayOnline}
-              disabled={payingOnline}
-              className="mt-4 w-full rounded-full border-2 border-primary text-primary hover:bg-primary/10"
-            >
-              {payingOnline ? 'Processing…' : `Pay online now — ${formatCurrency(Number(placedGroup.total_amount))}`}
-            </Button>
+            <>
+              {showMethodPicker ? (
+                <div className="mt-4 flex flex-col gap-2 text-left">
+                  <label className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm">
+                    <span className="font-medium text-foreground">Simulation (demo)</span>
+                    <input
+                      type="radio"
+                      name="guest-pay-method"
+                      checked={payMethod === 'simulation'}
+                      onChange={() => setPayMethod('simulation')}
+                      className="h-4 w-4 accent-primary"
+                    />
+                  </label>
+                  {gatewayOptions.map((gw) => (
+                    <label key={gw} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        {gw === 'sslcommerz' ? 'Card / mobile banking (SSLCommerz)' : 'bKash'}
+                      </span>
+                      <input
+                        type="radio"
+                        name="guest-pay-method"
+                        checked={payMethod === gw}
+                        onChange={() => setPayMethod(gw)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePayOnline}
+                disabled={payingOnline}
+                className="mt-4 w-full rounded-full border-2 border-primary text-primary hover:bg-primary/10"
+              >
+                {payingOnline ? 'Processing…' : `Pay online now — ${formatCurrency(Number(placedGroup.total_amount))}`}
+              </Button>
+            </>
           ) : null}
 
           <div className="mx-auto mt-5 flex h-40 w-40 items-center justify-center rounded-2xl border border-border bg-muted">

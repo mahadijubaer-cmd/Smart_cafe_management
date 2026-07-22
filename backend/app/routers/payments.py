@@ -18,12 +18,12 @@ from app.core.dependencies import (
 from app.core.limiter import limiter
 from app.models.models import Order, Payment, Tenant, User
 from app.models.order import PaymentStatus
-from app.models.payment_gateway import GatewayPurpose, GatewayTransaction, GatewayTransactionStatus, GatewayType
+from app.models.payment_gateway import GatewayPurpose, GatewayTransaction, GatewayTransactionStatus
 from app.schemas.payment import PaymentCreate, PaymentHistoryResponse, PaymentResponse, TopupRequest
 from app.schemas.payment_gateway import GatewayInitiateRequest, GatewayInitiateResponse
 from app.services import gateway_configs_service
-from app.services.gateways.base import GatewayClient, GatewayInitiationError
-from app.services.gateways.sslcommerz_gateway import SSLCommerzGateway
+from app.services.gateway_configs_service import build_gateway_client
+from app.services.gateways.base import GatewayInitiationError
 from app.services.payment_service import PaymentService
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -101,17 +101,6 @@ async def get_payment_history(
 # ── RFC-011 Stage 2 — real gateway checkout (authenticated order payment) ───────────────────────
 
 
-def _build_gateway_client(gateway_type: GatewayType, config: dict) -> GatewayClient:
-    if gateway_type == GatewayType.sslcommerz:
-        return SSLCommerzGateway(
-            store_id=config["store_id"],
-            store_password=config["store_password"],
-            is_sandbox=config.get("is_sandbox", True),
-        )
-    # bKash ships in Stage 4 — the interface already supports it, no implementation yet.
-    raise HTTPException(status_code=400, detail=f"Gateway '{gateway_type.value}' is not yet supported")
-
-
 async def _load_gateway_transaction_for_update(
     db: AsyncSession, gateway_transaction_id: UUID
 ) -> GatewayTransaction | None:
@@ -137,7 +126,7 @@ async def _settle_success(db: AsyncSession, gtx: GatewayTransaction, form_data: 
         await db.commit()
         return False
 
-    gateway_client = _build_gateway_client(gtx.gateway_type, config)
+    gateway_client = build_gateway_client(gtx.gateway_type, config)
     result = await gateway_client.validate(val_id=form_data.get("val_id", ""), tran_id=gtx.gateway_ref or "")
 
     gtx.raw_response = result.raw_response
@@ -152,8 +141,12 @@ async def _settle_success(db: AsyncSession, gtx: GatewayTransaction, form_data: 
     await db.commit()
 
     if gtx.purpose == GatewayPurpose.order_payment:
-        await payment_service.complete_gateway_order_payment(db, gtx)
-    # wallet_topup settlement ships in Stage 3
+        if gtx.order_id:
+            await payment_service.complete_gateway_order_payment(db, gtx)
+        elif gtx.guest_token:
+            # RFC-011 Stage 3 / PAY-13 — guest session, no `payments` row.
+            await payment_service.complete_gateway_guest_session_payment(db, gtx)
+    # wallet_topup settlement is not yet scheduled to a stage
 
     return True
 
@@ -167,11 +160,19 @@ async def _settle_non_success(db: AsyncSession, gtx: GatewayTransaction, outcome
 
 
 async def _build_frontend_redirect(db: AsyncSession, gtx: GatewayTransaction, payment_flag: str) -> str:
-    tenant_result = await db.execute(select(Tenant.slug).where(Tenant.tenant_id == gtx.tenant_id))
-    slug = tenant_result.scalar_one_or_none() or ""
+    tenant_result = await db.execute(
+        select(Tenant.slug, Tenant.public_slug).where(Tenant.tenant_id == gtx.tenant_id)
+    )
+    row = tenant_result.one_or_none()
+    slug, public_slug = (row.slug, row.public_slug) if row else ("", None)
+
     if gtx.order_id:
         return f"{settings.FRONTEND_URL}/{slug}/track/{gtx.order_id}?payment={payment_flag}"
-    return f"{settings.FRONTEND_URL}/{slug}/wallet?payment={payment_flag}"  # wallet top-up, Stage 3
+    if gtx.guest_token:
+        # RFC-011 Stage 3 — the guest tracking route lives under the owner tenant's
+        # public_slug (m/{public_slug}/track/{guest_token}), not its internal slug.
+        return f"{settings.FRONTEND_URL}/m/{public_slug}/track/{gtx.guest_token}?payment={payment_flag}"
+    return f"{settings.FRONTEND_URL}/{slug}/wallet?payment={payment_flag}"  # wallet top-up, not yet scheduled
 
 
 @router.post("/gateway/initiate", response_model=GatewayInitiateResponse)
@@ -214,7 +215,7 @@ async def initiate_gateway_payment(
     gtx.gateway_ref = tran_id
 
     base_callback = f"{settings.BACKEND_URL}/api/v1/payments/gateway/{gtx.gateway_transaction_id}/callback"
-    gateway_client = _build_gateway_client(data.gateway_type, config)
+    gateway_client = build_gateway_client(data.gateway_type, config)
     try:
         session = await gateway_client.initiate(
             tran_id=tran_id,

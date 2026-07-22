@@ -191,8 +191,20 @@ src/app/
 
   m/[public_slug]/                   → ✅ [Phase 22 — Implemented 2026-07-05] Public surface, no auth — RFC-007
     page.tsx                         → Public menu + cart + guest checkout (name+phone);
-                                        `?mode=kiosk` = fullscreen locked kiosk variant
-    track/[guestToken]/page.tsx      → Guest order tracking (live via public WS)
+                                        `?mode=kiosk` = fullscreen locked kiosk variant.
+                                        🚧 [RFC-011 Stage 3 — 2026-07-22] the single hardcoded "Pay
+                                        online now" button is now a dynamic method list (fetches
+                                        `GET /public/{public_slug}/payment-methods`); choosing a
+                                        real gateway calls
+                                        `POST /public/orders/{guest_token}/pay/gateway/initiate`
+                                        then does a full `window.location.href` navigation to the
+                                        hosted checkout URL, same pattern as the authenticated
+                                        checkout page (Stage 2). Simulated "Pay online now" stays
+                                        as the always-available fallback.
+    track/[guestToken]/page.tsx      → Guest order tracking (live via public WS). 🚧 [RFC-011
+                                        Stage 3] reads `?payment=success|failed|cancelled` on mount
+                                        and shows a toast, mirroring the authenticated tracking
+                                        page's Stage 2 banner.
 
   > **✅ Dark mode fixed 2026-07-16 (QA browser pass):** both `m/[public_slug]` pages hardcoded
   > light-only Tailwind colors (`bg-slate-50` page background, `bg-white` sticky bars,

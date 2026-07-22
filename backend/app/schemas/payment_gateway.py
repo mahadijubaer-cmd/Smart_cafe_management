@@ -55,6 +55,12 @@ class GatewayTopupInitiateRequest(BaseModel):
     amount: float = Field(..., gt=0, le=10000)
 
 
+class GuestGatewayInitiateRequest(BaseModel):
+    """RFC-011 Stage 3 — no order_id: the guest_token in the URL path is the
+    capability, and this pays the whole guest session at once (PUB-6)."""
+    gateway_type: GatewayType
+
+
 class GatewayInitiateResponse(BaseModel):
     gateway_transaction_id: str
     redirect_url: str

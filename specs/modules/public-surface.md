@@ -191,6 +191,63 @@ is a placeholder gateway, not a real card/SSLCOMMERZ integration — always succ
 
 ---
 
+### `GET /api/v1/public/{public_slug}/payment-methods` — RFC-011 Stage 3
+
+**Auth:** None
+
+Which payment methods a guest checking out at this venue can choose, for the guest checkout UI to
+render dynamically instead of a single hardcoded "Pay online now" button.
+
+**Business logic:** resolves the tenant the same single-query way every other endpoint on this
+router does (PUB-1). If `guest_checkout_mode != 'online'`, every field is `false` (guest must pay
+at the counter — no online option at all, real or simulated). If `online`, `simulation` is always
+`true` (this project's existing demo/test path, unchanged) and `sslcommerz`/`bkash` are `true` only
+when this tenant has that gateway enabled + configured (same definition as the authenticated
+`GET /payment-gateways/available`). `wallet` is always `false` here — guests have no account.
+
+**Response `200`:**
+```json
+{ "wallet": false, "simulation": true, "sslcommerz": true, "bkash": false }
+```
+
+---
+
+### `POST /api/v1/public/orders/{guest_token}/pay/gateway/initiate` — RFC-011 Stage 3
+
+**Auth:** None — same `guest_token` capability as tracking.
+
+**Request body:** `{ "gateway_type": "sslcommerz" | "bkash" }`
+
+Real-gateway counterpart to the simulated `POST /orders/{guest_token}/pay` above — same
+"pays the whole guest session in one action" semantics (PUB-6), same `guest_checkout_mode='online'`
+gate, same owner-tenant resolution (PAY-10: a food-court vendor's guest session resolves gateway
+config from the **parent**, not the vendor — the guest entered via the parent's public menu, so the
+parent's own gateway configuration is what applies, exactly like `guest_checkout_mode` itself
+already works today).
+
+**Business logic:**
+1. Load the guest session (`get_guest_order_group` — 404s + PUB-4 expiry check), filter to payable
+   (non-cancelled, not-yet-paid) orders. `400` if none payable (all cancelled or already paid).
+2. Resolve owner tenant (`resolve_public_owner_tenant`) — `400` if `guest_checkout_mode != 'online'`.
+3. Load the owner tenant's decrypted gateway config — `400` if not enabled/configured.
+4. Create a `gateway_transactions` row with `purpose='order_payment'`, `order_id=NULL`,
+   `user_id=NULL`, `guest_token` set (this is exactly why the table has a nullable `order_id` and a
+   separate `guest_token` column — a guest session settlement isn't tied to any single order),
+   `amount` = sum of `(total_amount - discount_amount)` across the payable orders.
+5. Same gateway session-init call and callback/IPN URL construction as the authenticated flow
+   (`POST /payments/gateway/initiate`, `modules/payments.md`) — **the settlement endpoints are
+   shared, not duplicated**; they branch on whether the row has `order_id` (authenticated — creates
+   one `payments` row) or `guest_token` (this path — marks every payable sibling order paid
+   directly, no `payments` row, mirroring the simulated path's existing precedent above).
+6. On settlement success, the callback redirects to `{FRONTEND_URL}/m/{public_slug}/track/{guest_token}?payment=success`
+   (using the *owner* tenant's `public_slug`) instead of the authenticated flow's `/{slug}/track/{order_id}`.
+
+**Response `200`:** `GatewayInitiateResponse` — `{ "gateway_transaction_id": "...", "redirect_url": "..." }`.
+
+**Errors:** `404` unknown/expired token · `400` every order cancelled/already paid, `guest_checkout_mode='counter'`, or gateway not configured · `502` gateway session-init failed.
+
+---
+
 ### `WS /ws/public/orders/{guest_token}`
 
 Token-authenticated channel (not a `user_id`-based channel like the authenticated WS) for the whole

@@ -6,9 +6,26 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import HTTPException
+
 from app.core.crypto import decrypt_json, encrypt_json
 from app.models.payment_gateway import GatewayType, TenantPaymentGateway
 from app.schemas.payment_gateway import GatewayConfigMasked, GatewayConfigUpsert
+from app.services.gateways.base import GatewayClient
+from app.services.gateways.sslcommerz_gateway import SSLCommerzGateway
+
+
+def build_gateway_client(gateway_type: GatewayType, config: dict) -> GatewayClient:
+    """Shared by payments.py (authenticated) and public.py (guest) — one dispatch
+    point per gateway type, so adding a gateway (Stage 4's bKash) means one new
+    branch here, not one per router."""
+    if gateway_type == GatewayType.sslcommerz:
+        return SSLCommerzGateway(
+            store_id=config["store_id"],
+            store_password=config["store_password"],
+            is_sandbox=config.get("is_sandbox", True),
+        )
+    raise HTTPException(status_code=400, detail=f"Gateway '{gateway_type.value}' is not yet supported")
 
 # Which upsert fields are the non-secret "public_identifier" for each gateway type,
 # and which are the secret sub-fields that get Fernet-encrypted (ADR-015).
@@ -107,16 +124,37 @@ async def get_decrypted_config(db: AsyncSession, tenant_id: UUID, gateway_type: 
     return secrets
 
 
-async def get_available_methods(db: AsyncSession, tenant_id: UUID) -> dict[str, bool]:
+async def _get_enabled_gateway_types(db: AsyncSession, tenant_id: UUID) -> set[GatewayType]:
     result = await db.execute(
         select(TenantPaymentGateway).where(
             TenantPaymentGateway.tenant_id == tenant_id,
             TenantPaymentGateway.is_enabled.is_(True),
         )
     )
-    enabled_types = {row.gateway_type for row in result.scalars().all() if row.credentials_encrypted}
+    return {row.gateway_type for row in result.scalars().all() if row.credentials_encrypted}
+
+
+async def get_available_methods(db: AsyncSession, tenant_id: UUID) -> dict[str, bool]:
+    enabled_types = await _get_enabled_gateway_types(db, tenant_id)
     return {
         "wallet": True,
+        "simulation": True,
+        "sslcommerz": GatewayType.sslcommerz in enabled_types,
+        "bkash": GatewayType.bkash in enabled_types,
+    }
+
+
+async def get_guest_available_methods(db: AsyncSession, owner_tenant) -> dict[str, bool]:
+    """RFC-011 Stage 3 — public-surface.md's GET /public/{public_slug}/payment-methods.
+    No wallet (guests have no account); simulation/real-gateway options only appear at
+    all when the venue has opted into guest_checkout_mode='online' — 'counter' means no
+    online option whatsoever, not just no real gateway."""
+    if owner_tenant is None or owner_tenant.guest_checkout_mode != "online":
+        return {"wallet": False, "simulation": False, "sslcommerz": False, "bkash": False}
+
+    enabled_types = await _get_enabled_gateway_types(db, owner_tenant.tenant_id)
+    return {
+        "wallet": False,
         "simulation": True,
         "sslcommerz": GatewayType.sslcommerz in enabled_types,
         "bkash": GatewayType.bkash in enabled_types,
