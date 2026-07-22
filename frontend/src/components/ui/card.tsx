@@ -13,11 +13,11 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h1 className={cn('text-2xl font-bold tracking-tight text-slate-900', className)} {...props} />
+  return <h1 className={cn('text-2xl font-bold tracking-tight text-foreground', className)} {...props} />
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-sm leading-6 text-slate-600', className)} {...props} />
+  return <p className={cn('text-sm leading-6 text-muted-foreground', className)} {...props} />
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

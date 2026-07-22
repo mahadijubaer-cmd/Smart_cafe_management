@@ -9,6 +9,32 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fix — Dark mode consistency audit (2026-07-22, see ADR-014)
+
+User-reported "dark mode doesn't work on many pages" traced to two categories of gap, not one
+scattered set of bugs: shared UI primitives never actually swept despite prior stages claiming
+completeness, and a Tailwind `content` glob that silently dropped classes defined only in
+`src/lib/*.ts` files.
+
+- `components/ui/{card,alert-dialog,alert,switch}.tsx` — the four shared primitives (imported by
+  40+ files) had hardcoded `text-slate-900`/`bg-white`/`bg-slate-50`/`bg-gray-300`; switched to
+  theme tokens, with `Alert`'s `success`/`warning` variants gaining a translucent `dark:` variant.
+- `(cleaner)/tables/page.tsx` (served at both `/tables` and `cleaning-queue`) — full color token
+  sweep; the cleaner role's queue page was previously 100% light-locked in dark mode.
+- `CategoryTabs.tsx` + `lib/category.ts`, `HourlyHeatmap.tsx`, `TableGrid.tsx`,
+  `TimeSlotPicker.tsx`, `unauthorized/page.tsx`, `track/[orderId]/page.tsx`'s status-color cards,
+  `discover/page.tsx`'s main background — each had a small hardcoded-slate/white patch never
+  covered by any prior UIX stage.
+- `SplitAuthPanel.tsx` now actually uses the `.light` CSS escape hatch that `globals.css` has
+  documented since 2026-07-21 but that was never wired to any element.
+- **Root-cause build bug**: `tailwind.config.js`'s `content` array never scanned `src/lib/**`, so
+  Tailwind's JIT purge silently dropped any class defined only inside a `src/lib/*.ts` file (found
+  via `lib/category.ts`'s category-color map only partially rendering dark variants). Fixed by
+  adding `'./src/lib/**/*.{js,ts,jsx,tsx,mdx}'` to the content array — prevents the same silent-drop
+  trap for any future Tailwind class placed under `src/lib/`.
+
+Full detail in `specs/decisions/adrs/ADR-014-dark-mode-consistency-audit.md`.
+
 ### Fix — Production deployment blockers in the prod compose path (2026-07-16)
 
 Preparing the single-VM public deployment surfaced that `docker-compose.prod.yml` had never been

@@ -30,7 +30,7 @@ export default function HourlyHeatmap({ data }: HourlyHeatmapProps) {
 
   function barColor(count: number) {
     const ratio = count / max
-    if (ratio === 0) return 'bg-slate-100'
+    if (ratio === 0) return 'bg-muted'
     if (ratio < 0.25) return 'bg-amber-200'
     if (ratio < 0.5) return 'bg-amber-400'
     if (ratio < 0.75) return 'bg-orange-500'
@@ -68,7 +68,7 @@ export default function HourlyHeatmap({ data }: HourlyHeatmapProps) {
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <Badge variant="outline" className="gap-1.5 font-normal">
-          <span className="size-2.5 rounded-sm bg-slate-100" /> 0
+          <span className="size-2.5 rounded-sm bg-muted" /> 0
         </Badge>
         <Badge variant="outline" className="gap-1.5 font-normal">
           <span className="size-2.5 rounded-sm bg-amber-300" /> Low

@@ -88,7 +88,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white shadow-[0_-10px_30px_rgba(15,23,42,0.08)] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card shadow-[0_-10px_30px_rgba(15,23,42,0.08)] lg:hidden">
         <div className="mx-auto grid max-w-7xl grid-cols-4 px-2 py-2">
           {bottomNavItems.map((item) => {
             const active = activeRoute(item.href)
@@ -99,10 +99,10 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
                 href={item.href}
                 className={[
                   'flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs transition',
-                  active ? 'font-semibold text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-800',
+                  active ? 'font-semibold text-[#1A4D2E]' : 'text-muted-foreground hover:text-foreground',
                 ].join(' ')}
               >
-                <span className={active ? 'text-[#1A4D2E]' : 'text-slate-500'}>{item.icon}</span>
+                <span className={active ? 'text-[#1A4D2E]' : 'text-muted-foreground'}>{item.icon}</span>
                 <span>{item.label}</span>
                 <span className={['h-0.5 w-8 rounded-full transition', active ? 'bg-[#1A4D2E] opacity-100' : 'bg-transparent opacity-0'].join(' ')} />
               </Link>

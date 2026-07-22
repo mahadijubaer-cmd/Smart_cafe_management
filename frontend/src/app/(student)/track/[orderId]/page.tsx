@@ -46,13 +46,13 @@ const statusRank: Record<Order['status'], number> = {
 }
 
 const statusCardStyles: Record<Order['status'], string> = {
-  pending_confirmation: 'bg-yellow-50 border-yellow-300 text-yellow-950',
-  pending: 'bg-yellow-50 border-yellow-300 text-yellow-950',
-  confirmed: 'bg-blue-50 border-blue-300 text-blue-950',
-  preparing: 'bg-orange-50 border-orange-300 text-orange-950',
-  ready: 'bg-green-50 border-green-300 text-green-950',
-  delivered: 'bg-gray-50 border-gray-300 text-gray-950',
-  cancelled: 'bg-slate-50 border-slate-200 text-slate-950',
+  pending_confirmation: 'bg-yellow-50 border-yellow-300 text-yellow-950 dark:bg-yellow-950/30 dark:border-yellow-800 dark:text-yellow-100',
+  pending: 'bg-yellow-50 border-yellow-300 text-yellow-950 dark:bg-yellow-950/30 dark:border-yellow-800 dark:text-yellow-100',
+  confirmed: 'bg-blue-50 border-blue-300 text-blue-950 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-100',
+  preparing: 'bg-orange-50 border-orange-300 text-orange-950 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
+  ready: 'bg-green-50 border-green-300 text-green-950 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
+  delivered: 'bg-card border-border text-card-foreground',
+  cancelled: 'bg-card border-border text-card-foreground',
 }
 
 const statusMessages: Record<Order['status'], string> = {
@@ -379,7 +379,7 @@ export default function StudentTrackOrderPage() {
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 shadow-sm ${confirmedBounce ? 'animate-bounce' : ''}`}>
+                        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-background/80 shadow-sm ${confirmedBounce ? 'animate-bounce' : ''}`}>
                           {status === 'ready' ? <Sparkles className="h-7 w-7 text-emerald-600" /> : status === 'confirmed' ? <CheckCheck className="h-7 w-7 text-blue-600" /> : status === 'preparing' ? <UtensilsCrossed className="h-7 w-7 text-orange-600" /> : status === 'delivered' ? <PackageCheck className="h-7 w-7 text-muted-foreground" /> : <Clock3 className="h-7 w-7 text-yellow-600" />}
                         </div>
 
@@ -397,7 +397,7 @@ export default function StudentTrackOrderPage() {
                       </div>
                     </div>
 
-                    <div className="min-w-[16rem] rounded-3xl border border-white/50 bg-white/70 p-4 shadow-sm backdrop-blur">
+                    <div className="min-w-[16rem] rounded-3xl border border-border/50 bg-background/70 p-4 shadow-sm backdrop-blur">
                       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                         <span>Live signal</span>
                         <span className={`rounded-full px-2 py-1 text-[10px] tracking-[0.2em] ${connectionState === 'connected' ? 'bg-emerald-100 text-emerald-700' : connectionState === 'reconnecting' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
@@ -416,7 +416,7 @@ export default function StudentTrackOrderPage() {
               </Card>
 
               {readyBannerVisible && order.status === 'ready' ? (
-                <Alert variant="success" className="border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm">
+                <Alert variant="success" className="shadow-sm">
                   <AlertTitle className="flex items-center gap-2 text-base">
                     <BellRing className="h-4 w-4" />
                     Your order is ready!
@@ -483,8 +483,8 @@ export default function StudentTrackOrderPage() {
                     <p className="text-xs text-muted-foreground">Payment status: <span className="font-semibold text-foreground">{order.payment_status}</span></p>
 
                     {status === 'confirmed' ? (
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
-                        <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Order QR Code</p>
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/20">
+                        <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">Order QR Code</p>
                         <OrderQrCode orderId={order.order_id} />
                       </div>
                     ) : null}
@@ -525,7 +525,7 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
 
 function InfoChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-sm">
+    <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 shadow-sm">
       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
       <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>

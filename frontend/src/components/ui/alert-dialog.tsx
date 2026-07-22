@@ -24,7 +24,7 @@ export function AlertDialogContent({
       <AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm data-[state=open]:animate-fade-in" />
       <AlertDialogPrimitive.Content
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-black/10 bg-white p-6 shadow-2xl focus:outline-none',
+          'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-black/10 bg-card text-card-foreground p-6 shadow-2xl focus:outline-none',
           className
         )}
       >
@@ -40,7 +40,7 @@ export function AlertDialogHeader({ children, className }: { children: React.Rea
 
 export function AlertDialogTitle({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <AlertDialogPrimitive.Title className={cn('text-2xl font-bold tracking-tight text-slate-900', className)}>
+    <AlertDialogPrimitive.Title className={cn('text-2xl font-bold tracking-tight text-foreground', className)}>
       {children}
     </AlertDialogPrimitive.Title>
   )
@@ -48,7 +48,7 @@ export function AlertDialogTitle({ children, className }: { children: React.Reac
 
 export function AlertDialogDescription({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <AlertDialogPrimitive.Description className={cn('text-sm leading-6 text-slate-600', className)}>
+    <AlertDialogPrimitive.Description className={cn('text-sm leading-6 text-muted-foreground', className)}>
       {children}
     </AlertDialogPrimitive.Description>
   )

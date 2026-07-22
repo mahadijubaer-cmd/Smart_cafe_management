@@ -47,19 +47,19 @@ function CleanCard({
   onDone: (logId: string) => Promise<void>
 }) {
   return (
-    <article className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
+    <article className="rounded-3xl border border-black/10 bg-card p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">Table {assignment.table?.table_number ?? assignment.table_id}</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900">{assignment.table?.zone ?? 'Unknown zone'}</h3>
-          <p className="text-sm text-slate-500">Capacity {assignment.table?.capacity ?? 'N/A'}</p>
+          <h3 className="mt-1 text-lg font-bold text-foreground">{assignment.table?.zone ?? 'Unknown zone'}</h3>
+          <p className="text-sm text-muted-foreground">Capacity {assignment.table?.capacity ?? 'N/A'}</p>
         </div>
         <Badge variant="secondary">{assignment.status}</Badge>
       </div>
 
-      <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-        <p><span className="font-semibold text-slate-900">Assigned:</span> {formatDateTime(assignment.assigned_at)}</p>
-        <p><span className="font-semibold text-slate-900">Status:</span> {assignment.status}</p>
+      <div className="mt-4 grid gap-2 text-sm text-foreground/80 sm:grid-cols-2">
+        <p><span className="font-semibold text-foreground">Assigned:</span> {formatDateTime(assignment.assigned_at)}</p>
+        <p><span className="font-semibold text-foreground">Status:</span> {assignment.status}</p>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -159,14 +159,14 @@ export default function CleanerTablesPage() {
 
   return (
     <ProtectedRoute allowedRoles={["cleaner"]}>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#F5F0E8_0%,#ffffff_32%,#eef5ee_100%)] px-4 py-6 md:px-6 lg:px-8">
+      <main className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
           <div>
             <p className="mb-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
               Cleaner assignments
             </p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">Table cleaning queue</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
+            <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">Table cleaning queue</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
               Track your live assignments, start cleaning, and close out completed work.
             </p>
           </div>
@@ -185,7 +185,7 @@ export default function CleanerTablesPage() {
                 />
               ))
             ) : (
-              <Empty className="border border-dashed border-slate-200 bg-white">
+              <Empty className="border border-dashed border-border bg-card">
                 <EmptyMedia variant="icon">
                   <CheckCheck />
                 </EmptyMedia>
@@ -196,28 +196,28 @@ export default function CleanerTablesPage() {
           </section>
 
           <section>
-            <details className="rounded-3xl border border-black/10 bg-white shadow-sm">
-              <summary className="cursor-pointer list-none px-6 py-5 text-lg font-bold text-slate-900">
+            <details className="rounded-3xl border border-black/10 bg-card shadow-sm">
+              <summary className="cursor-pointer list-none px-6 py-5 text-lg font-bold text-foreground">
                 Completed Today ({completedAssignments.length})
               </summary>
               <div className="border-t border-black/10 px-6 pb-6 pt-4">
                 {completedAssignments.length > 0 ? (
                   <div className="grid gap-4">
                     {completedAssignments.map((assignment) => (
-                      <div key={assignment.log_id} className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+                      <div key={assignment.log_id} className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/40">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-emerald-900">Table {assignment.table?.table_number ?? assignment.table_id}</p>
-                            <p className="text-sm text-emerald-700">{assignment.table?.zone ?? 'Unknown zone'} · Capacity {assignment.table?.capacity ?? 'N/A'}</p>
+                            <p className="font-semibold text-emerald-900 dark:text-emerald-200">Table {assignment.table?.table_number ?? assignment.table_id}</p>
+                            <p className="text-sm text-emerald-700 dark:text-emerald-400">{assignment.table?.zone ?? 'Unknown zone'} · Capacity {assignment.table?.capacity ?? 'N/A'}</p>
                           </div>
                           <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">done</Badge>
                         </div>
-                        <p className="mt-3 text-sm text-emerald-800">Completed at {formatDateTime(assignment.cleaned_at)}</p>
+                        <p className="mt-3 text-sm text-emerald-800 dark:text-emerald-300">Completed at {formatDateTime(assignment.cleaned_at)}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">No completed assignments yet today.</p>
+                  <p className="text-sm text-muted-foreground">No completed assignments yet today.</p>
                 )}
               </div>
             </details>

@@ -108,7 +108,7 @@ export default function TimeSlotPicker({ selectedSlot, onSelect, date }: TimeSlo
               }`}
             >
               <span className="block">{formatTime(slot)}</span>
-              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'bg-white/15 text-primary-foreground' : isUnavailable || isPast ? 'bg-muted-foreground/20 text-muted-foreground' : 'bg-emerald-50 text-emerald-700'}`}>
+              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'bg-white/15 text-primary-foreground' : isUnavailable || isPast ? 'bg-muted-foreground/20 text-muted-foreground' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
                 {isPast ? 'Past' : isUnavailable ? 'Reserved' : isSelected ? 'Selected' : 'Available'}
               </span>
             </button>

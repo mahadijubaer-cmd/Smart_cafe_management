@@ -17,7 +17,7 @@ export default function SplitAuthPanel({ hero, heroSide = 'right', children, cla
 
   return (
     <div
-      className={`mx-auto grid w-full max-w-[1600px] overflow-hidden rounded-[2rem] border border-primary/10 bg-white shadow-2xl shadow-primary/10 lg:min-h-[80vh] ${gridCols} ${className}`}
+      className={`light mx-auto grid w-full max-w-[1600px] overflow-hidden rounded-[2rem] border border-primary/10 bg-white shadow-2xl shadow-primary/10 lg:min-h-[80vh] ${gridCols} ${className}`}
     >
       <div className={`relative order-1 ${heroOrder} overflow-hidden bg-primary`}>
         <img

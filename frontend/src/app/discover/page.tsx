@@ -63,7 +63,7 @@ function DiscoverContent() {
 
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-background">
       {/* Header */}
       <div className="relative overflow-hidden bg-primary px-6 py-16 text-center text-white">
         <img

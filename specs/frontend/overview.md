@@ -838,6 +838,51 @@ food-court/platform) does its per-section token sweep — this is intentional se
 and is called out explicitly in ADR-010 so it isn't mistaken for an incomplete dark-mode rollout.
 Recharts theme-aware colors are UIX-5's job, not UIX-2's.
 
+> **Dark mode consistency audit (2026-07-22, see `ADR-014`):** a user report ("dark mode doesn't
+> work on many pages") triggered a full re-audit against the UIX-2/4/5/6 + 2026-07-16-QA narrative
+> above, which read as if the app should already be fully dark-aware. It wasn't — the toggle itself
+> works correctly, but several areas were either never actually covered by any prior stage, or were
+> covered on paper but not in code:
+> - **The four shared `components/ui/{card,alert-dialog,alert,switch}.tsx` primitives** — despite
+>   UIX-2's text above claiming shadcn primitives "already use semantic tokens throughout
+>   `components/ui/*`," `CardTitle`/`CardDescription`, `AlertDialogContent`/`Title`/`Description`,
+>   `Alert`'s `default`/`success`/`warning` variants, and `Switch`'s unchecked track all carried
+>   hardcoded `text-slate-900`/`bg-white`/`bg-slate-50`/`bg-gray-300`. Since `Card`/`AlertDialog`
+>   alone are imported by 40+ files, this was the single highest-leverage gap and explains most of
+>   the "many pages" framing in the report even though no individual page was at fault. Fixed to
+>   theme tokens; `success`/`warning` keep their light hue but gain a translucent
+>   `dark:bg-{hue}-950/40` counterpart (same convention as `--header-surface`'s dark tint — same
+>   hue, darker, not a generic slate).
+> - **The cleaner queue page** (`(cleaner)/tables/page.tsx`, served at both the legacy `/tables` and
+>   the real `cleaning-queue` route) — `ADR-012` fixed this file's mobile *layout* but no stage ever
+>   token-swept its *colors*; the whole page was 100% light-locked. Fixed.
+> - **Five previously-unsurveyed files**, named nowhere in UIX-2 through UIX-6: `CategoryTabs.tsx` +
+>   `lib/category.ts`, `HourlyHeatmap.tsx`, `TableGrid.tsx`, `TimeSlotPicker.tsx`,
+>   `unauthorized/page.tsx`. Each had a small hardcoded-slate/white patch, fixed.
+> - **`SplitAuthPanel.tsx` never actually used the `.light` escape hatch** the 2026-07-21 entry below
+>   describes — grepping the codebase found zero call sites for `className="light"` anywhere,
+>   despite the class existing in `globals.css` specifically for this component's use case. Now
+>   wired up.
+> - **`/discover`'s `<main>`** hardcoded `bg-slate-50` — this page is not chromeless (it has a
+>   working toggle) but its body never responded to it. Fixed to `bg-background`.
+> - **`track/[orderId]/page.tsx`'s per-status `Card` colors** — UIX-4 below explicitly deferred
+>   these to "UIX-6's dark-safe sweep," but UIX-6's own text just re-states the same "kept as-is"
+>   exception for the analogous staff kitchen-queue page instead of delivering it. Completed now for
+>   the customer-facing page only (5 statuses, each gains a `dark:` counterpart); the staff
+>   kitchen-queue's equivalent map is intentionally left deferred — not reported broken, out of
+>   scope for this pass.
+> - **A real Tailwind build-config bug, not a page bug**: `tailwind.config.js`'s `content` array
+>   never included `src/lib/**`, so any Tailwind class defined only inside a `src/lib/*.ts` file
+>   (never duplicated verbatim in a scanned component/page) is silently dropped by the JIT purge —
+>   discovered live when only 2 of 5 category pills in `CategoryTabs` picked up their new `dark:`
+>   classes (the 2 that happened to also appear, coincidentally, inside `TableGrid.tsx`, a scanned
+>   file). Fixed structurally by adding `'./src/lib/**/*.{js,ts,jsx,tsx,mdx}'` to the content array,
+>   not by working around it per-class — this prevents the same silent-drop trap for any future
+>   Tailwind class placed under `src/lib/`. Verified live (all 5 pills correct after the config fix
+>   + a container restart).
+>
+> Full detail, including why each fix is structured the way it is, in `ADR-014`.
+
 ### Command palette (UIX-3 — implemented 2026-07-12, see ADR-010)
 
 **Scope:** Ctrl+K/⌘K palette mounted in exactly three layouts — `[tenant_slug]/(admin)/layout.tsx`,

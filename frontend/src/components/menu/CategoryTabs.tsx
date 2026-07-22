@@ -16,7 +16,7 @@ function getCategoryIcon(category: Category) {
 }
 
 function getCategoryColorClass(categoryName: string) {
-  return CATEGORY_COLORS[categoryName] || 'bg-gray-50 text-gray-700 border-gray-200'
+  return CATEGORY_COLORS[categoryName] || 'bg-muted text-muted-foreground border-border'
 }
 
 export default function CategoryTabs({ categories, activeId, onChange }: CategoryTabsProps) {
@@ -90,7 +90,7 @@ export default function CategoryTabs({ categories, activeId, onChange }: Categor
                   <span
                     className={[
                       'ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold',
-                      isActive ? 'bg-white/20 text-white' : 'bg-white/70 text-gray-700',
+                      isActive ? 'bg-white/20 text-white' : 'bg-foreground/10 text-foreground',
                     ].join(' ')}
                   >
                     {category.item_count ?? 0}
