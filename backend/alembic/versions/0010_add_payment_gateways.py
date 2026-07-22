@@ -30,9 +30,12 @@ def upgrade() -> None:
     # same-transaction backfill using the new value — safe (same precedent as 0006).
     op.execute("ALTER TYPE paymentmethod ADD VALUE IF NOT EXISTS 'sslcommerz'")
 
-    gateway_type.create(op.get_bind(), checkfirst=True)
-    gateway_purpose.create(op.get_bind(), checkfirst=True)
-    gateway_transaction_status.create(op.get_bind(), checkfirst=True)
+    # Do NOT explicitly .create() these enum types here — op.create_table() below
+    # already auto-creates any embedded enum type via SQLAlchemy's before_create
+    # hook (same pattern as 0009's device_type/slide_type). An explicit .create()
+    # call first, on the same object then reused as a column type, causes a
+    # DuplicateObject error the second time — the exact enum double-CREATE bug
+    # already documented and fixed in 0001/0003/0004 for this same reason.
 
     op.create_table(
         "tenant_payment_gateways",

@@ -292,6 +292,27 @@ Verified by running the full chain against a real, empty Neon database: all 9 re
 cleanly, `alembic_version` lands on `0009`, 28 tables created, seed data present (5 categories,
 6 staff/cleaner users, BRACU tenant).
 
+**The exact same enum double-CREATE bug recurred in `0010` (2026-07-22, RFC-011)** — despite
+being documented above, `0010_add_payment_gateways.py` initially called `gateway_type.create(...)`,
+`gateway_purpose.create(...)`, `gateway_transaction_status.create(...)` explicitly, then reused
+those same objects as column types in `op.create_table(...)`, producing the identical
+`DuplicateObject: type "gatewaytype" already exists` failure — this time surfacing live against
+the **production** Neon database (this migration was only ever exercised locally via
+`Base.metadata.create_all()` + `alembic stamp`, never a real `alembic upgrade`, so the bug went
+uncaught until the actual production deploy). Alembic's own transaction wrapping
+(`env.py`'s `with context.begin_transaction(): context.run_migrations()`) did **not** roll back
+the already-executed `CREATE TYPE`/`CREATE TABLE` statements when the later statement failed —
+production was left with the three new tables and enum types already correctly created, but
+`alembic_version` still at `0009` and `paymentmethod` missing its new `sslcommerz` value. Fixed
+by (1) manually adding the missing enum value and stamping `0010` once the schema was confirmed
+column-for-column correct, and (2) removing the redundant explicit `.create()` calls from the
+migration source — matching `0009`'s own working pattern (`device_type`/`slide_type` embedded
+directly in `op.create_table()` with no separate pre-create call) so a genuinely fresh database
+run doesn't repeat this. **Rule, worth restating since it was already documented once and still
+recurred:** never call `.create()` on an `sa.Enum(...)` object and then also use that same object
+as a column type in `op.create_table()` — embed it directly and let the automatic `before_create`
+hook create it exactly once.
+
 ### Neon pooled endpoint requires `statement_cache_size=0` (fixed 2026-07-19)
 
 Deploying to Render surfaced a production-only bug: `/api/v1/health` returned `200`, but any

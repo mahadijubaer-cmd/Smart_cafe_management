@@ -30,6 +30,14 @@ credential encryption, and admin configuration only — no consumer checkout cha
   `GET/PUT/DELETE /payment-gateways/me`, `GET /payment-gateways/available` endpoints.
 - No subscription-tier gating (available to every tier) and no changes to the existing
   `wallet`/`simulation` payment paths — confirmed decisions, not oversights.
+- **Migration `0010` fixed after a real production deploy failure**: it repeated the
+  already-documented enum double-`CREATE TYPE` bug (`specs/operations/deployment.md`, "Migration
+  chain was never runnable end-to-end from empty") — explicitly `.create()`-ing an enum then
+  reusing it as a column type. Caught live against the production Neon database (never exercised
+  as a real `alembic upgrade` locally, only via `create_all()` + `stamp`). Production schema was
+  fixed in place (tables/types were already correctly created; only the missing enum value and the
+  `alembic_version` stamp needed finishing by hand) and the migration source corrected to match
+  `0009`'s already-working pattern, so a genuinely fresh database doesn't hit the same error.
 
 ### Fix — Dark mode consistency audit (2026-07-22, see ADR-014)
 
