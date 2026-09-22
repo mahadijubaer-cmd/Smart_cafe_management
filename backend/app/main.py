@@ -11,7 +11,7 @@ from sqlalchemy import text
 import logging
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, AsyncSessionLocal
 from app.core.limiter import limiter
 from app.core.redis import get_redis, close_redis
 from app.config.email import verify_mail_config
@@ -42,6 +42,21 @@ async def lifespan(app: FastAPI):
         await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database ready.")
+
+    # One-time data correction, self-applying on every boot since this environment has no
+    # reliable way to run a one-off shell/migration command against it: BRACU was seeded
+    # (migration 0003) with allowed_email_domain='@g.bracu.ac.bd', restricting self-registration
+    # to that domain. Product decision (2026-09-22): open BRACU registration to any email.
+    # Idempotent — only writes when the value still needs clearing, safe to leave in.
+    from sqlalchemy import select
+    from app.models.tenant import Tenant
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Tenant).where(Tenant.slug == "bracu"))
+        bracu = result.scalar_one_or_none()
+        if bracu is not None and bracu.allowed_email_domain is not None:
+            bracu.allowed_email_domain = None
+            await session.commit()
+            logger.info("Cleared BRACU tenant's allowed_email_domain restriction.")
 
     logger.info("Connecting to Redis...")
     await get_redis()
