@@ -102,7 +102,12 @@ export default function TenantRegisterPage() {
     }
   }, [inviteToken, router, selectedSlug, tenant])
 
-  const [step, setStep] = useState<Step>(inviteToken ? 'details' : 'organisation')
+  // The tenant is already known from the URL slug (this route always carries one), so
+  // arriving here — e.g. via the tenant's own login page's "Sign up" link — skips straight
+  // to profile selection instead of re-asking the user to pick their organisation. The
+  // 'organisation' step still exists as a fallback, reachable via "Back to organisations"
+  // in case the slug in the URL was wrong.
+  const [step, setStep] = useState<Step>(inviteToken ? 'details' : 'profile_type')
   const [selectedRole, setSelectedRole] = useState<UserRole>('customer')
   const [pendingEmail, setPendingEmail] = useState('')
   const [otpVerifying, setOtpVerifying] = useState(false)
@@ -244,7 +249,7 @@ export default function TenantRegisterPage() {
                   <div>
                     <CardTitle className="text-xl">Choose your organisation</CardTitle>
                     <CardDescription className="mt-1">
-                      Select the cafeteria, restaurant, or food court you belong to.
+                      Select the cafeteria you belong to.
                     </CardDescription>
                   </div>
 

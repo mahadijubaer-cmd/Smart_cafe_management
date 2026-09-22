@@ -230,7 +230,7 @@ export default function TenantLoginPage() {
                   <p className="mt-6 text-center text-sm text-muted-foreground">
                     Need an account?{' '}
                     <a className="font-semibold text-primary hover:underline" href={`/${slug}/register`}>
-                      Register
+                      Sign up
                     </a>
                   </p>
                 </CardContent>

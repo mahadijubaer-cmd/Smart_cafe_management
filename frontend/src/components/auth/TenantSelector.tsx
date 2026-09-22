@@ -23,7 +23,10 @@ export default function TenantSelector({ selectedSlug, onSelect }: TenantSelecto
     setLoading(true)
     setError(false)
     apiClient
-      .get<TenantPublicListResponse>('/tenants/public')
+      // BR-SEG-1 (RFC-007): restaurant-segment tenants have no consumer self-registration,
+      // so this join-an-existing-org picker only ever offers cafeteria-segment tenants
+      // (corporate, academic) — otherwise selecting one just bounces the user right back out.
+      .get<TenantPublicListResponse>('/tenants/public', { params: { segment: 'cafeteria' } })
       .then((res) => {
         if (!cancelled) setTenants(res.data.items)
       })
@@ -54,7 +57,7 @@ export default function TenantSelector({ selectedSlug, onSelect }: TenantSelecto
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your cafeteria, restaurant, or food court…"
+          placeholder="Search your cafeteria…"
           className="rounded-2xl pl-11"
         />
       </label>
@@ -94,7 +97,7 @@ export default function TenantSelector({ selectedSlug, onSelect }: TenantSelecto
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={tenant.logo_url}
-                    alt={`${tenant.name} logo`}
+                    alt={`${meta.label} logo`}
                     className="mt-0.5 size-10 shrink-0 rounded-xl object-cover"
                   />
                 ) : (
@@ -102,20 +105,17 @@ export default function TenantSelector({ selectedSlug, onSelect }: TenantSelecto
                     className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white"
                     style={{ backgroundColor: tenant.brand_color }}
                   >
-                    {tenant.name.charAt(0).toUpperCase()}
+                    {meta.label.charAt(0).toUpperCase()}
                   </div>
                 )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold">{tenant.name}</p>
+                    <p className="truncate font-semibold">{meta.label}</p>
                     {tenant.city && (
                       <span className="shrink-0 text-xs text-muted-foreground">· {tenant.city}</span>
                     )}
                   </div>
-                  <span className="mt-1 inline-flex w-fit rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                    {meta.label}
-                  </span>
                   <p className="mt-1 text-xs leading-snug text-muted-foreground">{meta.description}</p>
                 </div>
 

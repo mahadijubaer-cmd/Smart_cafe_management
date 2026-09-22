@@ -5,9 +5,11 @@ See ADR-007 for the provider-selection rationale and ADR-005 for the visibility 
 nor SMTP is configured, send_otp_email()/send_invite_email() log the code/link instead of
 throwing, so the rest of the OTP/invite flow still works end-to-end in local dev.
 """
+import asyncio
 import base64
 import logging
 from pathlib import Path
+from typing import Awaitable, Callable, TypeVar
 
 from brevo import (
     AsyncBrevo,
@@ -21,6 +23,33 @@ from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+# Render's egress to Brevo/SMTP has shown transient failures (same class of issue as the
+# Redis/Upstash DNS flakiness — found 2026-09-22: an OTP send silently vanished with no
+# Brevo-side event at all, then succeeded seconds later on retry with identical inputs).
+# A short retry absorbs that without the caller ever seeing it.
+_SEND_ATTEMPTS = 3
+_SEND_RETRY_DELAY_SECONDS = 1.0
+
+
+async def _send_with_retries(send: Callable[[], Awaitable[_T]], description: str) -> _T:
+    last_exc: Exception | None = None
+    for attempt in range(1, _SEND_ATTEMPTS + 1):
+        try:
+            return await send()
+        except Exception as exc:  # noqa: BLE001 - genuinely want to retry any send failure
+            last_exc = exc
+            if attempt < _SEND_ATTEMPTS:
+                logger.warning(
+                    "%s failed on attempt %d/%d, retrying: %s",
+                    description, attempt, _SEND_ATTEMPTS, exc,
+                )
+                await asyncio.sleep(_SEND_RETRY_DELAY_SECONDS * attempt)
+    assert last_exc is not None
+    raise last_exc
+
 
 _mail_config: "ConnectionConfig | None" = None
 
@@ -75,11 +104,14 @@ async def send_otp_email(to_email: str, otp_code: str, purpose: str) -> None:
 
     if provider == "brevo":
         client = AsyncBrevo(api_key=settings.BREVO_API_KEY)
-        await client.transactional_emails.send_transac_email(
-            sender=_brevo_sender(),
-            to=[SendTransacEmailRequestToItem(email=to_email)],
-            subject=subject,
-            html_content=f"<pre style='font:inherit'>{body}</pre>",
+        await _send_with_retries(
+            lambda: client.transactional_emails.send_transac_email(
+                sender=_brevo_sender(),
+                to=[SendTransacEmailRequestToItem(email=to_email)],
+                subject=subject,
+                html_content=f"<pre style='font:inherit'>{body}</pre>",
+            ),
+            description=f"OTP email to {to_email} via Brevo",
         )
         logger.info("OTP email sent to %s via Brevo (purpose=%s)", to_email, purpose)
         return
@@ -91,7 +123,10 @@ async def send_otp_email(to_email: str, otp_code: str, purpose: str) -> None:
         subtype=MessageType.plain,
     )
     fm = FastMail(_get_mail_config())
-    await fm.send_message(message)
+    await _send_with_retries(
+        lambda: fm.send_message(message),
+        description=f"OTP email to {to_email} via SMTP",
+    )
     logger.info("OTP email sent to %s via SMTP (purpose=%s)", to_email, purpose)
 
 
@@ -184,11 +219,14 @@ async def send_invite_email(to_email: str, invite_link: str, role: str, org_name
     try:
         if provider == "brevo":
             client = AsyncBrevo(api_key=settings.BREVO_API_KEY)
-            await client.transactional_emails.send_transac_email(
-                sender=_brevo_sender(),
-                to=[SendTransacEmailRequestToItem(email=to_email)],
-                subject=subject,
-                html_content=f"<pre style='font:inherit'>{body}</pre>",
+            await _send_with_retries(
+                lambda: client.transactional_emails.send_transac_email(
+                    sender=_brevo_sender(),
+                    to=[SendTransacEmailRequestToItem(email=to_email)],
+                    subject=subject,
+                    html_content=f"<pre style='font:inherit'>{body}</pre>",
+                ),
+                description=f"Invite email to {to_email} via Brevo",
             )
             logger.info("Invite email sent to %s via Brevo (role=%s)", to_email, role)
             return
@@ -200,7 +238,10 @@ async def send_invite_email(to_email: str, invite_link: str, role: str, org_name
             subtype=MessageType.plain,
         )
         fm = FastMail(_get_mail_config())
-        await fm.send_message(message)
+        await _send_with_retries(
+            lambda: fm.send_message(message),
+            description=f"Invite email to {to_email} via SMTP",
+        )
         logger.info("Invite email sent to %s via SMTP (role=%s)", to_email, role)
     except Exception:
         logger.exception("Failed to send invite email to %s (role=%s)", to_email, role)
@@ -231,12 +272,15 @@ async def send_qr_attachment_email(to_email: str, order_id, file_path: Path) -> 
         if provider == "brevo":
             content_b64 = base64.b64encode(file_path.read_bytes()).decode()
             client = AsyncBrevo(api_key=settings.BREVO_API_KEY)
-            await client.transactional_emails.send_transac_email(
-                sender=_brevo_sender(),
-                to=[SendTransacEmailRequestToItem(email=to_email)],
-                subject=subject,
-                html_content=f"<pre style='font:inherit'>{body}</pre>",
-                attachment=[SendTransacEmailRequestAttachmentItem(content=content_b64, name=file_path.name)],
+            await _send_with_retries(
+                lambda: client.transactional_emails.send_transac_email(
+                    sender=_brevo_sender(),
+                    to=[SendTransacEmailRequestToItem(email=to_email)],
+                    subject=subject,
+                    html_content=f"<pre style='font:inherit'>{body}</pre>",
+                    attachment=[SendTransacEmailRequestAttachmentItem(content=content_b64, name=file_path.name)],
+                ),
+                description=f"QR email to {to_email} via Brevo",
             )
             logger.info("QR email sent to %s via Brevo for order %s", to_email, order_id)
             return True
@@ -249,7 +293,10 @@ async def send_qr_attachment_email(to_email: str, order_id, file_path: Path) -> 
             attachments=[str(file_path)],
         )
         fm = FastMail(_get_mail_config())
-        await fm.send_message(message)
+        await _send_with_retries(
+            lambda: fm.send_message(message),
+            description=f"QR email to {to_email} via SMTP",
+        )
         logger.info("QR email sent to %s via SMTP for order %s", to_email, order_id)
         return True
     except Exception:
