@@ -21,6 +21,7 @@ import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from redis.exceptions import RedisError
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +33,7 @@ from app.core.dependencies import (
     require_role,
     TenantContext,
 )
-from app.core.redis import get_redis
+from app.core.redis import cache_get, cache_set, get_redis
 from app.core.tier_limits import check_tier_limit
 from app.models.menu import MenuItem
 from app.models.models import Order
@@ -91,14 +92,19 @@ async def _public_list_cache_key(redis, skip: int, limit: int, segment: str | No
     """Versioned per-page cache key — invalidation bumps the version counter instead of
     wildcard-deleting page keys (SCAN isn't supported by the test suite's FakeAsyncRedis);
     stale versions simply expire via TTL. See modules/tenants.md."""
-    ver = await redis.get(_PUBLIC_LIST_VER_KEY) or "0"
+    ver = await cache_get(redis, _PUBLIC_LIST_VER_KEY) or "0"
     if isinstance(ver, bytes):
         ver = ver.decode()
     return _PUBLIC_LIST_KEY.format(ver=ver, skip=skip, limit=limit, segment=segment or "all")
 
 
 async def _bump_public_list_cache(redis) -> None:
-    await redis.incr(_PUBLIC_LIST_VER_KEY)
+    """Best-effort — a Redis outage should never fail the caller (registration, a
+    settings save); worst case stale cached pages simply serve until their TTL expires."""
+    try:
+        await redis.incr(_PUBLIC_LIST_VER_KEY)
+    except RedisError:
+        pass
 
 
 @router.get("/public", response_model=TenantPublicListResponse)
@@ -116,7 +122,7 @@ async def list_public_tenants(
     cache_key = None
     if not q:
         cache_key = await _public_list_cache_key(redis, skip, limit, segment)
-        cached = await redis.get(cache_key)
+        cached = await cache_get(redis, cache_key)
         if cached:
             data = json.loads(cached)
             return TenantPublicListResponse(**data)
@@ -142,7 +148,7 @@ async def list_public_tenants(
     response = TenantPublicListResponse(items=items, total=total)
 
     if cache_key:
-        await redis.setex(cache_key, _PUBLIC_TTL, response.model_dump_json())
+        await cache_set(redis, cache_key, response.model_dump_json(), ex=_PUBLIC_TTL)
 
     return response
 
@@ -153,7 +159,7 @@ async def get_public_tenant(slug: str, db: AsyncSession = Depends(get_db)):
     redis = await get_redis()
     cache_key = _PUBLIC_DETAIL_KEY.format(slug=slug)
 
-    cached = await redis.get(cache_key)
+    cached = await cache_get(redis, cache_key)
     if cached:
         return TenantPublicDetailResponse(**json.loads(cached))
 
@@ -165,7 +171,7 @@ async def get_public_tenant(slug: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     response = TenantPublicDetailResponse.model_validate(tenant)
-    await redis.setex(cache_key, _PUBLIC_TTL, response.model_dump_json())
+    await cache_set(redis, cache_key, response.model_dump_json(), ex=_PUBLIC_TTL)
     return response
 
 
@@ -260,8 +266,12 @@ _LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 
 
 async def _invalidate_tenant_caches(redis, slug: str) -> None:
+    """Best-effort — see _bump_public_list_cache."""
     await _bump_public_list_cache(redis)
-    await redis.delete(_PUBLIC_DETAIL_KEY.format(slug=slug))
+    try:
+        await redis.delete(_PUBLIC_DETAIL_KEY.format(slug=slug))
+    except RedisError:
+        pass
 
 
 @router.get("/me", response_model=TenantResponse)

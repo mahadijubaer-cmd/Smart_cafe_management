@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.redis import get_redis
+from app.core.redis import cache_get, cache_set, get_redis
 from app.core.segments import is_restaurant_segment
 from app.models.order import Order, OrderStatus, PaymentStatus
 from app.models.payment_gateway import GatewayPurpose, GatewayTransaction, GatewayTransactionStatus
@@ -113,13 +113,13 @@ async def get_public_menu(public_slug: str, db: AsyncSession = Depends(get_db)):
 
     redis = await get_redis()
     cache_key = f"public:menu:{tenant.tenant_id}"
-    cached = await redis.get(cache_key)
+    cached = await cache_get(redis, cache_key)
     if cached:
         return PublicMenuResponse.model_validate_json(cached)
 
     response = await menu_service.build_public_menu(tenant, db)
 
-    await redis.set(cache_key, response.model_dump_json(), ex=60)
+    await cache_set(redis, cache_key, response.model_dump_json(), ex=60)
     return response
 
 
