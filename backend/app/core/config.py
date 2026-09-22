@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 
+    # BRACU demo account bootstrap (see main.py lifespan) — set these in the deploy
+    # environment only, never commit real values. Empty means "don't create that account".
+    BRACU_DEMO_ADMIN_PASSWORD: str = ""
+    BRACU_DEMO_STAFF_PASSWORD: str = ""
+    BRACU_DEMO_CLEANER_PASSWORD: str = ""
+
     # Environment
     ENVIRONMENT: str = "development"
 

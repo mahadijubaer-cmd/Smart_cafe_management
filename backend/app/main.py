@@ -58,6 +58,44 @@ async def lifespan(app: FastAPI):
             await session.commit()
             logger.info("Cleared BRACU tenant's allowed_email_domain restriction.")
 
+        # Same self-applying pattern: the migration-0002-seeded staff/cleaner accounts
+        # (staff1@bracu.ac.bd etc, password "password123") don't actually authenticate in
+        # production (found 2026-09-22 — login returns "Invalid credentials" against real
+        # prod data despite matching the migration source), and admin/staff/cleaner roles
+        # can't self-register (BR-REG-1). Ensure one known-working account per role exists,
+        # scoped to BRACU only. Passwords come from env vars, never hardcoded here — an empty
+        # value means "don't create that account". Upsert-if-missing by email, never
+        # overwrites an existing row or a password already set.
+        if bracu is not None:
+            from app.models.models import User
+            from app.models.user import UserRole
+            from app.services.auth_service import AuthService
+
+            _auth = AuthService()
+            _demo_accounts = [
+                ("admin@bracu.scms", "BRACU Tenant Admin", UserRole.tenant_admin, settings.BRACU_DEMO_ADMIN_PASSWORD),
+                ("staff1@bracu.scms", "BRACU Staff", UserRole.staff, settings.BRACU_DEMO_STAFF_PASSWORD),
+                ("cleaner1@bracu.scms", "BRACU Cleaner", UserRole.cleaner, settings.BRACU_DEMO_CLEANER_PASSWORD),
+            ]
+            for email, full_name, role, password in _demo_accounts:
+                if not password:
+                    continue
+                existing = await session.execute(
+                    select(User).where(User.email == email, User.tenant_id == bracu.tenant_id)
+                )
+                if existing.scalar_one_or_none() is None:
+                    session.add(User(
+                        tenant_id=bracu.tenant_id,
+                        full_name=full_name,
+                        email=email,
+                        password_hash=_auth.hash_password(password),
+                        role=role,
+                        is_active=True,
+                        email_verified=True,
+                    ))
+                    logger.info("Created demo %s account: %s", role.value, email)
+            await session.commit()
+
     logger.info("Connecting to Redis...")
     await get_redis()
     logger.info("Redis ready.")
