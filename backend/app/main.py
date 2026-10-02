@@ -64,8 +64,8 @@ async def lifespan(app: FastAPI):
         # prod data despite matching the migration source), and admin/staff/cleaner roles
         # can't self-register (BR-REG-1). Ensure one known-working account per role exists,
         # scoped to BRACU only. Passwords come from env vars, never hardcoded here — an empty
-        # value means "don't create that account". Upsert-if-missing by email, never
-        # overwrites an existing row or a password already set.
+        # value means "don't create that account". Staff/cleaner accounts are created
+        # only if missing; the designated demo admin is reconciled with its env password.
         if bracu is not None:
             from app.models.models import User
             from app.models.user import UserRole
@@ -83,7 +83,15 @@ async def lifespan(app: FastAPI):
                 existing = await session.execute(
                     select(User).where(User.email == email, User.tenant_id == bracu.tenant_id)
                 )
-                if existing.scalar_one_or_none() is None:
+                existing_user = existing.scalar_one_or_none()
+                if existing_user is not None and role == UserRole.tenant_admin:
+                    existing_user.role = UserRole.tenant_admin
+                    existing_user.is_active = True
+                    existing_user.email_verified = True
+                    if not _auth.verify_password(password, existing_user.password_hash):
+                        existing_user.password_hash = _auth.hash_password(password)
+                    logger.info("Ensured BRACU demo admin account: %s", email)
+                if existing_user is None:
                     if role == UserRole.tenant_admin:
                         legacy = await session.execute(
                             select(User).where(
@@ -95,6 +103,9 @@ async def lifespan(app: FastAPI):
                         legacy_admin = legacy.scalar_one_or_none()
                         if legacy_admin is not None:
                             legacy_admin.email = email
+                            legacy_admin.password_hash = _auth.hash_password(password)
+                            legacy_admin.is_active = True
+                            legacy_admin.email_verified = True
                             logger.info("Updated BRACU demo admin email: %s", email)
                             continue
                     session.add(User(
