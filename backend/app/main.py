@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
 
             _auth = AuthService()
             _demo_accounts = [
-                ("admin@bracu.scms", "BRACU Tenant Admin", UserRole.tenant_admin, settings.BRACU_DEMO_ADMIN_PASSWORD),
+                ("mahadi.jubaer@g.bracu.ac.bd", "BRACU Tenant Admin", UserRole.tenant_admin, settings.BRACU_DEMO_ADMIN_PASSWORD),
                 ("staff1@bracu.scms", "BRACU Staff", UserRole.staff, settings.BRACU_DEMO_STAFF_PASSWORD),
                 ("cleaner1@bracu.scms", "BRACU Cleaner", UserRole.cleaner, settings.BRACU_DEMO_CLEANER_PASSWORD),
             ]
@@ -84,6 +84,19 @@ async def lifespan(app: FastAPI):
                     select(User).where(User.email == email, User.tenant_id == bracu.tenant_id)
                 )
                 if existing.scalar_one_or_none() is None:
+                    if role == UserRole.tenant_admin:
+                        legacy = await session.execute(
+                            select(User).where(
+                                User.email == "admin@bracu.scms",
+                                User.tenant_id == bracu.tenant_id,
+                                User.role == UserRole.tenant_admin,
+                            )
+                        )
+                        legacy_admin = legacy.scalar_one_or_none()
+                        if legacy_admin is not None:
+                            legacy_admin.email = email
+                            logger.info("Updated BRACU demo admin email: %s", email)
+                            continue
                     session.add(User(
                         tenant_id=bracu.tenant_id,
                         full_name=full_name,

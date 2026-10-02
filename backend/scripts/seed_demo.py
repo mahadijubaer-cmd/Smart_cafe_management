@@ -108,7 +108,7 @@ DEMO_USERS = [
     },
     {
         "tenant_id": BRACU_TENANT_ID,
-        "email": "admin@bracu.scms",
+        "email": "mahadi.jubaer@g.bracu.ac.bd",
         "full_name": "BRACU Tenant Admin",
         "role": UserRole.tenant_admin,
         "password": "Admin@1234",
@@ -213,7 +213,7 @@ async def seed() -> None:
         ("Platform Admin",    "platform@scms.io",          "Demo@1234"),
         ("Super Admin",       "brand@testythreat.com",      "Brand@1234"),
         ("Outlet Admin",      "gulshan@testythreat.com",    "Outlet@1234"),
-        ("Tenant Admin",      "admin@bracu.scms",           "Admin@1234"),
+        ("Tenant Admin",      "mahadi.jubaer@g.bracu.ac.bd", "Admin@1234"),
         ("Staff",             "staff1@bracu.scms",          "Staff@1234"),
         ("Cleaner",           "cleaner1@bracu.scms",        "Cleaner@1234"),
         ("Student",           "student1@g.bracu.ac.bd",     "Student@1234"),
